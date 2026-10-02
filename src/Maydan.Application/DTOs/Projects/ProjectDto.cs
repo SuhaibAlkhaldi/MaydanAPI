@@ -26,7 +26,9 @@ public class ProjectDto
 
     public int ProductionCompanyId { get; set; }
 
-    // workforcment's Project model already declares isDeleted — this was simply never populated
-    // since ProjectDto never carried it. Needed for the restore/deleted-list views.
+    public bool IsDeleted { get; set; }
+}
+
+
     public bool IsDeleted { get; set; }
 }

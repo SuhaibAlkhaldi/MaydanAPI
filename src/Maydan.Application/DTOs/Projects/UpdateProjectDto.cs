@@ -14,8 +14,6 @@ public class UpdateProjectDto
 
     public int LocationManagerUserId { get; set; }
 
-    // Null/empty means "no new file uploaded" — ProjectService.UpdateAsync keeps the project's
-    // existing WorkPermitImagePath in that case, since re-uploading the work permit on every
-    // unrelated edit isn't a reasonable UX requirement.
+
     public string? WorkPermitImagePath { get; set; }
 }
