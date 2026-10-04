@@ -35,14 +35,12 @@ public class ServiceRequestReminderHostedService : IHostedService, IDisposable
                 var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
                 var emailSender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
 
-                var allPending = await uow.ServiceRequests.GetAllAsync(stoppingToken);
                 var threshold = DateTime.UtcNow.AddHours(-6);
-
-                var toRemind = allPending.Where(r => r.Status == ServiceRequestStatus.PendingWorkerSelection && !r.ReminderSent && r.CreatedAt <= threshold).ToList();
+                var toRemind = await uow.ServiceRequests.GetPendingOlderThanAsync(threshold, stoppingToken);
 
                 foreach (var r in toRemind)
                 {
-                    var association = await uow.Associations.GetByIdAsync(r.AssociationId, stoppingToken);
+                    var association = r.Association ?? await uow.Associations.GetByIdAsync(r.AssociationId, stoppingToken);
                     if (association == null) continue;
 
                     var assocUsers = await uow.Users.GetByEntityAsync(EntityType.Association, association.Id, null, stoppingToken);

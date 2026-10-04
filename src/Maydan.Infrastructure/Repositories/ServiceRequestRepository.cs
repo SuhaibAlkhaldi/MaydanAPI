@@ -35,4 +35,10 @@ public class ServiceRequestRepository : IServiceRequestRepository
 
     public Task<List<ServiceRequest>> GetAllAsync(CancellationToken cancellationToken = default) =>
         _context.Set<ServiceRequest>().ToListAsync(cancellationToken);
+
+    public Task<List<ServiceRequest>> GetPendingOlderThanAsync(DateTime threshold, CancellationToken cancellationToken = default) =>
+        _context.Set<ServiceRequest>()
+            .Where(r => r.Status == Domain.Enums.ServiceRequestStatus.PendingWorkerSelection && !r.ReminderSent && r.CreatedAt <= threshold)
+            .Include(r => r.Association)
+            .ToListAsync(cancellationToken);
 }
