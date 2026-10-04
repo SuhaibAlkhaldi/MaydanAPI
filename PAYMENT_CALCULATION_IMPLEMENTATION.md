@@ -223,15 +223,15 @@ dotnet ef database update
 ---
 
 ### Build Status
-✅ **Build Successful** - All code compiles without errors.
+**Build Successful** - All code compiles without errors.
 
 ---
 
 ### Key Features
 
-✅ **Accurate Calculations** - Each time unit uses the correct hourly multiplier
-✅ **Flexible** - Clients can choose their preferred payment unit
-✅ **Backward Compatible** - Defaults to Shift if not specified
-✅ **Descriptive Messages** - Responses include clear labels for the time unit used
-✅ **Type-Safe** - Enum-based approach prevents invalid values
+**Accurate Calculations** - Each time unit uses the correct hourly multiplier
+**Flexible** - Clients can choose their preferred payment unit
+**Backward Compatible** - Defaults to Shift if not specified
+**Descriptive Messages** - Responses include clear labels for the time unit used
+**Type-Safe** - Enum-based approach prevents invalid values
 
