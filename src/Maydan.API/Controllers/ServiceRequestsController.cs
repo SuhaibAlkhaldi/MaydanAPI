@@ -4,6 +4,8 @@ using FluentValidation;
 using FluentValidation.Results;
 using Maydan.Application.DTOs.ServiceRequests;
 using Maydan.Application.Interfaces;
+using Maydan.Application.Validators;
+using Maydan.Application.DTOs.Common;
 
 namespace Maydan.API.Controllers;
 
@@ -12,9 +14,9 @@ namespace Maydan.API.Controllers;
 public class ServiceRequestsController : ApiControllerBase
 {
     private readonly IServiceRequestService _serviceRequestService;
-    private readonly IValidator<CreateServiceRequestDto> _createValidator;
+    private readonly CreateServiceRequestDtoValidator _createValidator;
 
-    public ServiceRequestsController(IServiceRequestService serviceRequestService, IValidator<CreateServiceRequestDto> createValidator)
+    public ServiceRequestsController(IServiceRequestService serviceRequestService, CreateServiceRequestDtoValidator createValidator)
     {
         _serviceRequestService = serviceRequestService;
         _createValidator = createValidator;
@@ -25,7 +27,7 @@ public class ServiceRequestsController : ApiControllerBase
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new { message = "Current user id is required." });
+            return Unauthorized(new Maydan.Application.DTOs.Common.ApiResponse<object?>(false, " تعذر التحقق من هوية المستخدم  ", "Current user id is required.", null));
         }
 
         try
@@ -44,7 +46,14 @@ public class ServiceRequestsController : ApiControllerBase
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new { message = "Current user id is required." });
+            return Unauthorized(new Maydan.Application.DTOs.Common.ApiResponse<object?>(false, "  تعذر التحقق من هوية المستخدم ", "Current user id is required.", null));
+        }
+        // validate input using the concrete validator
+        var validation = await _createValidator.ValidateAsync(dto, cancellationToken);
+        if (!validation.IsValid)
+        {
+            var errors = validation.Errors.Select(e => new { field = e.PropertyName, error = e.ErrorMessage }).ToList();
+            return BadRequest(new Maydan.Application.DTOs.Common.ApiResponse<object?>(false, "البيانات المدخلة غير صحيحة او غير مطابقة", "Validation failed.", errors));
         }
 
         try
@@ -65,7 +74,7 @@ public class ServiceRequestsController : ApiControllerBase
         {
             if (!TryGetCurrentUserId(out var currentUserId))
             {
-                return Unauthorized(new { message = "Current user id is required." });
+                return Unauthorized(new Maydan.Application.DTOs.Common.ApiResponse<object?>(false, "  تعذر التحقق من هوية المستخدم ", "Current user id is required.", null));
             }
 
             var calculationResult = await _serviceRequestService.CalculateExpectedPaymentAsync(currentUserId, dto.ServiceId, dto.RequestedWorkers, dto.ShiftsOrDaysCount, cancellationToken);
@@ -82,12 +91,12 @@ public class ServiceRequestsController : ApiControllerBase
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new { message = "Current user id is required." });
+            return Unauthorized(new Maydan.Application.DTOs.Common.ApiResponse<object?>(false, "تعذر التحقق من هوية المستخدم", "Current user id is required.", null));
         }
 
         try
         {
-            return Ok(await _serviceRequestService.GetAllAsync(currentUserId, cancellationToken));
+            return Success(await _serviceRequestService.GetAllAsync(currentUserId, cancellationToken));
         }
         catch (Exception ex)
         {
@@ -100,12 +109,12 @@ public class ServiceRequestsController : ApiControllerBase
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new { message = "Current user id is required." });
+            return Unauthorized(new Maydan.Application.DTOs.Common.ApiResponse<object?>(false, "تعذر التحقق من هوية المستخدم", "Current user id is required.", null));
         }
 
         try
         {
-            return Ok(await _serviceRequestService.GetByIdAsync(currentUserId, id, cancellationToken));
+            return Success(await _serviceRequestService.GetByIdAsync(currentUserId, id, cancellationToken));
         }
         catch (Exception ex)
         {
@@ -118,7 +127,8 @@ public class ServiceRequestsController : ApiControllerBase
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new { message = "Current user id is required." });
+            return Unauthorized(new Maydan.Application.DTOs.Common.ApiResponse<object?>(false, "تعذر التحقق من هوية المستخدم", "Current user id is required.", null));
+
         }
 
         try

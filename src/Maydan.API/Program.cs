@@ -22,7 +22,7 @@ var builder = WebApplication.CreateBuilder(args);
 // controller is gated by default (opt OUT via [BypassSystemConfigurationGate], not opt in) — see
 // SystemConfigurationGateFilter's own comment.
 builder.Services.AddControllers(options => options.Filters.Add<SystemConfigurationGateFilter>());
-
+//builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
