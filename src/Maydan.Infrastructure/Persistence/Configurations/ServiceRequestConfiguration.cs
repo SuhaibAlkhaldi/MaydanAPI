@@ -14,9 +14,15 @@ public class ServiceRequestConfiguration : IEntityTypeConfiguration<ServiceReque
 
         builder.Property(r => r.UnitPriceSnapshot).HasPrecision(18, 2);
         builder.Property(r => r.ExpectedTotalAmount).HasPrecision(18, 2);
+        builder.Property(r => r.TimeUnit).HasDefaultValue(Maydan.Domain.Enums.ServiceTimeUnit.Shift);
 
         builder.Property(r => r.AdditionalRequirements).HasMaxLength(1000);
         builder.Property(r => r.IdempotencyKey).HasMaxLength(100);
+
+        // Unique index on IdempotencyKey + ProductionCompanyId to enforce idempotency at the database level
+        builder.HasIndex(r => new { r.IdempotencyKey, r.ProductionCompanyId })
+            .IsUnique()
+            .HasFilter("[IdempotencyKey] IS NOT NULL");
 
         builder.HasOne(r => r.Project)
             .WithMany()

@@ -1,58 +1,75 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Maydan.Domain.Common;
+﻿using Maydan.Domain.Common;
 using Maydan.Domain.Enums;
 
-namespace Maydan.Domain.Entities
+namespace Maydan.Domain.Entities;
+
+public class ServiceRequest : SharedEntities
 {
-    public class ServiceRequest : SharedEntities
-    {
-        public int ProjectId { get; set; }
-        public Project Project { get; set; } = null!;
+    // Navigation & Foreign Keys
+    public int ProjectId { get; set; }
+    public Project Project { get; set; } = null!;
 
-        public int ProductionCompanyId { get; set; }
-        public ProductionCompany ProductionCompany { get; set; } = null!;
+    public int ProductionCompanyId { get; set; }
+    public ProductionCompany ProductionCompany { get; set; } = null!;
 
-        public int ServiceId { get; set; }
+    public int ServiceId { get; set; }
+    public Service Service { get; set; } = null!;
 
-        public Service Service { get; set; } = null!;
-        public int AssociationId { get; set; }
-        public Association Association { get; set; } = null!;
+    public int AssociationId { get; set; }
+    public Association Association { get; set; } = null!;
 
-         //Using CityId from Association.CityId to decide the relatd association's city
+    // Duration and Time Related Properties
+    public DateTime StartDate { get; set; }
+    public DateTime EndDate { get; set; }
 
-        //Duration and Time related properties
-        public DateTime StartDate { get; set; }
-        public DateTime EndDate { get; set; }
-        public int ShiftsCount
-        {
-            get; set;
-        } //e.g. DayCount
+    /// <summary>
+    /// Time unit for payment calculation (Shift, Day, or Hour).
+    /// Shift = 12 hours, Day = 9 hours, Hour = Direct hourly rate.
+    /// </summary>
+    public ServiceTimeUnit TimeUnit { get; set; } = ServiceTimeUnit.Shift;
 
-        //Workr related properties
-        public int RequestedWorkersCount { get; set; } 
-        public int SelectedWorkersCount { get; set; } = 0; 
-        public int AttendanceFrequency { get; set; }         
-        public string? AdditionalRequirements { get; set; }
+    /// <summary>
+    /// Duration count: number of shifts/days/hours depending on TimeUnit.
+    /// </summary>
+    public int ShiftsCount { get; set; }
 
-        // Persisted coordinates for the requested location
-       // public decimal? Latitude { get; set; }
-        //public decimal? Longitude { get; set; }
+    // Worker Related Properties
+    public int RequestedWorkersCount { get; set; }
+    public int SelectedWorkersCount { get; set; } = 0;
+    public int AttendanceFrequency { get; set; }
+    public string? AdditionalRequirements { get; set; }
 
-        //Financial related properties
-        public decimal ExpectedTotalAmount { get; set; }
-        public decimal UnitPriceSnapshot { get; set; }
+    // Financial Related Properties
+    /// <summary>
+    /// Service price per hour (captured at request creation time).
+    /// </summary>
+    public decimal UnitPriceSnapshot { get; set; }
 
+    /// <summary>
+    /// Expected total payment amount calculated as:
+    /// - Shift: (12 * UnitPriceSnapshot) * RequestedWorkersCount * ShiftsCount
+    /// - Day: (9 * UnitPriceSnapshot) * RequestedWorkersCount * ShiftsCount
+    /// - Hour: (UnitPriceSnapshot * ShiftsCount) * RequestedWorkersCount
+    /// </summary>
+    public decimal ExpectedTotalAmount { get; set; }
 
-        //Status
-        public ServiceRequestStatus Status { get; set; } = ServiceRequestStatus.PendingWorkerSelection;
-        public string? IdempotencyKey { get; set; } //   prevent (Double-submit)
-        public bool ReminderSent { get; set; } = false;
+    // Status Related Properties
+    public ServiceRequestStatus Status { get; set; } = ServiceRequestStatus.PendingWorkerSelection;
 
-        public DateTime? CancelledAt { get; set; }
+    /// <summary>
+    /// Idempotency key to prevent duplicate submissions (check-then-insert).
+    /// Combined with ProductionCompanyId in unique database index.
+    /// </summary>
+    public string? IdempotencyKey { get; set; }
 
-    }
+    /// <summary>
+    /// Tracks whether 6-hour reminder notification has been sent.
+    /// </summary>
+    public bool ReminderSent { get; set; } = false;
+
+    /// <summary>
+    /// Timestamp when request was cancelled (soft-delete indicator).
+    /// Request is marked as Cancelled status instead of being deleted.
+    /// </summary>
+    public DateTime? CancelledAt { get; set; }
 }

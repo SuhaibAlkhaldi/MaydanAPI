@@ -27,6 +27,10 @@ public class ServiceRequestRepository : IServiceRequestRepository
 
     public void Remove(ServiceRequest serviceRequest) => _context.Set<ServiceRequest>().Remove(serviceRequest);
 
+    public Task<ServiceRequest?> GetByIdempotencyKeyAsync(string idempotencyKey, int productionCompanyId, CancellationToken cancellationToken = default) =>
+        _context.Set<ServiceRequest>()
+            .FirstOrDefaultAsync(r => r.IdempotencyKey == idempotencyKey && r.ProductionCompanyId == productionCompanyId, cancellationToken);
+
     public Task<List<ServiceRequest>> GetByProductionCompanyIdAsync(int productionCompanyId, CancellationToken cancellationToken = default) =>
         _context.Set<ServiceRequest>().Where(s => s.ProductionCompanyId == productionCompanyId).ToListAsync(cancellationToken);
 

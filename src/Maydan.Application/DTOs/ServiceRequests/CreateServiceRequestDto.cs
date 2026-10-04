@@ -1,16 +1,17 @@
 using System;
+using Maydan.Domain.Enums;
 
 namespace Maydan.Application.DTOs.ServiceRequests;
 
 public class CreateServiceRequestDto
 {
     public int ProjectId { get; set; }
-    public int ProductionCompanyId { get; set; }
     public int ServiceId { get; set; }
     public int CityId { get; set; }
 
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
+    public ServiceTimeUnit TimeUnit { get; set; } = ServiceTimeUnit.Shift;
     public int ShiftsCount { get; set; }
 
     public int RequestedWorkersCount { get; set; }

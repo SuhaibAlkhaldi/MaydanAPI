@@ -33,17 +33,17 @@ public class ServiceRequestService : IServiceRequestService
             throw new UnauthorizedAccessException("Caller does not hold Request Service permission.");
         }
 
-        var associations = await _unitOfWork.Associations.GetAllAsync(cancellationToken);
-        var assoc = associations.FirstOrDefault(a => a.CityId == cityId) ?? throw new KeyNotFoundException("No association found for the specified city.");
+        var association = await _unitOfWork.Associations.GetByCityIdAsync(cityId, cancellationToken) 
+            ?? throw new KeyNotFoundException("No association found for the specified city.");
 
         return new AssociationLookupDto
         {
-            AssociationId = assoc.Id,
-            EnglishName = assoc.EnglishName,
-            ArabicName = assoc.ArabicName,
-            CityId = assoc.CityId,
-            Latitude = assoc.Latitude,
-            Longitude = assoc.Longitude
+            AssociationId = association.Id,
+            EnglishName = association.EnglishName,
+            ArabicName = association.ArabicName,
+            CityId = association.CityId,
+            Latitude = association.Latitude,
+            Longitude = association.Longitude
         };
     }
 
@@ -70,16 +70,15 @@ public class ServiceRequestService : IServiceRequestService
             throw new UnauthorizedAccessException("Caller must belong to the production company that owns the project.");
         }
 
-        // Find an association in the requested city
-        var associations = await _unitOfWork.Associations.GetAllAsync(cancellationToken);
-        var association = associations.FirstOrDefault(a => a.CityId == dto.CityId) ?? throw new KeyNotFoundException("No association found for the specified city.");
+        // Find an association in the requested city (server-side query)
+        var association = await _unitOfWork.Associations.GetByCityIdAsync(dto.CityId, cancellationToken) 
+            ?? throw new KeyNotFoundException("No association found for the specified city.");
 
-        // Idempotency / duplicate prevention: check recent similar requests
-        var recentRequests = await _unitOfWork.ServiceRequests.GetByProductionCompanyIdAsync(project.ProductionCompanyId, cancellationToken);
-        var threshold = DateTime.UtcNow.AddSeconds(-30);
+        // Idempotency / duplicate prevention: check via server-side query
         if (!string.IsNullOrWhiteSpace(dto.IdempotencyKey))
         {
-            if (recentRequests.Any(r => r.IdempotencyKey == dto.IdempotencyKey && r.ProjectId == dto.ProjectId && r.ServiceId == dto.ServiceId && r.AssociationId == association.Id && r.CreatedAt >= threshold))
+            var existingRequest = await _unitOfWork.ServiceRequests.GetByIdempotencyKeyAsync(dto.IdempotencyKey, project.ProductionCompanyId, cancellationToken);
+            if (existingRequest != null)
             {
                 throw new InvalidOperationException("Duplicate service request detected.");
             }
@@ -88,11 +87,12 @@ public class ServiceRequestService : IServiceRequestService
         var sr = new ServiceRequest
         {
             ProjectId = dto.ProjectId,
-            ProductionCompanyId = dto.ProductionCompanyId,
+            ProductionCompanyId = project.ProductionCompanyId,
             ServiceId = dto.ServiceId,
             AssociationId = association.Id,
             StartDate = dto.StartDate,
             EndDate = dto.EndDate,
+            TimeUnit = dto.TimeUnit,
             ShiftsCount = dto.ShiftsCount,
             // Use provided coordinates if present; otherwise fall back to association coordinates
             //Latitude = dto.Latitude ?? association.Latitude,
@@ -108,9 +108,28 @@ public class ServiceRequestService : IServiceRequestService
         // Snapshot the current service price
         var service = await _unitOfWork.Services.GetByIdAsync(dto.ServiceId, cancellationToken) ?? throw new KeyNotFoundException("Service was not found.");
         sr.UnitPriceSnapshot = service.Price;
-        sr.ExpectedTotalAmount = service.Price * dto.ShiftsCount * dto.RequestedWorkersCount;
+
+        // Calculate expected total amount based on time unit
+        sr.ExpectedTotalAmount = dto.TimeUnit switch
+        {
+            Domain.Enums.ServiceTimeUnit.Shift =>
+                // Shift = 12 hours: (12 * service.Price) * requestedWorkers * shiftCount
+                (12 * service.Price) * dto.RequestedWorkersCount * dto.ShiftsCount,
+
+            Domain.Enums.ServiceTimeUnit.Day =>
+                // Day = 9 hours: (9 * service.Price) * requestedWorkers * dayCount
+                (9 * service.Price) * dto.RequestedWorkersCount * dto.ShiftsCount,
+
+            Domain.Enums.ServiceTimeUnit.Hour =>
+                // Hour = Direct: (service.Price * hourCount) * requestedWorkers
+                (service.Price * dto.ShiftsCount) * dto.RequestedWorkersCount,
+
+            _ => throw new InvalidOperationException("Invalid time unit.")
+        };
 
         await _unitOfWork.ServiceRequests.AddAsync(sr, cancellationToken);
+        // SaveChangesAsync will enforce the unique constraint on (IdempotencyKey, ProductionCompanyId).
+        // Any violation will be handled by the controller's exception handler.
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         // Immediate notification: send email to association contact and association users
@@ -250,7 +269,6 @@ public class ServiceRequestService : IServiceRequestService
         sr.Status = Domain.Enums.ServiceRequestStatus.Cancelled;
         sr.CancelledAt = DateTime.UtcNow;
 
-        _unitOfWork.ServiceRequests.Remove(sr);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
@@ -273,7 +291,7 @@ public class ServiceRequestService : IServiceRequestService
         return rolePermissionIds.Concat(directPermissionIds).Concat(groupPermissionIds).ToHashSet();
     }
 
-    public async Task<ExpectedPaymentCalculationDto> CalculateExpectedPaymentAsync(int currentUserId, int serviceId, int requestedWorkers, int shiftsOrDaysCount, CancellationToken cancellationToken = default)
+    public async Task<ExpectedPaymentCalculationDto> CalculateExpectedPaymentAsync(int currentUserId, int serviceId, int requestedWorkers, int durationCount, Domain.Enums.ServiceTimeUnit timeUnit, CancellationToken cancellationToken = default)
     {
         // Ensure caller has Request Service permission
         var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken) ?? throw new UnauthorizedAccessException("Current user was not found.");
@@ -289,16 +307,39 @@ public class ServiceRequestService : IServiceRequestService
 
         var service = await _unitOfWork.Services.GetByIdAsync(serviceId, cancellationToken) ?? throw new KeyNotFoundException("Service type not found.");
 
-        decimal workerCost = shiftsOrDaysCount * service.Price;
-        decimal totalExpected = workerCost * requestedWorkers;
+        // Calculate based on time unit
+        decimal totalExpected = timeUnit switch
+        {
+            Domain.Enums.ServiceTimeUnit.Shift =>
+                // Shift = 12 hours: (12 * service.Price) * requestedWorkers * durationCount
+                (12 * service.Price) * requestedWorkers * durationCount,
+
+            Domain.Enums.ServiceTimeUnit.Day =>
+                // Day = 9 hours: (9 * service.Price) * requestedWorkers * durationCount
+                (9 * service.Price) * requestedWorkers * durationCount,
+
+            Domain.Enums.ServiceTimeUnit.Hour =>
+                // Hour = Direct: (service.Price * durationCount) * requestedWorkers
+                (service.Price * durationCount) * requestedWorkers,
+
+            _ => throw new InvalidOperationException("Invalid time unit.")
+        };
+
+        string timeUnitLabel = timeUnit switch
+        {
+            Domain.Enums.ServiceTimeUnit.Shift => "shifts (12 hours each)",
+            Domain.Enums.ServiceTimeUnit.Day => "days (9 hours each)",
+            Domain.Enums.ServiceTimeUnit.Hour => "hours",
+            _ => "unknown"
+        };
 
         return new ExpectedPaymentCalculationDto
         {
             UnitPrice = service.Price,
             RequestedWorkers = requestedWorkers,
-            DurationUnits = shiftsOrDaysCount,
+            DurationUnits = durationCount,
             TotalExpectedPayment = totalExpected,
-            FormattedMessage = $"Expected payment for {requestedWorkers} workers for {shiftsOrDaysCount} shifts: {totalExpected:N2} JOD."
+            FormattedMessage = $"Expected payment for {requestedWorkers} workers for {durationCount} {timeUnitLabel}: {totalExpected:N2} JOD."
         };
     }
 }

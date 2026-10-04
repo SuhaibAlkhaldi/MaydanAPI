@@ -46,7 +46,7 @@ builder.Services.AddSwaggerGen(options =>
 
 builder.Services.AddDbContext<MaydanDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("MaydanDb"), sqlOpts => sqlOpts.CommandTimeout(60))
-           .EnableSensitiveDataLogging()
+           .EnableSensitiveDataLogging(builder.Environment.IsDevelopment())
 );
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();

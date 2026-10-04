@@ -293,6 +293,7 @@ public class AssociationProjectSupervisorServiceTests
         }
 
         public Task<Association?> GetByIdIncludingDeletedAsync(int associationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Association?> GetByCityIdAsync(int cityId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Association?> GetByIdWithWorkersAsync(int associationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<(Association Association, int WorkersCount)?> GetByIdWithWorkersCountAsync(int associationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<List<Association>> GetAllAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();

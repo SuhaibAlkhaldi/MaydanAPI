@@ -47,9 +47,12 @@ public class ServiceRequestReminderHostedService : IHostedService, IDisposable
                     var subject = "Reminder: service request still awaiting worker selection";
                     var body = $"Service request (Id: {r.Id}) is still pending worker selection after 6 hours.";
 
+
                     if (!string.IsNullOrWhiteSpace(association.ContactEmail))
                     {
                         await emailSender.SendAsync(association.ContactEmail, subject, body, stoppingToken);
+
+                        r.ReminderSent = true;
                     }
 
                     foreach (var u in assocUsers)
@@ -60,7 +63,6 @@ public class ServiceRequestReminderHostedService : IHostedService, IDisposable
                         }
                     }
 
-                    r.ReminderSent = true;
                 }
 
                 await uow.SaveChangesAsync(stoppingToken);

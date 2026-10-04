@@ -77,7 +77,7 @@ public class ServiceRequestsController : ApiControllerBase
                 return Unauthorized(new Maydan.Application.DTOs.Common.ApiResponse<object?>(false, "  تعذر التحقق من هوية المستخدم ", "Current user id is required.", null));
             }
 
-            var calculationResult = await _serviceRequestService.CalculateExpectedPaymentAsync(currentUserId, dto.ServiceId, dto.RequestedWorkers, dto.ShiftsOrDaysCount, cancellationToken);
+            var calculationResult = await _serviceRequestService.CalculateExpectedPaymentAsync(currentUserId, dto.ServiceId, dto.RequestedWorkers, dto.DurationCount, dto.TimeUnit, cancellationToken);
             return Success(calculationResult);
         }
         catch (Exception ex)

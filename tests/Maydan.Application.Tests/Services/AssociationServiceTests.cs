@@ -706,6 +706,8 @@ public class AssociationServiceTests
 
         public Task<List<Association>> GetAllAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
+        public Task<Association?> GetByCityIdAsync(int cityId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
         public Task AddAsync(Association association, CancellationToken cancellationToken = default)
         {
             association.Id = association.Id == 0 ? _associationsById.Count + 100 : association.Id;
