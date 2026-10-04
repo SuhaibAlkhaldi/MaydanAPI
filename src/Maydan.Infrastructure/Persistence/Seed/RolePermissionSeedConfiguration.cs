@@ -77,6 +77,13 @@ namespace Maydan.Infrastructure.Persistence.Seed
         // override — GetScopedUserAsync's strict same-entity check is what makes that safe.
         private const int ManageAssociationUsers = 39;
 
+        // Phase 1 of the ProductionHouse self-service user-management gap (same shape as
+        // ManageAssociationUsers above) — matching PermissionSeedConfiguration.cs id 40. Same
+        // self-service reasoning: granted to ProductionHouse below, not a Bayt-AlUrdon/ASEZA
+        // cross-entity override — GetScopedUserAsync's strict same-entity check is what makes that
+        // safe here too.
+        private const int ManageProductionCompanyUsers = 40;
+
         public void Configure(EntityTypeBuilder<RolePermission> builder)
         {
             // ManageServices added per the associations.routes.ts permission-review correction:
@@ -156,7 +163,8 @@ namespace Maydan.Infrastructure.Persistence.Seed
                 ViewWorkers,
                 ViewGroups, ManageGroups,
                 ViewAttendance, ManageAttendance,
-                ViewPayments, ManagePayments
+                ViewPayments, ManagePayments,
+                ManageProductionCompanyUsers
             };
 
             var associationPermissions = new[]
@@ -169,7 +177,7 @@ namespace Maydan.Infrastructure.Persistence.Seed
                 ViewPayments
             };
 
-            var allPermissionIds = Enumerable.Range(1, 39);
+            var allPermissionIds = Enumerable.Range(1, 40);
 
             var grants = ForRole(BaytAlUrdon, allPermissionIds)
                 .Concat(ForRole(Aseza, asezaPermissions))

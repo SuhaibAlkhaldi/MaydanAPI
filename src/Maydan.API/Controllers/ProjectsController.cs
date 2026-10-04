@@ -6,7 +6,15 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Maydan.API.Controllers;
 
-
+// Projects audit follow-up: this controller was fully commented out and, even uncommented as it
+// stood, would not have compiled — it called _projectService.CreateAsync(request, ct) with a
+// CreateProjectRequest where CreateProjectDto was required, and with no currentUserId argument at
+// all despite the interface requiring one. Rewritten from scratch to inherit ApiControllerBase
+// (not ControllerBase directly, unlike its previous draft) for the same
+// HandleException/TryGetCurrentUserId every other controller in this codebase uses, and wired to
+// match workforcment's projects.service.ts exactly: GET (list + filters), GET/{id}, POST, PUT
+// (id in the body — an unusual convention, but it's what the frontend already sends), DELETE
+// (?id=), PATCH restore (?projectId=).
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
@@ -28,36 +36,6 @@ public class ProjectsController : ApiControllerBase
         [FromQuery] ProjectQueryDto query,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            return Ok(await _projectService.GetAllAsync(query, cancellationToken));
-        }
-        catch (Exception exception)
-        {
-            return HandleException(exception);
-        }
-    }
-
-    [HttpGet("{id:int}")]
-    public async Task<ActionResult<ProjectDto>> GetById(
-        int id,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            return Ok(await _projectService.GetByIdAsync(id, cancellationToken));
-        }
-        catch (Exception exception)
-        {
-            return HandleException(exception);
-        }
-    }
-
-    [HttpPost]
-    public async Task<ActionResult<ProjectDto>> Create(
-        [FromForm] CreateProjectRequest request,
-        CancellationToken cancellationToken)
-    {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
             return Unauthorized(new { message = "Current user id is required." });
@@ -65,33 +43,7 @@ public class ProjectsController : ApiControllerBase
 
         try
         {
-
             return Ok(await _projectService.GetAllAsync(currentUserId, query, cancellationToken));
-
-            string workPermitImagePath;
-            await using (var stream = request.WorkPermitImage.OpenReadStream())
-            {
-                workPermitImagePath = await _fileStorageService.SaveAsync(
-                    stream,
-                    request.WorkPermitImage.FileName,
-                    WorkPermitsSubfolder,
-                    cancellationToken);
-            }
-
-            var dto = new CreateProjectDto
-            {
-                ProjectNameEn = request.ProjectNameEn,
-                ProjectNameAr = request.ProjectNameAr,
-                StartDate = request.StartDate,
-                EndDate = request.EndDate,
-                ProjectTypeId = request.ProjectTypeId,
-                ProducerUserId = request.ProducerUserId,
-                LocationManagerUserId = request.LocationManagerUserId,
-                WorkPermitImagePath = workPermitImagePath
-            };
-
-            var result = await _projectService.CreateAsync(dto, currentUserId, cancellationToken);
-            return Created($"/api/Projects/{result.Id}", result);
         }
         catch (Exception exception)
         {
@@ -102,10 +54,6 @@ public class ProjectsController : ApiControllerBase
     [HttpGet("{id:int}")]
     public async Task<ActionResult<ProjectDto>> GetById(
         int id,
-
-    [HttpPut]
-    public async Task<ActionResult<ProjectDto>> Update(
-        [FromForm] UpdateProjectRequest request,
         CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
@@ -115,33 +63,7 @@ public class ProjectsController : ApiControllerBase
 
         try
         {
-
             return Ok(await _projectService.GetByIdAsync(currentUserId, id, cancellationToken));
-            string? workPermitImagePath = null;
-            if (request.WorkPermitImage is not null)
-            {
-                await using var stream = request.WorkPermitImage.OpenReadStream();
-                workPermitImagePath = await _fileStorageService.SaveAsync(
-                    stream,
-                    request.WorkPermitImage.FileName,
-                    WorkPermitsSubfolder,
-                    cancellationToken);
-            }
-
-            var dto = new UpdateProjectDto
-            {
-                ProjectNameEn = request.ProjectNameEn,
-                ProjectNameAr = request.ProjectNameAr,
-                StartDate = request.StartDate,
-                EndDate = request.EndDate,
-                ProjectTypeId = request.ProjectTypeId,
-                ProducerUserId = request.ProducerUserId,
-                LocationManagerUserId = request.LocationManagerUserId,
-                WorkPermitImagePath = workPermitImagePath
-            };
-
-            var result = await _projectService.UpdateAsync(request.Id, dto, currentUserId, cancellationToken);
-            return Ok(result);
         }
         catch (Exception exception)
         {

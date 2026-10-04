@@ -6,7 +6,13 @@ using Maydan.Domain.Enums;
 
 namespace Maydan.Application.Tests.Services;
 
-
+// Projects audit follow-up: ProjectService.CreateAsync used to throw a bare Exception for every
+// validation failure, which ApiControllerBase.HandleException's switch has no case for (always
+// fell through to 500 regardless of the real problem). These tests cover the full CRUD+restore
+// surface added in this pass, asserting the specific exception type each failure now throws
+// (InvalidOperationException / KeyNotFoundException / UnauthorizedAccessException), matching the
+// convention UserManagementServiceTests.cs already established — same hand-rolled-fake pattern,
+// no mocking library exists in this test project.
 public class ProjectServiceTests
 {
     private static User NewUser(int userId, EntityType entityType, int entityId, bool isActive = true) => new()
@@ -38,7 +44,6 @@ public class ProjectServiceTests
         IsActive = true
     };
 
-
     private static CreateProjectDto ValidCreateDto(int producerUserId, int locationManagerUserId, int projectTypeId) => new()
     {
         ProjectNameEn = "New Documentary",
@@ -63,7 +68,9 @@ public class ProjectServiceTests
         WorkPermitImagePath = null
     };
 
-
+    // ---------------------------------------------------------------------
+    // CreateAsync — regression coverage now that every throw has a real type
+    // ---------------------------------------------------------------------
 
     [Fact]
     public async Task CreateAsync_ValidRequestFromProductionCompanyUser_Succeeds()
@@ -190,6 +197,9 @@ public class ProjectServiceTests
         Assert.Contains("same Production Company", exception.Message);
     }
 
+    // ---------------------------------------------------------------------
+    // GetAllAsync / GetByIdAsync
+    // ---------------------------------------------------------------------
 
     [Fact]
     public async Task GetAllAsync_ReturnsMappedActiveProjects()
@@ -205,9 +215,6 @@ public class ProjectServiceTests
             projects: [project]);
 
         var results = await service.GetAllAsync(producer.UserId, new ProjectQueryDto { IsDeleted = false });
-
-        var results = await service.GetAllAsync(new ProjectQueryDto { IsDeleted = false });
-
 
         Assert.Single(results);
         Assert.Equal(10, results[0].Id);
@@ -269,10 +276,7 @@ public class ProjectServiceTests
             projectTypes: [projectType],
             projects: [project]);
 
-
         var result = await service.GetByIdAsync(producer.UserId, 10);
-
-        var result = await service.GetByIdAsync(10);
 
         Assert.Equal(10, result.Id);
         Assert.Equal(projectType.NameEn, result.ProjectTypeNameEn);
@@ -285,10 +289,6 @@ public class ProjectServiceTests
         var (service, _) = BuildService(users: [currentUser], projectTypes: []);
 
         await Assert.ThrowsAsync<KeyNotFoundException>(() => service.GetByIdAsync(currentUser.UserId, 404));
-
-        var (service, _) = BuildService(users: [], projectTypes: []);
-
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.GetByIdAsync(404));
     }
 
     [Fact]
@@ -305,13 +305,14 @@ public class ProjectServiceTests
             projectTypes: [projectType],
             projects: [project]);
 
-
-
+        // Mirrors MaydanDbContext's global soft-delete query filter — a deleted project is
+        // invisible to the normal get-by-id path, the same way it would 404 in production.
         await Assert.ThrowsAsync<KeyNotFoundException>(() => service.GetByIdAsync(producer.UserId, 10));
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.GetByIdAsync(10));
     }
 
-
+    // ---------------------------------------------------------------------
+    // UpdateAsync
+    // ---------------------------------------------------------------------
 
     [Fact]
     public async Task UpdateAsync_ValidRequest_UpdatesAndReturnsProject()
@@ -408,6 +409,9 @@ public class ProjectServiceTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdateAsync(10, dto, currentUser.UserId));
     }
 
+    // ---------------------------------------------------------------------
+    // DeleteAsync
+    // ---------------------------------------------------------------------
 
     [Fact]
     public async Task DeleteAsync_ValidRequest_SoftDeletesProject()
@@ -457,7 +461,9 @@ public class ProjectServiceTests
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.DeleteAsync(10, currentUser.UserId));
     }
 
-
+    // ---------------------------------------------------------------------
+    // RestoreAsync
+    // ---------------------------------------------------------------------
 
     [Fact]
     public async Task RestoreAsync_DeletedProject_RestoresAndReturnsProject()
@@ -526,6 +532,9 @@ public class ProjectServiceTests
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.RestoreAsync(10, currentUser.UserId));
     }
 
+    // ---------------------------------------------------------------------
+    // GetProjectTypesAsync
+    // ---------------------------------------------------------------------
 
     [Fact]
     public async Task GetProjectTypesAsync_ReturnsMappedCatalog()
@@ -538,6 +547,9 @@ public class ProjectServiceTests
         Assert.All(result, dto => Assert.Equal("Feature Film", dto.NameEn));
     }
 
+    // ---------------------------------------------------------------------
+    // Test infrastructure
+    // ---------------------------------------------------------------------
 
     private static Project NewProject(int id, int producerUserId, int locationManagerUserId, int projectTypeId, int productionCompanyId) => new()
     {
@@ -636,10 +648,6 @@ public class ProjectServiceTests
 
             return role;
         }
-        public Task<User?> GetWithPermissionsAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<List<User>> GetByIdsInEntityAsync(IEnumerable<int> userIds, EntityType entityType, int entityId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task AddAsync(User user, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public void Remove(User user) => throw new NotSupportedException();
     }
 
     private sealed class FakeProjectTypeRepository : IProjectTypeRepository
@@ -660,7 +668,12 @@ public class ProjectServiceTests
             Task.FromResult(_projectTypes);
     }
 
-
+    // Re-hydrates Producer/LocationManager/ProjectType navigation properties from current FK
+    // values on every fetch — simulating a fresh EF .Include() query, which is what makes
+    // UpdateAsync's re-fetch-after-save correctly reflect a changed ProducerUserId/etc. Remove()
+    // simulates MaydanDbContext.SaveChangesAsync's global soft-delete interception directly
+    // (there's no real change-tracking pipeline in this fake to intercept), matching the exact
+    // documented behavior in ProjectService.DeleteAsync's own comment.
     private sealed class FakeProjectRepository : IProjectRepository
     {
         private readonly Dictionary<int, Project> _projectsById;
@@ -770,25 +783,17 @@ public class ProjectServiceTests
         public IGroupRepository Groups => throw new NotSupportedException();
         public ICountryRepository Countries => throw new NotSupportedException();
         public ICityRepository Cities => throw new NotSupportedException();
-
         public IAssociationRepository Associations => throw new NotSupportedException();
         public IProductionCompanyRepository ProductionCompanies => throw new NotSupportedException();
         public IWorkerRepository Workers => throw new NotSupportedException();
-
-        public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Task.FromResult(1);
-
         public ICityLocationRepository CityLocations => throw new NotSupportedException();
         public IAssociationProjectSupervisorRepository AssociationProjectSupervisors => throw new NotSupportedException();
-        public IAssociationRepository Associations => throw new NotSupportedException();
-        public IProductionCompanyRepository ProductionCompanies => throw new NotSupportedException();
-        public IWorkerRepository Workers => throw new NotSupportedException();
         public IPasswordResetTokenRepository PasswordResetTokens => throw new NotSupportedException();
         public IRefreshTokenRepository RefreshTokens => throw new NotSupportedException();
         public ISystemConfigurationRepository SystemConfigurations => throw new NotSupportedException();
         public IServiceRepository Services => throw new NotSupportedException();
 
-        public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Task.FromResult(1);
 
-        public Task ExecuteInTransactionAsync(Func<Task> operation, CancellationToken cancellationToken = default) => operation();
+        public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Task.FromResult(1);
     }
 }

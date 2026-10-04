@@ -113,7 +113,17 @@ namespace Maydan.Infrastructure.Persistence.Seed
                 // dedicated permission rather than granting the Association role the broader
                 // ManageUsers (which would also unlock UpdateDirectPermissionsAsync/UpdateGroupsAsync
                 // for its own users, well beyond this gap's actual scope).
-                Seed(39, "Manage Association Users", "إدارة مستخدمي الجمعيات", "Associations")
+                Seed(39, "Manage Association Users", "إدارة مستخدمي الجمعيات", "Associations"),
+
+                // Phase 1 of the ProductionHouse self-service user-management gap (same root cause,
+                // same fix shape as id 39 above): nobody with the ProductionHouse role holds
+                // ManageUsers either (confirmed in RolePermissionSeedConfiguration.cs's
+                // productionHousePermissions array), so UpdateUserStatusAsync rejected every
+                // ProductionHouse account trying to activate/deactivate its own users. Same module as
+                // ViewProductionCompanies/ManageProductionCompanies (ids 19/20) rather than "Users",
+                // and deliberately its own dedicated permission for the same reason id 39 is — this
+                // only ever covers activate/deactivate, not the broader ManageUsers surface.
+                Seed(40, "Manage Production Company Users", "إدارة مستخدمي شركة الإنتاج", "ProductionCompanies")
             );
         }
     }

@@ -4,6 +4,7 @@ using Maydan.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Maydan.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(MaydanDbContext))]
-    partial class MaydanDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261001101710_RevertWorkerBilingualNameColumns")]
+    partial class RevertWorkerBilingualNameColumns
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1022,30 +1025,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                             PermissionNameAr = "إدارة إعدادات النظام",
                             PermissionNameEn = "Manage System Configuration",
                             UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            PermissionId = 39,
-                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Id = 0,
-                            IsActive = true,
-                            IsDeleted = false,
-                            Module = "Associations",
-                            PermissionNameAr = "إدارة مستخدمي الجمعيات",
-                            PermissionNameEn = "Manage Association Users",
-                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            PermissionId = 40,
-                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Id = 0,
-                            IsActive = true,
-                            IsDeleted = false,
-                            Module = "ProductionCompanies",
-                            PermissionNameAr = "إدارة مستخدمي شركة الإنتاج",
-                            PermissionNameEn = "Manage Production Company Users",
-                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
                         });
                 });
 
@@ -1767,18 +1746,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
-                            RoleId = 1,
-                            PermissionId = 39,
-                            IsActive = true
-                        },
-                        new
-                        {
-                            RoleId = 1,
-                            PermissionId = 40,
-                            IsActive = true
-                        },
-                        new
-                        {
                             RoleId = 2,
                             PermissionId = 1,
                             IsActive = true
@@ -1899,12 +1866,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
-                            RoleId = 3,
-                            PermissionId = 40,
-                            IsActive = true
-                        },
-                        new
-                        {
                             RoleId = 4,
                             PermissionId = 1,
                             IsActive = true
@@ -1937,12 +1898,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         {
                             RoleId = 4,
                             PermissionId = 14,
-                            IsActive = true
-                        },
-                        new
-                        {
-                            RoleId = 4,
-                            PermissionId = 39,
                             IsActive = true
                         },
                         new
