@@ -24,11 +24,10 @@ public interface IWorkerRepository
 
 
 
-    Task Remove(Worker worker, CancellationToken cancellationToken = default);
-    void Remove(Worker worker);
 
     Task<(List<WorkerSummaryDto> Items, int TotalCount)> GetAllProjectedAsync(
         int? associationId, string? search, int? serviceId, int page, int pageSize, CancellationToken cancellationToken = default);
 
     Task<WorkerDto?> GetByIdProjectedAsync(int workerId, CancellationToken cancellationToken = default);
+    Task<bool> Remove(Worker worker, CancellationToken cancellationToken = default);
 }

@@ -33,33 +33,11 @@ public class LocalFileStorageService : IFileStorageService
         // Web-relative, forward-slash path regardless of host OS — matches how
         // app.UseStaticFiles() serves wwwroot content and how the frontend would request it back.
         return $"/uploads/{subfolder}/{fileName}".Replace('\\', '/');
-
-public class LocalFileStorageService : IFileStorageService
-{
-    private readonly string _rootPath;
-
-    public LocalFileStorageService(string rootPath)
+    }
+public Task<string> SaveAsync(Stream content, string originalFileName)
     {
-        _rootPath = rootPath;
+        throw new NotImplementedException();
     }
 
-    public async Task<string> SaveAsync(
-        Stream stream,
-        string fileName,
-        string subfolder,
-        CancellationToken cancellationToken = default)
-    {
-        var extension = Path.GetExtension(fileName);
-        var safeFileName = $"{Guid.NewGuid():N}{extension}";
-        var relativeSubfolder = subfolder.Replace('\\', '/').Trim('/');
-        var targetDirectory = Path.Combine(_rootPath, relativeSubfolder);
-
-        Directory.CreateDirectory(targetDirectory);
-
-        var targetPath = Path.Combine(targetDirectory, safeFileName);
-        await using var output = File.Create(targetPath);
-        await stream.CopyToAsync(output, cancellationToken);
-
-        return $"/uploads/{relativeSubfolder}/{safeFileName}";
-    }
+   
 }

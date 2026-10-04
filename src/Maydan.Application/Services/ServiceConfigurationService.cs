@@ -2,7 +2,6 @@ using Maydan.Application.DTOs.Services;
 using Maydan.Application.Interfaces;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
-using Maydan.Domain.Entities;
 using System.Globalization;
 
 namespace Maydan.Application.Services;

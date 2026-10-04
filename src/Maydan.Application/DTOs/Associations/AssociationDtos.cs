@@ -52,8 +52,8 @@ public class CreateAssociationDto
     public string EnglishName { get; set; } = string.Empty;
     public string ArabicName { get; set; } = string.Empty;
     public string? LocationOnGoogleMaps { get; set; }
-    public string? Latitude { get; set; }
-    public string? Longitude { get; set; }
+    public string Latitude { get; set; } = string.Empty;
+    public string Longitude { get; set; } = string.Empty;
 
     // Client-side-only on the frontend (used there purely to filter its City dropdown) — Association
     // has no CountryId column to persist this into. Accepted here only so the request DTO matches

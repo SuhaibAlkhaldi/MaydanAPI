@@ -109,4 +109,16 @@ public class WorkerRepository : IWorkerRepository
                 w.WorkerServices.Select(ws => ws.Service.NameEn).ToList(),
                 w.IsActive))
             .FirstOrDefaultAsync(cancellationToken);
+
+    public Task<List<Worker>> QueryAsync(bool isDeleted, int? associationId = null, bool? orderByYearsOfExperienceAscending = null, bool? orderByNameEnAscending = null, bool? orderByNameArAscending = null, CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
+    }
+
+    
+
+    Task<bool> IWorkerRepository.Remove(Worker worker, CancellationToken cancellationToken)
+    {
+        throw new NotImplementedException();
+    }
 }

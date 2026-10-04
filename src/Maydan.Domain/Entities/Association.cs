@@ -11,8 +11,8 @@ public class Association : SharedEntities
     public City City { get; set; } = null!;
 
     public string? LocationOnGoogleMaps { get; set; }
-    public decimal? Latitude { get; set; }
-    public decimal? Longitude { get; set; }
+    public decimal Latitude { get; set; }
+    public decimal Longitude { get; set; }
 
     public string? ContactPhone { get; set; }
     public string? ContactEmail { get; set; }

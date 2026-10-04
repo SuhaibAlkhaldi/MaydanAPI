@@ -793,6 +793,10 @@ public class ProjectServiceTests
         public ISystemConfigurationRepository SystemConfigurations => throw new NotSupportedException();
         public IServiceRepository Services => throw new NotSupportedException();
 
+        public Task ExecuteInTransactionAsync(Func<Task> operation, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
 
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Task.FromResult(1);
     }

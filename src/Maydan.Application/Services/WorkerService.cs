@@ -241,7 +241,7 @@ public class WorkerService : IWorkerService
         }
 
         
-        _unitOfWork.Workers.Remove(worker);
+        await _unitOfWork.Workers.Remove(worker);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Ok<object?>(null, "تم حذف العامل بنجاح.", "Worker deleted successfully.");

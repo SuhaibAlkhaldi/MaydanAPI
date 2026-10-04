@@ -1,4 +1,5 @@
 using Maydan.Application.DTOs.Associations;
+using Maydan.Application.DTOs.Common;
 
 namespace Maydan.Application.Interfaces;
 
@@ -13,16 +14,16 @@ namespace Maydan.Application.Interfaces;
 // (EntityType.Association-scoped) come back together.
 public interface IAssociationService
 {
-    Task<List<AssociationDto>> GetAllAsync(int currentUserId, CancellationToken cancellationToken = default);
-    Task<AssociationDto> GetByIdAsync(int currentUserId, int associationId, CancellationToken cancellationToken = default);
-    Task<AssociationDetailsDto> GetDetailsAsync(int currentUserId, int associationId, CancellationToken cancellationToken = default);
-    Task<List<AssociationDto>> SearchByNameAsync(int currentUserId, string name, CancellationToken cancellationToken = default);
-    Task<List<AssociationDto>> GetOrderedByWorkersCountAsync(int currentUserId, bool ascending, CancellationToken cancellationToken = default);
-    Task<List<AssociationDto>> GetDeletedAsync(int currentUserId, CancellationToken cancellationToken = default);
-    Task<List<AssociationDto>> SearchDeletedByNameAsync(int currentUserId, string name, CancellationToken cancellationToken = default);
+    Task<ApiResponse<List<AssociationDto>>> GetAllAsync(int currentUserId, CancellationToken cancellationToken = default);
+    Task<ApiResponse<AssociationDto>> GetByIdAsync(int currentUserId, int associationId, CancellationToken cancellationToken = default);
+    Task<ApiResponse<AssociationDetailsDto>> GetDetailsAsync(int currentUserId, int associationId, CancellationToken cancellationToken = default);
+    Task<ApiResponse<List<AssociationDto>>> SearchByNameAsync(int currentUserId, string name, CancellationToken cancellationToken = default);
+    Task<ApiResponse<List<AssociationDto>>> GetOrderedByWorkersCountAsync(int currentUserId, bool ascending, CancellationToken cancellationToken = default);
+    Task<ApiResponse<List<AssociationDto>>> GetDeletedAsync(int currentUserId, CancellationToken cancellationToken = default);
+    Task<ApiResponse<List<AssociationDto>>> SearchDeletedByNameAsync(int currentUserId, string name, CancellationToken cancellationToken = default);
 
-    Task<AssociationDto> CreateAsync(int currentUserId, CreateAssociationDto dto, CancellationToken cancellationToken = default);
-    Task<AssociationDto> UpdateAsync(int currentUserId, UpdateAssociationDto dto, CancellationToken cancellationToken = default);
-    Task DeleteAsync(int currentUserId, int associationId, CancellationToken cancellationToken = default);
-    Task<AssociationDto> RestoreAsync(int currentUserId, int associationId, CancellationToken cancellationToken = default);
+    Task<ApiResponse<AssociationDto>> CreateAsync(int currentUserId, CreateAssociationDto dto, CancellationToken cancellationToken = default);
+    Task<ApiResponse<AssociationDto>> UpdateAsync(int currentUserId, UpdateAssociationDto dto, CancellationToken cancellationToken = default);
+    Task<ApiResponse<bool>> DeleteAsync(int currentUserId, int associationId, CancellationToken cancellationToken = default);
+    Task<ApiResponse<AssociationDto>> RestoreAsync(int currentUserId, int associationId, CancellationToken cancellationToken = default);
 }
