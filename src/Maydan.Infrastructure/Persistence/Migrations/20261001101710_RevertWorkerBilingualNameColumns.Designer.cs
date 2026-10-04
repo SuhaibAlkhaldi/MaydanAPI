@@ -4,6 +4,7 @@ using Maydan.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Maydan.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(MaydanDbContext))]
-    partial class MaydanDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261001101710_RevertWorkerBilingualNameColumns")]
+    partial class RevertWorkerBilingualNameColumns
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1022,30 +1025,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                             PermissionNameAr = "إدارة إعدادات النظام",
                             PermissionNameEn = "Manage System Configuration",
                             UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            PermissionId = 39,
-                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Id = 0,
-                            IsActive = true,
-                            IsDeleted = false,
-                            Module = "Associations",
-                            PermissionNameAr = "إدارة مستخدمي الجمعيات",
-                            PermissionNameEn = "Manage Association Users",
-                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            PermissionId = 40,
-                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Id = 0,
-                            IsActive = true,
-                            IsDeleted = false,
-                            Module = "ProductionCompanies",
-                            PermissionNameAr = "إدارة مستخدمي شركة الإنتاج",
-                            PermissionNameEn = "Manage Production Company Users",
-                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
                         });
                 });
 
@@ -1767,18 +1746,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
-                            RoleId = 1,
-                            PermissionId = 39,
-                            IsActive = true
-                        },
-                        new
-                        {
-                            RoleId = 1,
-                            PermissionId = 40,
-                            IsActive = true
-                        },
-                        new
-                        {
                             RoleId = 2,
                             PermissionId = 1,
                             IsActive = true
@@ -1899,12 +1866,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
-                            RoleId = 3,
-                            PermissionId = 40,
-                            IsActive = true
-                        },
-                        new
-                        {
                             RoleId = 4,
                             PermissionId = 1,
                             IsActive = true
@@ -1937,12 +1898,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         {
                             RoleId = 4,
                             PermissionId = 14,
-                            IsActive = true
-                        },
-                        new
-                        {
-                            RoleId = 4,
-                            PermissionId = 39,
                             IsActive = true
                         },
                         new
@@ -2032,100 +1987,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         .HasFilter("[IsDeleted] = 0");
 
                     b.ToTable("Services", (string)null);
-                });
-
-            modelBuilder.Entity("Maydan.Domain.Entities.ServiceRequest", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("AdditionalRequirements")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<int>("AssociationId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("AttendanceFrequency")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("CancelledAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("CreatedBy")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("EndDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<decimal>("ExpectedTotalAmount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("IdempotencyKey")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("ProductionCompanyId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("ProjectId")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("ReminderSent")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("RequestedWorkersCount")
-                        .HasColumnType("int");
-
-                    b.Property<int>("SelectedWorkersCount")
-                        .HasColumnType("int");
-
-                    b.Property<int>("ServiceId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("ShiftsCount")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("StartDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("UnitPriceSnapshot")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AssociationId");
-
-                    b.HasIndex("ProductionCompanyId");
-
-                    b.HasIndex("ProjectId");
-
-                    b.HasIndex("ServiceId");
-
-                    b.ToTable("ServiceRequests", (string)null);
                 });
 
             modelBuilder.Entity("Maydan.Domain.Entities.SystemConfiguration", b =>
@@ -2757,41 +2618,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Navigation("Role");
                 });
 
-            modelBuilder.Entity("Maydan.Domain.Entities.ServiceRequest", b =>
-                {
-                    b.HasOne("Maydan.Domain.Entities.Association", "Association")
-                        .WithMany()
-                        .HasForeignKey("AssociationId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Maydan.Domain.Entities.ProductionCompany", "ProductionCompany")
-                        .WithMany()
-                        .HasForeignKey("ProductionCompanyId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Maydan.Domain.Entities.Project", "Project")
-                        .WithMany()
-                        .HasForeignKey("ProjectId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Maydan.Domain.Entities.Service", "Service")
-                        .WithMany("ServiceRequests")
-                        .HasForeignKey("ServiceId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Association");
-
-                    b.Navigation("ProductionCompany");
-
-                    b.Navigation("Project");
-
-                    b.Navigation("Service");
-                });
-
             modelBuilder.Entity("Maydan.Domain.Entities.User", b =>
                 {
                     b.HasOne("Maydan.Domain.Entities.Role", "Role")
@@ -2931,11 +2757,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Navigation("RolePermissions");
 
                     b.Navigation("Users");
-                });
-
-            modelBuilder.Entity("Maydan.Domain.Entities.Service", b =>
-                {
-                    b.Navigation("ServiceRequests");
                 });
 
             modelBuilder.Entity("Maydan.Domain.Entities.User", b =>

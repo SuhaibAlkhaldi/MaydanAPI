@@ -10,10 +10,12 @@ public interface IProjectService
         CancellationToken cancellationToken = default);
 
     Task<List<ProjectDto>> GetAllAsync(
+        int currentUserId,
         ProjectQueryDto query,
         CancellationToken cancellationToken = default);
 
     Task<ProjectDto> GetByIdAsync(
+        int currentUserId,
         int id,
         CancellationToken cancellationToken = default);
 

@@ -36,6 +36,14 @@ public class ProjectServiceTests
         IsActive = true
     };
 
+    private static Role NewEmptyRole(int roleId) => new()
+    {
+        RoleId = roleId,
+        RoleNameEn = $"Role {roleId}",
+        RoleNameAr = $"Role {roleId}",
+        IsActive = true
+    };
+
     private static CreateProjectDto ValidCreateDto(int producerUserId, int locationManagerUserId, int projectTypeId) => new()
     {
         ProjectNameEn = "New Documentary",
@@ -206,10 +214,53 @@ public class ProjectServiceTests
             projectTypes: [projectType],
             projects: [project]);
 
-        var results = await service.GetAllAsync(new ProjectQueryDto { IsDeleted = false });
+        var results = await service.GetAllAsync(producer.UserId, new ProjectQueryDto { IsDeleted = false });
 
         Assert.Single(results);
         Assert.Equal(10, results[0].Id);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_ProductionCompanyUserWithoutAllProjectsPermission_SeesOnlyAssignedProjects()
+    {
+        var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
+        currentUser.Role = NewEmptyRole(currentUser.RoleId);
+
+        var otherProducer = NewUser(2, EntityType.ProductionCompany, 5);
+        var locationManager = NewUser(3, EntityType.ProductionCompany, 5);
+        var projectType = NewProjectType(7);
+        var assignedProject = NewProject(id: 10, otherProducer.UserId, currentUser.UserId, projectType.Id, productionCompanyId: 5);
+        var hiddenProject = NewProject(id: 11, otherProducer.UserId, locationManager.UserId, projectType.Id, productionCompanyId: 5);
+
+        var (service, _) = BuildService(
+            users: [currentUser, otherProducer, locationManager],
+            projectTypes: [projectType],
+            projects: [assignedProject, hiddenProject]);
+
+        var results = await service.GetAllAsync(currentUser.UserId, new ProjectQueryDto { IsDeleted = false });
+
+        var result = Assert.Single(results);
+        Assert.Equal(assignedProject.Id, result.Id);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_UnassignedProductionCompanyUserWithoutAllProjectsPermission_ThrowsUnauthorizedAccessException()
+    {
+        var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
+        currentUser.Role = NewEmptyRole(currentUser.RoleId);
+
+        var producer = NewUser(2, EntityType.ProductionCompany, 5);
+        var locationManager = NewUser(3, EntityType.ProductionCompany, 5);
+        var projectType = NewProjectType(7);
+        var project = NewProject(id: 10, producer.UserId, locationManager.UserId, projectType.Id, productionCompanyId: 5);
+
+        var (service, _) = BuildService(
+            users: [currentUser, producer, locationManager],
+            projectTypes: [projectType],
+            projects: [project]);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(
+            () => service.GetByIdAsync(currentUser.UserId, project.Id));
     }
 
     [Fact]
@@ -225,7 +276,7 @@ public class ProjectServiceTests
             projectTypes: [projectType],
             projects: [project]);
 
-        var result = await service.GetByIdAsync(10);
+        var result = await service.GetByIdAsync(producer.UserId, 10);
 
         Assert.Equal(10, result.Id);
         Assert.Equal(projectType.NameEn, result.ProjectTypeNameEn);
@@ -234,9 +285,10 @@ public class ProjectServiceTests
     [Fact]
     public async Task GetByIdAsync_MissingProject_ThrowsKeyNotFoundException()
     {
-        var (service, _) = BuildService(users: [], projectTypes: []);
+        var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
+        var (service, _) = BuildService(users: [currentUser], projectTypes: []);
 
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.GetByIdAsync(404));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.GetByIdAsync(currentUser.UserId, 404));
     }
 
     [Fact]
@@ -255,7 +307,7 @@ public class ProjectServiceTests
 
         // Mirrors MaydanDbContext's global soft-delete query filter — a deleted project is
         // invisible to the normal get-by-id path, the same way it would 404 in production.
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.GetByIdAsync(10));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.GetByIdAsync(producer.UserId, 10));
     }
 
     // ---------------------------------------------------------------------
@@ -549,10 +601,53 @@ public class ProjectServiceTests
         public Task<User?> GetDetailsReadOnlyAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<User?> GetByUserNameEnAsync(User user, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<User?> GetByUserNameArAsync(User user, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<User?> GetWithPermissionsAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<User?> GetWithPermissionsAsync(int userId, CancellationToken cancellationToken = default)
+        {
+            var user = _usersById.GetValueOrDefault(userId);
+            if (user is not null && user.Role == null)
+            {
+                user.Role = BuildProjectRole(user.RoleId);
+            }
+
+            return Task.FromResult(user);
+        }
         public Task<List<User>> GetByIdsInEntityAsync(IEnumerable<int> userIds, EntityType entityType, int entityId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task AddAsync(User user, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public void Remove(User user) => throw new NotSupportedException();
+
+        private static Role BuildProjectRole(int roleId)
+        {
+            var role = new Role
+            {
+                RoleId = roleId,
+                RoleNameEn = $"Role {roleId}",
+                RoleNameAr = $"Role {roleId}",
+                IsActive = true
+            };
+
+            foreach (var permissionId in new[] { 25, 26, 27, 28, 29, 30 })
+            {
+                var permission = new Permission
+                {
+                    PermissionId = permissionId,
+                    PermissionNameEn = $"Permission {permissionId}",
+                    PermissionNameAr = $"Permission {permissionId}",
+                    Module = "Projects",
+                    IsActive = true
+                };
+
+                role.RolePermissions.Add(new RolePermission
+                {
+                    RoleId = role.RoleId,
+                    Role = role,
+                    PermissionId = permissionId,
+                    Permission = permission,
+                    IsActive = true
+                });
+            }
+
+            return role;
+        }
     }
 
     private sealed class FakeProjectTypeRepository : IProjectTypeRepository
@@ -688,18 +783,17 @@ public class ProjectServiceTests
         public IGroupRepository Groups => throw new NotSupportedException();
         public ICountryRepository Countries => throw new NotSupportedException();
         public ICityRepository Cities => throw new NotSupportedException();
-        public ICityLocationRepository CityLocations => throw new NotSupportedException();
-        public IAssociationProjectSupervisorRepository AssociationProjectSupervisors => throw new NotSupportedException();
         public IAssociationRepository Associations => throw new NotSupportedException();
         public IProductionCompanyRepository ProductionCompanies => throw new NotSupportedException();
         public IWorkerRepository Workers => throw new NotSupportedException();
+        public ICityLocationRepository CityLocations => throw new NotSupportedException();
+        public IAssociationProjectSupervisorRepository AssociationProjectSupervisors => throw new NotSupportedException();
         public IPasswordResetTokenRepository PasswordResetTokens => throw new NotSupportedException();
         public IRefreshTokenRepository RefreshTokens => throw new NotSupportedException();
         public ISystemConfigurationRepository SystemConfigurations => throw new NotSupportedException();
         public IServiceRepository Services => throw new NotSupportedException();
 
-        public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Task.FromResult(1);
 
-        public Task ExecuteInTransactionAsync(Func<Task> operation, CancellationToken cancellationToken = default) => operation();
+        public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Task.FromResult(1);
     }
 }

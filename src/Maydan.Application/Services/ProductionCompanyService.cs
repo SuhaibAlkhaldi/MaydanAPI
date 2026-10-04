@@ -46,9 +46,36 @@ public class ProductionCompanyService : IProductionCompanyService
         return companies.Select(MapToDto).ToList();
     }
 
+    // Phase 3 of the ProductionHouse self-service user-management gap: a self-view carve-out,
+    // deliberately NOT added to the shared GetAuthorizedUserAsync below. ViewProductionCompanies/
+    // ManageProductionCompanies are oversight-only by design (MAYD-82: "Super Admin only," confirmed
+    // in this class's own const comment) — granting ProductionHouse either would also widen
+    // GetAllAsync into a full company list, which is explicitly the wrong fix. This is a pure
+    // entity-identity comparison instead, the same principle
+    // UserManagementService.GetScopedUserAsync already uses for writes ("a caller can always act on
+    // its own entity's own record"), applied here to a read: a ProductionHouse caller can view ITS
+    // OWN company's record even without the oversight permission, nothing else. GetAllAsync and
+    // UpdateStatusAsync both keep calling the untouched GetAuthorizedUserAsync exactly as before —
+    // no self-view exception for the full list, and deactivating a company stays Super-Admin-only,
+    // never self-service. Duplicating GetAuthorizedUserAsync's own body here (rather than adding a
+    // parameter to it) matches this class's own established convention of duplicating
+    // permission-checking logic per use site rather than sharing it — see GetEffectivePermissionIds'
+    // own comment.
     public async Task<ProductionCompanyDto> GetByIdAsync(int currentUserId, int productionCompanyId, CancellationToken cancellationToken = default)
     {
-        await GetAuthorizedUserAsync(currentUserId, ViewProductionCompaniesPermissionId, cancellationToken);
+        var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken)
+            ?? throw new UnauthorizedAccessException("Current user was not found.");
+
+        if (!currentUser.IsActive)
+        {
+            throw new UnauthorizedAccessException("Current user is inactive.");
+        }
+
+        var isOwnCompany = currentUser.EntityType == EntityType.ProductionCompany && currentUser.EntityId == productionCompanyId;
+        if (!isOwnCompany && !GetEffectivePermissionIds(currentUser).Overlaps(new[] { ViewProductionCompaniesPermissionId, ManageProductionCompaniesPermissionId }))
+        {
+            throw new UnauthorizedAccessException("Caller does not hold the required Production Companies permission.");
+        }
 
         var company = await _unitOfWork.ProductionCompanies.GetByIdAsync(productionCompanyId, cancellationToken)
             ?? throw new KeyNotFoundException("Production company was not found.");

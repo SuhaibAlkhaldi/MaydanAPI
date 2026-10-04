@@ -36,9 +36,14 @@ public class ProjectsController : ApiControllerBase
         [FromQuery] ProjectQueryDto query,
         CancellationToken cancellationToken)
     {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized(new { message = "Current user id is required." });
+        }
+
         try
         {
-            return Ok(await _projectService.GetAllAsync(query, cancellationToken));
+            return Ok(await _projectService.GetAllAsync(currentUserId, query, cancellationToken));
         }
         catch (Exception exception)
         {
@@ -51,9 +56,14 @@ public class ProjectsController : ApiControllerBase
         int id,
         CancellationToken cancellationToken)
     {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized(new { message = "Current user id is required." });
+        }
+
         try
         {
-            return Ok(await _projectService.GetByIdAsync(id, cancellationToken));
+            return Ok(await _projectService.GetByIdAsync(currentUserId, id, cancellationToken));
         }
         catch (Exception exception)
         {

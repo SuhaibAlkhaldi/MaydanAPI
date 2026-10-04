@@ -102,7 +102,28 @@ namespace Maydan.Infrastructure.Persistence.Seed
                 // System Configuration gate (MAYD-133, 2026-09-24): gates the SMTP configuration
                 // admin screen (SystemConfigurationController). Bayt-AlUrdon only — same
                 // dedicated-permission shape as Onboard Entities above, not a reuse of ManageUsers.
-                Seed(38, "Manage System Configuration", "إدارة إعدادات النظام", "SystemConfiguration")
+                Seed(38, "Manage System Configuration", "إدارة إعدادات النظام", "SystemConfiguration"),
+
+                // Closes the real gap where nobody could activate/deactivate an Association's own
+                // users: Bayt-AlUrdon/ASEZA hold ManageUsers but UpdateUserStatusAsync's
+                // GetScopedUserAsync call is strict same-entity with no cross-entity override (by
+                // design — see that method's own comment), and the Association role never held
+                // ManageUsers itself. Self-service, not a cross-entity override — same module as
+                // ViewAssociationUsers (id 14) rather than "Users", and deliberately its own
+                // dedicated permission rather than granting the Association role the broader
+                // ManageUsers (which would also unlock UpdateDirectPermissionsAsync/UpdateGroupsAsync
+                // for its own users, well beyond this gap's actual scope).
+                Seed(39, "Manage Association Users", "إدارة مستخدمي الجمعيات", "Associations"),
+
+                // Phase 1 of the ProductionHouse self-service user-management gap (same root cause,
+                // same fix shape as id 39 above): nobody with the ProductionHouse role holds
+                // ManageUsers either (confirmed in RolePermissionSeedConfiguration.cs's
+                // productionHousePermissions array), so UpdateUserStatusAsync rejected every
+                // ProductionHouse account trying to activate/deactivate its own users. Same module as
+                // ViewProductionCompanies/ManageProductionCompanies (ids 19/20) rather than "Users",
+                // and deliberately its own dedicated permission for the same reason id 39 is — this
+                // only ever covers activate/deactivate, not the broader ManageUsers surface.
+                Seed(40, "Manage Production Company Users", "إدارة مستخدمي شركة الإنتاج", "ProductionCompanies")
             );
         }
     }

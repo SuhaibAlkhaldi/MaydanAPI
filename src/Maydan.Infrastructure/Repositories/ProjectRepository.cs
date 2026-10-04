@@ -66,6 +66,7 @@ public class ProjectRepository : IProjectRepository
         int? searchByProductionCompanyId,
         CancellationToken cancellationToken = default)
     {
+
         // The global soft-delete filter already excludes IsDeleted rows for the normal (active)
         // view, so only the deleted view needs to explicitly ignore it.
         IQueryable<Project> query = isDeleted
