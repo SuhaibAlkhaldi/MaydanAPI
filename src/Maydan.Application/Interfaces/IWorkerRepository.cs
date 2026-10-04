@@ -20,5 +20,17 @@ public interface IWorkerRepository
     Task<List<Worker>> GetDeletedByAssociationIdAsync(int associationId, CancellationToken cancellationToken = default);
 
     Task AddAsync(Worker worker, CancellationToken cancellationToken = default);
+
+    Task<List<Worker>> QueryAsync(
+    bool isDeleted,
+    int? associationId = null,
+    bool? orderByYearsOfExperienceAscending = null,
+    bool? orderByNameEnAscending = null,
+    bool? orderByNameArAscending = null,
+    CancellationToken cancellationToken = default);
+
+
+
+    Task Remove(Worker worker, CancellationToken cancellationToken = default);
     void Remove(Worker worker);
 }
