@@ -1,22 +1,12 @@
 using Maydan.API.Filters;
 using Maydan.Application.DTOs.Auth;
+using Maydan.Application.DTOs.Common;
 using Maydan.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Maydan.API.Controllers;
 
-// Deliberately public: login and reset-password both authenticate the caller via credentials
-// in the request body (email/password), not a Bearer token — there is no session yet at the
-// point these actions run. AllowAnonymous is explicit here so this reads as an intentional
-// choice, not an oversight, now that GroupsController/PermissionsController/UsersController
-// all carry [Authorize].
-//
-// [BypassSystemConfigurationGate] (MAYD-133, 2026-09-24): most of this controller predates having
-// any session at all, so the gate would never fire for it anyway — but logout() does run with a
-// real Bearer token from an authenticated super admin, and Business Rule #5 explicitly carves out
-// "auth/logout" as always reachable regardless of configuration state (an unconfigured super admin
-// must still be able to log out).
 [AllowAnonymous]
 [BypassSystemConfigurationGate]
 [Route("api/auth")]
@@ -32,15 +22,12 @@ public class AuthController : ApiControllerBase
     }
 
     [HttpPost("login", Name = "Login User")]
-    public async Task<ActionResult<LoginResponseDto>> Login([FromBody] LoginRequestDto dto, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<LoginResponseDto>>> Login([FromBody] LoginRequestDto dto, CancellationToken cancellationToken)
     {
         try
         {
-            return Ok(await _authService.LoginAsync(dto, cancellationToken));
-        }
-        catch (UnauthorizedAccessException exception)
-        {
-            return Unauthorized(new { message = exception.Message });
+            var response = await _authService.LoginAsync(dto, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -49,15 +36,12 @@ public class AuthController : ApiControllerBase
     }
 
     [HttpPost("reset-password", Name = "Reset Password")]
-    public async Task<ActionResult<LoginResponseDto>> ResetPassword([FromBody] ResetPasswordDto dto, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<LoginResponseDto>>> ResetPassword([FromBody] ResetPasswordDto dto, CancellationToken cancellationToken)
     {
         try
         {
-            return Ok(await _authService.ResetPasswordAsync(dto, cancellationToken));
-        }
-        catch (UnauthorizedAccessException exception)
-        {
-            return Unauthorized(new { message = exception.Message });
+            var response = await _authService.ResetPasswordAsync(dto, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -65,15 +49,13 @@ public class AuthController : ApiControllerBase
         }
     }
 
-    // Forgot-password recovery, step 1 (MAYD-128, 2026-09-23). Same AllowAnonymous rationale as
-    // the rest of this controller. Always 200 with the same body regardless of whether the email
-    // is registered — see AuthService.ForgotPasswordAsync's own comment on why.
     [HttpPost("forgot-password", Name = "Forgot Password")]
-    public async Task<ActionResult<ForgotPasswordResponseDto>> ForgotPassword([FromBody] ForgotPasswordDto dto, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<ForgotPasswordResponseDto>>> ForgotPassword([FromBody] ForgotPasswordDto dto, CancellationToken cancellationToken)
     {
         try
         {
-            return Ok(await _authService.ForgotPasswordAsync(dto, cancellationToken));
+            var response = await _authService.ForgotPasswordAsync(dto, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -81,16 +63,13 @@ public class AuthController : ApiControllerBase
         }
     }
 
-    // Forgot-password recovery, step 2 (MAYD-129/130, 2026-09-23). Deliberately a different route
-    // name/shape than 'reset-password' above — that one requires the CURRENT password (forced-
-    // first-login / the existing "تغيير كلمة المرور" flow); this one is gated by the emailed token
-    // instead, with no current password involved at all.
     [HttpPost("reset-password-with-token", Name = "Reset Password With Token")]
-    public async Task<ActionResult<ResetPasswordWithTokenResponseDto>> ResetPasswordWithToken([FromBody] ResetPasswordWithTokenDto dto, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<ResetPasswordWithTokenResponseDto>>> ResetPasswordWithToken([FromBody] ResetPasswordWithTokenDto dto, CancellationToken cancellationToken)
     {
         try
         {
-            return Ok(await _authService.ResetPasswordWithTokenAsync(dto, cancellationToken));
+            var response = await _authService.ResetPasswordWithTokenAsync(dto, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -98,23 +77,13 @@ public class AuthController : ApiControllerBase
         }
     }
 
-    // Real 3-week session persistence (MAYD-131/132, 2026-09-23). Same AllowAnonymous rationale as
-    // the rest of this controller — a refresh call happens precisely when no valid access token
-    // exists, so there's nothing to Authorize against yet; the refresh token in the body is what
-    // proves the caller's identity here.
     [HttpPost("refresh", Name = "Refresh Access Token")]
-    public async Task<ActionResult<RefreshTokenResponseDto>> Refresh([FromBody] RefreshTokenRequestDto dto, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<RefreshTokenResponseDto>>> Refresh([FromBody] RefreshTokenRequestDto dto, CancellationToken cancellationToken)
     {
         try
         {
-            return Ok(await _authService.RefreshTokenAsync(dto, cancellationToken));
-        }
-        // Same explicit 401 treatment as Login's own catch above — HandleException alone maps
-        // UnauthorizedAccessException to 403 Forbid, which is the wrong signal for "this refresh
-        // token is invalid/expired/already used" (see AuthService.RefreshTokenAsync's own comment).
-        catch (UnauthorizedAccessException exception)
-        {
-            return Unauthorized(new { message = exception.Message });
+            var response = await _authService.RefreshTokenAsync(dto, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -122,14 +91,13 @@ public class AuthController : ApiControllerBase
         }
     }
 
-    // Real 3-week session persistence (MAYD-131/132, 2026-09-23) — finally implements what the
-    // frontend's AuthService.ts has called for a while (see that file's own comment history).
     [HttpPost("logout", Name = "Logout")]
-    public async Task<ActionResult<LogoutResponseDto>> Logout([FromBody] LogoutRequestDto dto, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<LogoutResponseDto>>> Logout([FromBody] LogoutRequestDto dto, CancellationToken cancellationToken)
     {
         try
         {
-            return Ok(await _authService.LogoutAsync(dto, cancellationToken));
+            var response = await _authService.LogoutAsync(dto, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -137,23 +105,24 @@ public class AuthController : ApiControllerBase
         }
     }
 
-    // Entity onboarding Stage 1 (2026-09-22): public production-company self-registration — same
-    // AllowAnonymous rationale as the rest of this controller, since there's no session at all yet
-    // (not even a user to log in as until this call succeeds). Instant activation (confirmed
-    // product decision) is treated as "tell them it worked, they log in" rather than "land them
-    // logged in": a fresh registration exercising the real LoginAsync path on the very next request
-    // catches any auth-invariant bug immediately, rather than this endpoint quietly reimplementing
-    // token issuance a second time for a one-time moment.
     [HttpPost("register-production-company", Name = "Register Production Company")]
-    public async Task<ActionResult<RegisterProductionCompanyResponseDto>> RegisterProductionCompany(
-        [FromBody] RegisterProductionCompanyDto dto, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<RegisterProductionCompanyResponseDto>>> RegisterProductionCompany(
+         [FromBody] RegisterProductionCompanyDto dto, CancellationToken cancellationToken)
     {
         try
         {
             var result = await _productionCompanyOnboardingService.RegisterAsync(dto, cancellationToken);
+            var response = new ApiResponse<RegisterProductionCompanyResponseDto>(
+                success: true,
+                messageAr: "تم تسجيل شركة الإنتاج بنجاح.",
+                messageEn: "Production company registered successfully.",
+                data: result,
+                statusCode: 201
+            );
+
             // No GET-by-id endpoint exists for production companies yet (no ProductionCompaniesController
             // at all) — this Location URI is a placeholder for when one is added, not a live route.
-            return Created($"api/production-companies/{result.ProductionCompanyId}", result);
+            return Created($"api/production-companies/{result.ProductionCompanyId}", response);
         }
         catch (Exception exception)
         {
