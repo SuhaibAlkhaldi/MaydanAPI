@@ -196,7 +196,7 @@ public class UsersController : ApiControllerBase
         try
         {
             return Ok(await _userManagementService.GetEffectivePermissionsAsync(currentUserId, userId, cancellationToken));
-        }
+        } 
         catch (Exception exception)
         {
             return HandleException(exception);
