@@ -22,19 +22,20 @@ public class ServiceRequestService : IServiceRequestService
     public async Task<AssociationLookupDto> ResolveAssociationByCityIdAsync(int currentUserId, int cityId, CancellationToken cancellationToken = default)
     {
         // authorization: ensure caller is authenticated and has Request Service permission
-        var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken) ?? throw new UnauthorizedAccessException("Current user was not found.");
+        var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken) ?? throw new Maydan.Application.Exceptions.BilingualException("المستخدم الحالي غير موجود.", "Current user was not found.");
         if (!currentUser.IsActive)
         {
-            throw new UnauthorizedAccessException("Current user is inactive.");
+            throw new Maydan.Application.Exceptions.BilingualException("حساب المستخدم الحالي غير نشط.", "Current user is inactive.");
+
         }
 
         if (!GetEffectivePermissionIds(currentUser).Contains(RequestServicePermissionId) && !GetEffectivePermissionIds(currentUser).Contains(ManageServiceRequestsPermissionId))
         {
-            throw new UnauthorizedAccessException("Caller does not hold Request Service permission.");
+            throw new Maydan.Application.Exceptions.BilingualException("لا يملك المستخدم صلاحية طلب الخدمة.", "Caller does not hold Request Service permission.");
         }
 
         var association = await _unitOfWork.Associations.GetByCityIdAsync(cityId, cancellationToken) 
-            ?? throw new KeyNotFoundException("No association found for the specified city.");
+            ?? throw new Maydan.Application.Exceptions.BilingualException("لم يتم العثور على جمعية مرتبطة بالمدينة المحددة.", "No association found for the specified city.");
 
         return new AssociationLookupDto
         {
@@ -51,28 +52,28 @@ public class ServiceRequestService : IServiceRequestService
     {
         // Authorization: ensure user exists and holds Request Service permission
         var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken)
-            ?? throw new UnauthorizedAccessException("Current user was not found.");
+            ?? throw new Maydan.Application.Exceptions.BilingualException("لم يتم العثور على المستخدم الحالي.", "Current user was not found.");
 
         if (!currentUser.IsActive)
         {
-            throw new UnauthorizedAccessException("Current user is inactive.");
+            throw new Maydan.Application.Exceptions.BilingualException("حساب المستخدم الحالي غير نشط.", "Current user is inactive.");
         }
 
         if (!GetEffectivePermissionIds(currentUser).Contains(RequestServicePermissionId) && !GetEffectivePermissionIds(currentUser).Contains(ManageServiceRequestsPermissionId))
         {
-            throw new UnauthorizedAccessException("Caller does not hold Request Service permission.");
+            throw new Maydan.Application.Exceptions.BilingualException("لا يملك المستخدم صلاحية طلب الخدمة.", "Caller does not hold Request Service permission.");
         }
 
         // Validate project and production company membership
-        var project = await _unitOfWork.Projects.GetByIdAsync(dto.ProjectId, cancellationToken) ?? throw new KeyNotFoundException("Project was not found.");
+        var project = await _unitOfWork.Projects.GetByIdAsync(dto.ProjectId, cancellationToken) ?? throw new Maydan.Application.Exceptions.BilingualException("لم يتم العثور على المشروع.", "Project was not found.");
         if (currentUser.EntityType != Domain.Enums.EntityType.ProductionCompany || currentUser.EntityId != project.ProductionCompanyId)
         {
-            throw new UnauthorizedAccessException("Caller must belong to the production company that owns the project.");
+            throw new Maydan.Application.Exceptions.BilingualException("يجب أن ينتمي المستخدم إلى شركة الإنتاج التي تملك المشروع.", "Caller must belong to the production company that owns the project.");
         }
 
         // Find an association in the requested city (server-side query)
         var association = await _unitOfWork.Associations.GetByCityIdAsync(dto.CityId, cancellationToken) 
-            ?? throw new KeyNotFoundException("No association found for the specified city.");
+            ?? throw new Maydan.Application.Exceptions.BilingualException("لم يتم العثور على جمعية مرتبطة بالمدينة المحددة.", "No association found for the specified city.");
 
         // Idempotency / duplicate prevention: check via server-side query
         if (!string.IsNullOrWhiteSpace(dto.IdempotencyKey))
@@ -80,7 +81,7 @@ public class ServiceRequestService : IServiceRequestService
             var existingRequest = await _unitOfWork.ServiceRequests.GetByIdempotencyKeyAsync(dto.IdempotencyKey, project.ProductionCompanyId, cancellationToken);
             if (existingRequest != null)
             {
-                throw new InvalidOperationException("Duplicate service request detected.");
+                throw new Maydan.Application.Exceptions.BilingualException("تعذرت إنشاء طلب خدمة مكرر.", "Duplicate service request detected.");
             }
         }
 
@@ -106,7 +107,7 @@ public class ServiceRequestService : IServiceRequestService
         };
 
         // Snapshot the current service price
-        var service = await _unitOfWork.Services.GetByIdAsync(dto.ServiceId, cancellationToken) ?? throw new KeyNotFoundException("Service was not found.");
+        var service = await _unitOfWork.Services.GetByIdAsync(dto.ServiceId, cancellationToken) ?? throw new Maydan.Application.Exceptions.BilingualException("لم يتم العثور على الخدمة.", "Service was not found.");
         sr.UnitPriceSnapshot = service.Price;
 
         // Calculate expected total amount based on time unit
@@ -124,7 +125,7 @@ public class ServiceRequestService : IServiceRequestService
                 // Hour = Direct: (service.Price * hourCount) * requestedWorkers
                 (service.Price * dto.ShiftsCount) * dto.RequestedWorkersCount,
 
-            _ => throw new InvalidOperationException("Invalid time unit.")
+            _ => throw new Maydan.Application.Exceptions.BilingualException("وحدة الوقت غير صالحة.", "Invalid time unit.")
         };
 
         await _unitOfWork.ServiceRequests.AddAsync(sr, cancellationToken);
@@ -165,10 +166,10 @@ public class ServiceRequestService : IServiceRequestService
 
     public async Task<List<ServiceRequestDto>> GetAllAsync(int currentUserId, CancellationToken cancellationToken = default)
     {
-        var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken) ?? throw new UnauthorizedAccessException("Current user was not found.");
+        var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken) ?? throw new Maydan.Application.Exceptions.BilingualException("لم يتم العثور على المستخدم الحالي.", "Current user was not found.");
         if (!GetEffectivePermissionIds(currentUser).Contains(ViewServiceRequestsPermissionId) && !GetEffectivePermissionIds(currentUser).Contains(ManageServiceRequestsPermissionId))
         {
-            throw new UnauthorizedAccessException("Caller does not hold View Service Requests permission.");
+            throw new Maydan.Application.Exceptions.BilingualException("لا يملك المستخدم صلاحية عرض طلبات الخدمة.", "Caller does not hold View Service Requests permission.");
         }
 
         List<ServiceRequest> results;
@@ -191,22 +192,22 @@ public class ServiceRequestService : IServiceRequestService
 
     public async Task<ServiceRequestDetailsDto> GetByIdAsync(int currentUserId, int id, CancellationToken cancellationToken = default)
     {
-        var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken) ?? throw new UnauthorizedAccessException("Current user was not found.");
+        var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken) ?? throw new Maydan.Application.Exceptions.BilingualException("لم يتم العثور على المستخدم الحالي.", "Current user was not found.");
         if (!GetEffectivePermissionIds(currentUser).Contains(ViewServiceRequestsPermissionId) && !GetEffectivePermissionIds(currentUser).Contains(ManageServiceRequestsPermissionId))
         {
-            throw new UnauthorizedAccessException("Caller does not hold View Service Requests permission.");
+            throw new Maydan.Application.Exceptions.BilingualException("لا يملك المستخدم صلاحية عرض طلبات الخدمة.", "Caller does not hold View Service Requests permission.");
         }
 
-        var sr = await _unitOfWork.ServiceRequests.GetByIdAsync(id, cancellationToken) ?? throw new KeyNotFoundException("Service request was not found.");
+        var sr = await _unitOfWork.ServiceRequests.GetByIdAsync(id, cancellationToken) ?? throw new Maydan.Application.Exceptions.BilingualException("لم يتم العثور على طلب الخدمة.", "Service request was not found.");
 
         // Ensure the caller is allowed to view this request: same production company or same association
         if (currentUser.EntityType == Domain.Enums.EntityType.ProductionCompany && currentUser.EntityId != sr.ProductionCompanyId)
         {
-            throw new UnauthorizedAccessException("Caller is not authorized to view this service request.");
+            throw new Maydan.Application.Exceptions.BilingualException("ليس لديك الصلاحية لعرض هذا طلب الخدمة.", "Caller is not authorized to view this service request.");
         }
         if (currentUser.EntityType == Domain.Enums.EntityType.Association && currentUser.EntityId != sr.AssociationId)
         {
-            throw new UnauthorizedAccessException("Caller is not authorized to view this service request.");
+            throw new Maydan.Application.Exceptions.BilingualException("ليس لديك الصلاحية لعرض هذا طلب الخدمة.", "Caller is not authorized to view this service request.");
         }
 
         // Map to details DTO
@@ -240,14 +241,14 @@ public class ServiceRequestService : IServiceRequestService
 
     public async Task CancelAsync(int currentUserId, int id, CancellationToken cancellationToken = default)
     {
-        var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken) ?? throw new UnauthorizedAccessException("Current user was not found.");
+        var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken) ?? throw new Maydan.Application.Exceptions.BilingualException("لم يتم العثور على المستخدم الحالي.", "Current user was not found.");
 
         if (!GetEffectivePermissionIds(currentUser).Contains(RequestServicePermissionId) && !GetEffectivePermissionIds(currentUser).Contains(ManageServiceRequestsPermissionId))
         {
-            throw new UnauthorizedAccessException("Caller does not hold Request Service permission.");
+            throw new Maydan.Application.Exceptions.BilingualException("لا يملك المستخدم صلاحية طلب الخدمة.", "Caller does not hold Request Service permission.");
         }
 
-        var sr = await _unitOfWork.ServiceRequests.GetByIdAsync(id, cancellationToken) ?? throw new KeyNotFoundException("Service request was not found.");
+        var sr = await _unitOfWork.ServiceRequests.GetByIdAsync(id, cancellationToken) ?? throw new Maydan.Application.Exceptions.BilingualException("لم يتم العثور على طلب الخدمة.", "Service request was not found.");
 
         // Allow cancellation if caller is admin (ManageServiceRequests) OR the owning production company
         var effective = GetEffectivePermissionIds(currentUser);
@@ -257,13 +258,13 @@ public class ServiceRequestService : IServiceRequestService
         {
             if (currentUser.EntityType != Domain.Enums.EntityType.ProductionCompany || currentUser.EntityId != sr.ProductionCompanyId)
             {
-                throw new UnauthorizedAccessException("Only the owning production company may cancel this request.");
+                throw new Maydan.Application.Exceptions.BilingualException("ليس لديك الصلاحية لألغاء هذا طلب الخدمة.", "Only the owning production company may cancel this request.");
             }
         }
 
         if (sr.Status != Domain.Enums.ServiceRequestStatus.PendingWorkerSelection)
         {
-            throw new InvalidOperationException("Cannot cancel the request after worker assignment has started.");
+            throw new Maydan.Application.Exceptions.BilingualException("لا تستطيع الغاء الطلب بعد اتمام عملية اختيار العمال.","Cannot cancel the request after worker assignment has started.");
         }
 
         sr.Status = Domain.Enums.ServiceRequestStatus.Cancelled;
@@ -294,18 +295,18 @@ public class ServiceRequestService : IServiceRequestService
     public async Task<ExpectedPaymentCalculationDto> CalculateExpectedPaymentAsync(int currentUserId, int serviceId, int requestedWorkers, int durationCount, Domain.Enums.ServiceTimeUnit timeUnit, CancellationToken cancellationToken = default)
     {
         // Ensure caller has Request Service permission
-        var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken) ?? throw new UnauthorizedAccessException("Current user was not found.");
+        var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken) ?? throw new Maydan.Application.Exceptions.BilingualException("لم يتم العثور على المستخدم الحالي.", "Current user was not found.");
         if (!currentUser.IsActive)
         {
-            throw new UnauthorizedAccessException("Current user is inactive.");
+            throw new Maydan.Application.Exceptions.BilingualException("المستخدم الحالي غير نشط.", "Current user is inactive.");
         }
 
         if (!GetEffectivePermissionIds(currentUser).Contains(RequestServicePermissionId) && !GetEffectivePermissionIds(currentUser).Contains(ManageServiceRequestsPermissionId))
         {
-            throw new UnauthorizedAccessException("Caller does not hold Request Service permission.");
+            throw new Maydan.Application.Exceptions.BilingualException("لا يملك المستخدم صلاحية طلب الخدمة.", "Caller does not hold Request Service permission.");
         }
 
-        var service = await _unitOfWork.Services.GetByIdAsync(serviceId, cancellationToken) ?? throw new KeyNotFoundException("Service type not found.");
+        var service = await _unitOfWork.Services.GetByIdAsync(serviceId, cancellationToken) ?? throw new Maydan.Application.Exceptions.BilingualException("لم يتم العثور على نوع الخدمة.", "Service type not found.");
 
         // Calculate based on time unit
         decimal totalExpected = timeUnit switch
@@ -322,7 +323,7 @@ public class ServiceRequestService : IServiceRequestService
                 // Hour = Direct: (service.Price * durationCount) * requestedWorkers
                 (service.Price * durationCount) * requestedWorkers,
 
-            _ => throw new InvalidOperationException("Invalid time unit.")
+            _ => throw new Maydan.Application.Exceptions.BilingualException("وحدة الوقت غير صالحة.", "Invalid time unit.")
         };
 
         string timeUnitLabel = timeUnit switch
