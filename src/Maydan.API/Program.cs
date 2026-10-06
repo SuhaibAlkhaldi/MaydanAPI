@@ -8,7 +8,7 @@ using Maydan.Infrastructure.Email;
 using Maydan.Infrastructure.Persistence;
 using Maydan.Infrastructure.Repositories;
 using Maydan.Infrastructure.Security;
-using Maydan.Infrastructure.Storage;
+using Maydan.Infrastructure.Services;
 
 using Maydan.Infrastructure.Web;
 
@@ -119,6 +119,7 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseCors("Frontend");
+
 
 app.UseAuthentication();
 app.UseAuthorization();
