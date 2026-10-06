@@ -80,7 +80,7 @@ public class ProductionCompanyServiceTests
 
         var result = await service.GetAllAsync(caller.UserId, search: null, isDeleted: false);
 
-        var dto = Assert.Single(result);
+        var dto = Assert.Single(result.Data!);
         Assert.Equal("Company 10", dto.EnglishName);
         Assert.Equal("REG-10", dto.RegistrationNumber);
         Assert.Equal("Jordan", dto.CountryEnglishName);
@@ -108,7 +108,7 @@ public class ProductionCompanyServiceTests
 
         var result = await service.GetAllAsync(caller.UserId, search: null, isDeleted: false);
 
-        Assert.Empty(result);
+        Assert.Empty(result.Data!);
     }
 
     [Fact]
@@ -152,7 +152,7 @@ public class ProductionCompanyServiceTests
 
         var result = await service.UpdateStatusAsync(caller.UserId, companyA.Id, new UpdateProductionCompanyStatusDto { IsActive = false });
 
-        Assert.False(result.IsActive);
+        Assert.False(result.Data!.IsActive);
         Assert.False(companyA.IsActive);
         Assert.False(activeUserA.IsActive);
         Assert.False(alreadyInactiveUserA.IsActive);
@@ -178,7 +178,7 @@ public class ProductionCompanyServiceTests
 
         var result = await service.UpdateStatusAsync(caller.UserId, company.Id, new UpdateProductionCompanyStatusDto { IsActive = true });
 
-        Assert.True(result.IsActive);
+        Assert.True(result.Data!.IsActive);
         Assert.True(company.IsActive);
         Assert.False(cascadeDeactivatedUser.IsActive);
     }

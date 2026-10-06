@@ -3,6 +3,7 @@ using Maydan.Application.Interfaces;
 using Maydan.Application.Services;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Maydan.Application.Tests.Services;
 
@@ -86,11 +87,11 @@ public class ProjectServiceTests
 
         var result = await service.CreateAsync(ValidCreateDto(producer.UserId, locationManager.UserId, projectType.Id), currentUser.UserId);
 
-        Assert.Equal("New Documentary", result.ProjectNameEn);
-        Assert.Equal(5, result.ProductionCompanyId);
-        Assert.Equal(producer.UserId, result.ProducerUserId);
-        Assert.Equal($"{producer.FirstNameEn} {producer.LastNameEn}", result.ProducerNameEn);
-        Assert.False(result.IsDeleted);
+        Assert.Equal("New Documentary", result.Data!.ProjectNameEn);
+        Assert.Equal(5, result.Data!.ProductionCompanyId);
+        Assert.Equal(producer.UserId, result.Data!.ProducerUserId);
+        Assert.Equal($"{producer.FirstNameEn} {producer.LastNameEn}", result.Data!.ProducerNameEn);
+        Assert.False(result.Data!.IsDeleted);
         Assert.NotNull(projectRepository.AddedProject);
         Assert.Equal(currentUser.UserId, projectRepository.AddedProject!.CreatedBy);
     }
@@ -216,8 +217,8 @@ public class ProjectServiceTests
 
         var results = await service.GetAllAsync(producer.UserId, new ProjectQueryDto { IsDeleted = false });
 
-        Assert.Single(results);
-        Assert.Equal(10, results[0].Id);
+        Assert.Single(results.Data!);
+        Assert.Equal(10, results.Data![0].Id);
     }
 
     [Fact]
@@ -239,7 +240,7 @@ public class ProjectServiceTests
 
         var results = await service.GetAllAsync(currentUser.UserId, new ProjectQueryDto { IsDeleted = false });
 
-        var result = Assert.Single(results);
+        var result = Assert.Single(results.Data!);
         Assert.Equal(assignedProject.Id, result.Id);
     }
 
@@ -278,8 +279,8 @@ public class ProjectServiceTests
 
         var result = await service.GetByIdAsync(producer.UserId, 10);
 
-        Assert.Equal(10, result.Id);
-        Assert.Equal(projectType.NameEn, result.ProjectTypeNameEn);
+        Assert.Equal(10, result.Data!.Id);
+        Assert.Equal(projectType.NameEn, result.Data!.ProjectTypeNameEn);
     }
 
     [Fact]
@@ -332,10 +333,10 @@ public class ProjectServiceTests
 
         var result = await service.UpdateAsync(10, ValidUpdateDto(newProducer.UserId, locationManager.UserId, projectType.Id), currentUser.UserId);
 
-        Assert.Equal("Updated Documentary", result.ProjectNameEn);
-        Assert.Equal(newProducer.UserId, result.ProducerUserId);
+        Assert.Equal("Updated Documentary", result.Data!.ProjectNameEn);
+        Assert.Equal(newProducer.UserId, result.Data!.ProducerUserId);
         // WorkPermitImagePath was null on the update request — the existing path must survive.
-        Assert.Equal("/uploads/work-permits/original.pdf", result.WorkPermitImagePath);
+        Assert.Equal("/uploads/work-permits/original.pdf", result.Data!.WorkPermitImagePath);
     }
 
     [Fact]
@@ -358,7 +359,7 @@ public class ProjectServiceTests
 
         var result = await service.UpdateAsync(10, dto, currentUser.UserId);
 
-        Assert.Equal("/uploads/work-permits/replaced.pdf", result.WorkPermitImagePath);
+        Assert.Equal("/uploads/work-permits/replaced.pdf", result.Data!.WorkPermitImagePath);
     }
 
     [Fact]
@@ -483,7 +484,7 @@ public class ProjectServiceTests
 
         var result = await service.RestoreAsync(10, currentUser.UserId);
 
-        Assert.False(result.IsDeleted);
+        Assert.False(result.Data!.IsDeleted);
         Assert.False(project.IsDeleted);
         Assert.Null(project.DeletedAt);
     }
@@ -543,8 +544,8 @@ public class ProjectServiceTests
 
         var result = await service.GetProjectTypesAsync();
 
-        Assert.Equal(2, result.Count);
-        Assert.All(result, dto => Assert.Equal("Feature Film", dto.NameEn));
+        Assert.Equal(2, result.Data!.Count);
+        Assert.All(result.Data!, dto => Assert.Equal("Feature Film", dto.NameEn));
     }
 
     // ---------------------------------------------------------------------
@@ -792,7 +793,6 @@ public class ProjectServiceTests
         public IRefreshTokenRepository RefreshTokens => throw new NotSupportedException();
         public ISystemConfigurationRepository SystemConfigurations => throw new NotSupportedException();
         public IServiceRepository Services => throw new NotSupportedException();
-
 
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Task.FromResult(1);
 

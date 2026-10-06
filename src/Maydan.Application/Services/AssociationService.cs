@@ -238,7 +238,8 @@ public class AssociationService : IAssociationService
     // User rows with EntityType.Association + EntityId == association.Id (Phase 2b's own real
     // wiring; no separate AssociationUser link entity exists), reusing GetByEntityAsync exactly as
     // UserManagementService.GetUsersAsync/CreateUserAsync already do; "workers associated with an
-    // association" come from the SAME tracked Association.Workers collection loaded by
+    // association" come from the SAME
+    // ed Association.Workers collection loaded by
     // GetByIdWithWorkersAsync below (see that method's own comment on IAssociationRepository for
     // why — a required, Restrict-behavior Worker->Association relationship needs the collection
     // actually loaded before both sides can be marked deleted in the same SaveChanges call). Both

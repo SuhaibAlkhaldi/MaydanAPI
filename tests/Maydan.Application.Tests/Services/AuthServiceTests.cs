@@ -68,7 +68,7 @@ public class AuthServiceTests
 
             Assert.Equal(1, emailSender.SendCallCount);
             Assert.Equal(user.Email, emailSender.LastToEmail);
-            Assert.NotNull(result.Message);
+            Assert.NotNull(result.Data!.Message);
             _ = users;
         }
 
@@ -107,7 +107,7 @@ public class AuthServiceTests
             var (unknownService, _, unknownResetTokens, _, unknownEmailSender, _) = CreateService(existingUser: null);
             var unknownResult = await unknownService.ForgotPasswordAsync(new ForgotPasswordDto("nobody@example.org"));
 
-            Assert.Equal(existingResult.Message, unknownResult.Message);
+            Assert.Equal(existingResult.Data!.Message, unknownResult.Data!.Message);
             Assert.Equal(0, unknownEmailSender.SendCallCount);
             Assert.Null(unknownResetTokens.AddedToken);
         }
@@ -123,7 +123,7 @@ public class AuthServiceTests
 
             Assert.Equal(0, emailSender.SendCallCount);
             Assert.Null(resetTokens.AddedToken);
-            Assert.Contains("if an account", result.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("if an account", result.Data!.Message, StringComparison.OrdinalIgnoreCase);
         }
 
         [Fact]
@@ -161,7 +161,7 @@ public class AuthServiceTests
             Assert.Contains("already", exception.Message, StringComparison.OrdinalIgnoreCase);
 
             var result = await service.ResetPasswordWithTokenAsync(new ResetPasswordWithTokenDto(secondRawToken, "NewP@ssw0rd!", "NewP@ssw0rd!"));
-            Assert.Contains("reset", result.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("reset", result.Data!.Message, StringComparison.OrdinalIgnoreCase);
         }
     }
 
@@ -189,7 +189,7 @@ public class AuthServiceTests
             Assert.NotNull(resetTokens.AddedToken.UsedAtUtc);
             Assert.True(new PasswordHasher().VerifyPassword("NewP@ssw0rd!", users.TrackedUser!.PasswordHash));
             Assert.False(users.TrackedUser.MustResetPassword);
-            Assert.Contains("reset", result.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("reset", result.Data!.Message, StringComparison.OrdinalIgnoreCase);
             _ = user;
         }
 
@@ -287,14 +287,14 @@ public class AuthServiceTests
 
             var result = await service.LoginAsync(new LoginRequestDto { Email = user.Email, Password = "OldP@ssw0rd!", RememberMe = true });
 
-            Assert.NotNull(result.RefreshToken);
-            Assert.NotNull(result.RefreshTokenExpiresAtUtc);
+            Assert.NotNull(result.Data!.RefreshToken);
+            Assert.NotNull(result.Data!.RefreshTokenExpiresAtUtc);
             Assert.NotNull(refreshTokens.AddedToken);
             Assert.Equal(user.UserId, refreshTokens.AddedToken!.UserId);
             Assert.False(refreshTokens.AddedToken.IsRevoked);
             // Not the raw token — a salted hash of it, same convention as password-reset tokens.
-            Assert.DoesNotContain(result.RefreshToken!, refreshTokens.AddedToken.TokenHash);
-            Assert.True(new PasswordHasher().VerifyPassword(result.RefreshToken!, refreshTokens.AddedToken.TokenHash));
+            Assert.DoesNotContain(result.Data!.RefreshToken!, refreshTokens.AddedToken.TokenHash);
+            Assert.True(new PasswordHasher().VerifyPassword(result.Data!.RefreshToken!, refreshTokens.AddedToken.TokenHash));
         }
 
         [Fact]
@@ -307,7 +307,7 @@ public class AuthServiceTests
             var result = await service.LoginAsync(new LoginRequestDto { Email = user.Email, Password = "OldP@ssw0rd!", RememberMe = true });
 
             var after = DateTime.UtcNow;
-            Assert.InRange(result.RefreshTokenExpiresAtUtc!.Value, before.AddDays(21).AddSeconds(-5), after.AddDays(21).AddSeconds(5));
+            Assert.InRange(result.Data!.RefreshTokenExpiresAtUtc!.Value, before.AddDays(21).AddSeconds(-5), after.AddDays(21).AddSeconds(5));
         }
 
         [Fact]
@@ -318,8 +318,8 @@ public class AuthServiceTests
 
             var result = await service.LoginAsync(new LoginRequestDto { Email = user.Email, Password = "OldP@ssw0rd!" });
 
-            Assert.Null(result.RefreshToken);
-            Assert.Null(result.RefreshTokenExpiresAtUtc);
+            Assert.Null(result.Data!.RefreshToken);
+            Assert.Null(result.Data!.RefreshTokenExpiresAtUtc);
             Assert.Null(refreshTokens.AddedToken);
         }
 
@@ -331,8 +331,8 @@ public class AuthServiceTests
 
             var result = await service.LoginAsync(new LoginRequestDto { Email = user.Email, Password = "OldP@ssw0rd!", RememberMe = true });
 
-            Assert.True(result.MustResetPassword);
-            Assert.Null(result.RefreshToken);
+            Assert.True(result.Data!.MustResetPassword);
+            Assert.Null(result.Data!.RefreshToken);
             Assert.Null(refreshTokens.AddedToken);
         }
     }
@@ -348,7 +348,7 @@ public class AuthServiceTests
             var (service, users, _, refreshTokens, _, _) = CreateService(user);
             var login = await service.LoginAsync(new LoginRequestDto { Email = user.Email, Password = "OldP@ssw0rd!", RememberMe = true });
 
-            return (service, users, refreshTokens, login.RefreshToken!, user);
+            return (service, users, refreshTokens, login.Data!.RefreshToken!, user);
         }
 
         [Fact]
@@ -358,9 +358,9 @@ public class AuthServiceTests
 
             var result = await service.RefreshTokenAsync(new RefreshTokenRequestDto(rawToken));
 
-            Assert.NotNull(result.AccessToken);
-            Assert.NotNull(result.RefreshToken);
-            Assert.NotEqual(rawToken, result.RefreshToken);
+            Assert.NotNull(result.Data!.AccessToken);
+            Assert.NotNull(result.Data!.RefreshToken);
+            Assert.NotEqual(rawToken, result.Data!.RefreshToken);
             Assert.Equal(2, refreshTokens.AllTokens.Count);
         }
 
@@ -397,10 +397,10 @@ public class AuthServiceTests
             var (service, _, _, rawToken, _) = await CreateServiceWithAnIssuedRefreshToken();
             var rotated = await service.RefreshTokenAsync(new RefreshTokenRequestDto(rawToken));
 
-            var second = await service.RefreshTokenAsync(new RefreshTokenRequestDto(rotated.RefreshToken));
+            var second = await service.RefreshTokenAsync(new RefreshTokenRequestDto(rotated.Data!.RefreshToken));
 
-            Assert.NotNull(second.AccessToken);
-            Assert.NotNull(second.RefreshToken);
+            Assert.NotNull(second.Data!.AccessToken);
+            Assert.NotNull(second.Data!.RefreshToken);
         }
 
         // The real theft-detection scenario: someone replays a raw token value that has ALREADY been
@@ -422,7 +422,7 @@ public class AuthServiceTests
             // The token that replaced the reused one is ALSO revoked by the chain-kill — a stolen
             // token's rotation chain is fully dead, not just the specific value that got reused.
             var hasher = new PasswordHasher();
-            Assert.True(refreshTokens.AllTokens.Single(t => hasher.VerifyPassword(rotated.RefreshToken, t.TokenHash)).IsRevoked);
+            Assert.True(refreshTokens.AllTokens.Single(t => hasher.VerifyPassword(rotated.Data!.RefreshToken, t.TokenHash)).IsRevoked);
         }
 
         [Fact]
@@ -483,7 +483,7 @@ public class AuthServiceTests
             var (service, _, _, refreshTokens, _, _) = CreateService(user);
             var login = await service.LoginAsync(new LoginRequestDto { Email = user.Email, Password = "OldP@ssw0rd!", RememberMe = true });
 
-            await service.LogoutAsync(new LogoutRequestDto(login.RefreshToken!));
+            await service.LogoutAsync(new LogoutRequestDto(login.Data!.RefreshToken!));
 
             Assert.True(refreshTokens.AddedToken!.IsRevoked);
             Assert.NotNull(refreshTokens.AddedToken.RevokedAtUtc);
@@ -495,10 +495,10 @@ public class AuthServiceTests
             var user = ActiveUser();
             var (service, _, _, _, _, _) = CreateService(user);
             var login = await service.LoginAsync(new LoginRequestDto { Email = user.Email, Password = "OldP@ssw0rd!", RememberMe = true });
-            await service.LogoutAsync(new LogoutRequestDto(login.RefreshToken!));
+            await service.LogoutAsync(new LogoutRequestDto(login.Data!.RefreshToken!));
 
             await Assert.ThrowsAsync<UnauthorizedAccessException>(
-                () => service.RefreshTokenAsync(new RefreshTokenRequestDto(login.RefreshToken!)));
+                () => service.RefreshTokenAsync(new RefreshTokenRequestDto(login.Data!.RefreshToken!)));
         }
 
         // Deliberately never throws — see AuthService.LogoutAsync's own comment on why this stays a
@@ -511,8 +511,8 @@ public class AuthServiceTests
             var blank = await service.LogoutAsync(new LogoutRequestDto(""));
             var unknown = await service.LogoutAsync(new LogoutRequestDto("not-a-real-token"));
 
-            Assert.NotNull(blank.Message);
-            Assert.Equal(blank.Message, unknown.Message);
+            Assert.NotNull(blank.Data!.Message);
+            Assert.Equal(blank.Data!.Message, unknown.Data!.Message);
         }
     }
 
@@ -531,7 +531,7 @@ public class AuthServiceTests
 
             Assert.True(new PasswordHasher().VerifyPassword("NewP@ssw0rd!", users.TrackedUser!.PasswordHash));
             Assert.False(users.TrackedUser.MustResetPassword);
-            Assert.NotNull(result.AccessToken);
+            Assert.NotNull(result.Data!.AccessToken);
         }
 
         [Fact]
@@ -562,7 +562,7 @@ public class AuthServiceTests
 
             Assert.True(new PasswordHasher().VerifyPassword("NewP@ssw0rd!", users.TrackedUser!.PasswordHash));
             Assert.False(users.TrackedUser.MustResetPassword);
-            Assert.NotNull(result.AccessToken);
+            Assert.NotNull(result.Data!.AccessToken);
         }
 
         // Security hardening (MAYD-131/132, 2026-09-23): a password change through THIS path (the
