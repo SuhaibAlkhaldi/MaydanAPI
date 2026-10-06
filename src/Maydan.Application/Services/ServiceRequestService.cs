@@ -261,8 +261,55 @@ public class ServiceRequestService : IServiceRequestService
                 TotalExpectedPayment = totalExpected, FormattedMessage = $"Expected payment for {requestedWorkers} workers " + $"for {durationCount} {timeUnitLabel}: " + $"{totalExpected:N2} JOD." };
         return Ok( result, "تم حساب المبلغ المتوقع بنجاح.", "Expected payment calculated successfully.");
     }
-        
-private static ApiResponse<T> Fail<T>(
+
+    public async Task<ApiResponse<object?>> RejectAsync(int currentUserId, int id, string? reason, CancellationToken cancellationToken = default)
+    {
+        var (currentUser, authError) = await GetCurrentUserAsync<object?>(currentUserId, cancellationToken);
+        if (authError is not null) 
+            return authError;
+        var sr = await _unitOfWork.ServiceRequests.GetByIdAsync(id, cancellationToken);
+        if (sr is null) 
+            return Fail<object?>("لم يتم العثور على طلب الخدمة.", "Service request was not found.");
+
+        // Validate caller is the Association assigned to this request
+        if (currentUser!.EntityType != EntityType.Association || currentUser.EntityId != sr.AssociationId)
+        {
+            return Fail<object?>("ليس لديك الصلاحية لرفض طلب الخدمة هذا.", "Only the assigned association may reject this request.");
+        }
+        if (sr.Status != ServiceRequestStatus.PendingWorkerSelection)
+        {
+            return Fail<object?>("لا يمكن رفض الطلب في حالته الحالية.", "Cannot reject request in its current status.");
+        }
+        sr.Status = ServiceRequestStatus.Rejected;
+        // If you add a RejectionReason property to ServiceRequest entity, you can set it here:
+        // sr.RejectionReason = reason;
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        // Optional: Send Email to Production Company here that their request was rejected.
+        return Ok<object?>(null, "تم رفض طلب الخدمة بنجاح.", "Service request rejected successfully.");
+    }
+    public async Task<ApiResponse<object?>> ApproveAsync(int currentUserId, int id, CancellationToken cancellationToken = default)
+    {
+        var (currentUser, authError) = await GetCurrentUserAsync<object?>(currentUserId, cancellationToken);
+        if (authError is not null) 
+            return authError;
+        var sr = await _unitOfWork.ServiceRequests.GetByIdAsync(id, cancellationToken);
+        if (sr is null) 
+            return Fail<object?>("لم يتم العثور على طلب الخدمة.", "Service request was not found.");
+        // Validate caller is the Association
+        if (currentUser!.EntityType != EntityType.Association || currentUser.EntityId != sr.AssociationId)
+        {
+            return Fail<object?>("ليس لديك الصلاحية للموافقة على طلب الخدمة هذا.", "Only the assigned association may approve this request.");
+        }
+        if (sr.Status != ServiceRequestStatus.PendingWorkerSelection)
+        {
+            return Fail<object?>("لا يمكن الموافقة على الطلب في حالته الحالية.", "Cannot approve request in its current status.");
+        }
+        sr.Status = ServiceRequestStatus.InProgress;
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        // Optional: Send Email to Production Company here that their request was approved.
+        return Ok<object?>(null, "تمت الموافقة على طلب الخدمة بنجاح.", "Service request approved successfully.");
+    }
+    private static ApiResponse<T> Fail<T>(
     string messageAr, string messageEn, int statusCode = 400) {
         return new ApiResponse<T> { Success = false, MessageAr = messageAr,
             MessageEn = messageEn, 

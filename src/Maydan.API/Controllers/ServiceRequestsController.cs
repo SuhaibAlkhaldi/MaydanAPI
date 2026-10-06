@@ -126,4 +126,22 @@ public class ServiceRequestsController : ApiControllerBase
         
         
     }
+
+    [HttpPost("{id:int}/reject")]
+    public async Task<ActionResult> Reject(int id, [FromBody] string? reason, CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+            return Unauthorized(new ApiResponse<object?>(false, "تعذر التحقق من هوية المستخدم", "Current user id is required.", null));
+        var response = await _serviceRequestService.RejectAsync(currentUserId, id, reason, cancellationToken);
+        return StatusCode(response.StatusCode, response);
+    }
+
+    [HttpPost("{id:int}/approve")]
+    public async Task<ActionResult> Approve(int id, CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+            return Unauthorized(new ApiResponse<object?>(false, "تعذر التحقق من هوية المستخدم", "Current user id is required.", null));
+        var response = await _serviceRequestService.ApproveAsync(currentUserId, id, cancellationToken);
+        return StatusCode(response.StatusCode, response);
+    }
 }
