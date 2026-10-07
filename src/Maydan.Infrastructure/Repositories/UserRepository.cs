@@ -21,6 +21,7 @@ public class UserRepository : IUserRepository
     public Task<User?> GetByEmailWithAccessAsync(string email, CancellationToken cancellationToken = default) =>
         _context.Users
             .AsNoTracking()
+            .AsSplitQuery()
             .Include(u => u.Role)
                 .ThenInclude(r => r.RolePermissions)
                     .ThenInclude(rp => rp.Permission)
@@ -127,6 +128,8 @@ public class UserRepository : IUserRepository
 
     public Task<User?> GetWithPermissionsAsync(int userId, CancellationToken cancellationToken = default) =>
         _context.Users
+            .AsNoTracking()
+            .AsSplitQuery()
             .Include(u => u.Role)
                 .ThenInclude(r => r.RolePermissions)
                     .ThenInclude(rp => rp.Permission)
