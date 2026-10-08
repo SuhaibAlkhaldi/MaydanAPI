@@ -1,17 +1,16 @@
-using System.Text.RegularExpressions;
 using Maydan.Application.Common;
 using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.Workers;
 using Maydan.Application.Interfaces;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
+using System.Text.RegularExpressions;
+using System.Threading;
 
 namespace Maydan.Application.Services;
 
-
 public class WorkerService : IWorkerService
 {
-
     private const int ViewWorkersPermissionId = 23;
     private const int ManageWorkersPermissionId = 24;
 
@@ -29,7 +28,6 @@ public class WorkerService : IWorkerService
         _civilIdHasher = civilIdHasher;
     }
 
-
     public async Task<ApiResponse<PagedResult<WorkerSummaryDto>>> GetAllAsync(int currentUserId, string? search, int? serviceId, int page, int pageSize, CancellationToken cancellationToken = default)
     {
         var (currentUser, authError) = await AuthorizeAsync<PagedResult<WorkerSummaryDto>>(currentUserId, ReadScope, cancellationToken);
@@ -43,7 +41,10 @@ public class WorkerService : IWorkerService
         var associationScope = currentUser!.EntityType == EntityType.Association ? currentUser.EntityId : (int?)null;
         var (items, totalCount) = await _unitOfWork.Workers.GetAllProjectedAsync(associationScope, search, serviceId, safePage, safePageSize, cancellationToken);
 
-        return Ok(new PagedResult<WorkerSummaryDto>(items, totalCount, safePage, safePageSize), "تم جلب العمال بنجاح.", "Workers retrieved successfully.");
+        return ApiResponse<PagedResult<WorkerSummaryDto>>.SuccessResponse(
+            new PagedResult<WorkerSummaryDto>(items, totalCount, safePage, safePageSize),
+            "Workers retrieved successfully.",
+            "تم جلب العمال بنجاح.");
     }
 
     public async Task<ApiResponse<WorkerDto>> GetByIdAsync(int currentUserId, int workerId, CancellationToken cancellationToken = default)
@@ -57,7 +58,7 @@ public class WorkerService : IWorkerService
         var worker = await _unitOfWork.Workers.GetByIdProjectedAsync(workerId, cancellationToken);
         if (worker is null)
         {
-            return Fail<WorkerDto>("العامل غير موجود.", "Worker not found.");
+            return ApiResponse<WorkerDto>.FailureResponse("Worker not found.", "العامل غير موجود.");
         }
 
         var scopeError = EnsureWithinScope<WorkerDto>(currentUser!, worker.AssociationId);
@@ -66,7 +67,7 @@ public class WorkerService : IWorkerService
             return scopeError;
         }
 
-        return Ok(worker, "تم جلب بيانات العامل بنجاح.", "Worker retrieved successfully.");
+        return ApiResponse<WorkerDto>.SuccessResponse(worker, "Worker retrieved successfully.", "تم جلب بيانات العامل بنجاح.");
     }
 
     public async Task<ApiResponse<WorkerDto>> CreateAsync(int currentUserId, CreateWorkerDto dto, CancellationToken cancellationToken = default)
@@ -79,12 +80,12 @@ public class WorkerService : IWorkerService
 
         if (string.IsNullOrWhiteSpace(dto.FirstName) || string.IsNullOrWhiteSpace(dto.LastName))
         {
-            return Fail<WorkerDto>("الاسم الأول والأخير مطلوبان.", "First and last name are required.");
+            return ApiResponse<WorkerDto>.FailureResponse("First and last name are required.", "الاسم الأول والأخير مطلوبان.");
         }
 
         if (string.IsNullOrWhiteSpace(dto.CivilId))
         {
-            return Fail<WorkerDto>("الرقم الوطني مطلوب.", "National ID is required.");
+            return ApiResponse<WorkerDto>.FailureResponse("National ID is required.", "الرقم الوطني مطلوب.");
         }
 
         var phoneServiceError = ValidatePhoneAndServices<WorkerDto>(dto.PhoneNumber, dto.ServiceIds);
@@ -103,7 +104,7 @@ public class WorkerService : IWorkerService
         var civilIdHash = _civilIdHasher.ComputeHash(civilId);
         if (await _unitOfWork.Workers.GetByCivilIdHashAsync(civilIdHash, cancellationToken) is not null)
         {
-            return Fail<WorkerDto>("العامل مسجل مسبقًا بنفس الرقم الوطني.", "Worker already exists.");
+            return ApiResponse<WorkerDto>.FailureResponse("Worker already exists.", "العامل مسجل مسبقًا بنفس الرقم الوطني.");
         }
 
         var countryCityError = await EnsureCountryAndCityExistAsync<WorkerDto>(dto.CountryId, dto.CityId, cancellationToken);
@@ -148,7 +149,7 @@ public class WorkerService : IWorkerService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var created = await _unitOfWork.Workers.GetByIdProjectedAsync(worker.Id, cancellationToken);
-        return Ok(created!, "تم تسجيل العامل بنجاح.", "Worker registered successfully.", statusCode: 201);
+        return ApiResponse<WorkerDto>.SuccessResponse(created!, "Worker registered successfully.", "تم تسجيل العامل بنجاح.", 201);
     }
 
     public async Task<ApiResponse<WorkerDto>> UpdateAsync(int currentUserId, int workerId, UpdateWorkerDto dto, CancellationToken cancellationToken = default)
@@ -161,7 +162,7 @@ public class WorkerService : IWorkerService
 
         if (string.IsNullOrWhiteSpace(dto.FirstName) || string.IsNullOrWhiteSpace(dto.LastName))
         {
-            return Fail<WorkerDto>("الاسم الأول والأخير مطلوبان.", "First and last name are required.");
+            return ApiResponse<WorkerDto>.FailureResponse("First and last name are required.", "الاسم الأول والأخير مطلوبان.");
         }
 
         var phoneServiceError = ValidatePhoneAndServices<WorkerDto>(dto.PhoneNumber, dto.ServiceIds);
@@ -170,12 +171,10 @@ public class WorkerService : IWorkerService
             return phoneServiceError;
         }
 
-        // Include(WorkerServices) here on purpose — this is a write that mutates the related
-        // collection in place, the documented exception to preferring Select projections.
         var worker = await _unitOfWork.Workers.GetByIdWithServicesAsync(workerId, cancellationToken);
         if (worker is null)
         {
-            return Fail<WorkerDto>("العامل غير موجود.", "Worker not found.");
+            return ApiResponse<WorkerDto>.FailureResponse("Worker not found.", "العامل غير موجود.");
         }
 
         var scopeError = EnsureWithinScope<WorkerDto>(currentUser!, worker.AssociationId);
@@ -197,9 +196,6 @@ public class WorkerService : IWorkerService
             return servicesError;
         }
 
-        // AssociationId and CivilId are deliberately never touched here — UpdateWorkerDto doesn't
-        // even carry them (see its own comment). One worker/one association and a stable national
-        // ID are permanent facts once the worker is created.
         worker.FirstName = dto.FirstName.Trim();
         worker.MiddleName = string.IsNullOrWhiteSpace(dto.MiddleName) ? null : dto.MiddleName.Trim();
         worker.LastName = dto.LastName.Trim();
@@ -217,7 +213,7 @@ public class WorkerService : IWorkerService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var updated = await _unitOfWork.Workers.GetByIdProjectedAsync(worker.Id, cancellationToken);
-        return Ok(updated!, "تم تحديث بيانات العامل بنجاح.", "Worker updated successfully.");
+        return ApiResponse<WorkerDto>.SuccessResponse(updated!, "Worker updated successfully.", "تم تحديث بيانات العامل بنجاح.");
     }
 
     public async Task<ApiResponse<object?>> DeleteAsync(int currentUserId, int workerId, CancellationToken cancellationToken = default)
@@ -231,7 +227,7 @@ public class WorkerService : IWorkerService
         var worker = await _unitOfWork.Workers.GetByIdAsync(workerId, cancellationToken);
         if (worker is null)
         {
-            return Fail<object?>("العامل غير موجود.", "Worker not found.");
+            return ApiResponse<object?>.FailureResponse("Worker not found.", "العامل غير موجود.");
         }
 
         var scopeError = EnsureWithinScope<object?>(currentUser!, worker.AssociationId);
@@ -240,11 +236,10 @@ public class WorkerService : IWorkerService
             return scopeError;
         }
 
-        
         _unitOfWork.Workers.Remove(worker);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return Ok<object?>(null, "تم حذف العامل بنجاح.", "Worker deleted successfully.");
+        return ApiResponse<object?>.SuccessResponse(null, "Worker deleted successfully.", "تم حذف العامل بنجاح.");
     }
 
     public async Task<ApiResponse<WorkerDto>> RestoreAsync(int currentUserId, int workerId, CancellationToken cancellationToken = default)
@@ -258,7 +253,7 @@ public class WorkerService : IWorkerService
         var worker = await _unitOfWork.Workers.GetByIdIncludingDeletedAsync(workerId, cancellationToken);
         if (worker is null)
         {
-            return Fail<WorkerDto>("العامل غير موجود.", "Worker not found.");
+            return ApiResponse<WorkerDto>.FailureResponse("Worker not found.", "العامل غير موجود.");
         }
 
         var scopeError = EnsureWithinScope<WorkerDto>(currentUser!, worker.AssociationId);
@@ -269,7 +264,7 @@ public class WorkerService : IWorkerService
 
         if (!worker.IsDeleted)
         {
-            return Fail<WorkerDto>("العامل غير محذوف أصلًا.", "Worker is not deleted.");
+            return ApiResponse<WorkerDto>.FailureResponse("Worker is not deleted.", "العامل غير محذوف أصلًا.");
         }
 
         worker.IsDeleted = false;
@@ -278,35 +273,30 @@ public class WorkerService : IWorkerService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var restored = await _unitOfWork.Workers.GetByIdProjectedAsync(worker.Id, cancellationToken);
-        return Ok(restored!, "تم استرجاع العامل بنجاح.", "Worker restored successfully.");
+        return ApiResponse<WorkerDto>.SuccessResponse(restored!, "Worker restored successfully.", "تم استرجاع العامل بنجاح.");
     }
 
-
-
-
-    #region Helpers
     private async Task<(User? User, ApiResponse<T>? Error)> AuthorizeAsync<T>(int currentUserId, int[] anyOfPermissionIds, CancellationToken cancellationToken)
     {
         var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken);
         if (currentUser is null)
         {
-            return (null, Fail<T>("المستخدم الحالي غير موجود.", "Current user was not found."));
+            return (null, ApiResponse<T>.FailureResponse("Current user was not found.", "المستخدم الحالي غير موجود."));
         }
 
         if (!currentUser.IsActive)
         {
-            return (null, Fail<T>("المستخدم الحالي غير فعّال.", "Current user is inactive."));
+            return (null, ApiResponse<T>.FailureResponse("Current user is inactive.", "المستخدم الحالي غير فعّال."));
         }
 
         if (!GetEffectivePermissionIds(currentUser).Overlaps(anyOfPermissionIds))
         {
-            return (null, Fail<T>("لا تملك الصلاحية المطلوبة لإدارة العمال.", "You do not hold the required Workers permission."));
+            return (null, ApiResponse<T>.FailureResponse("You do not hold the required Workers permission.", "لا تملك الصلاحية المطلوبة لإدارة العمال."));
         }
 
         return (currentUser, null);
     }
 
-    
     private async Task<(int AssociationId, ApiResponse<T>? Error)> ResolveAssociationIdAsync<T>(User currentUser, int? requestedAssociationId, CancellationToken cancellationToken)
     {
         if (currentUser.EntityType == EntityType.Association)
@@ -316,24 +306,23 @@ public class WorkerService : IWorkerService
 
         if (!requestedAssociationId.HasValue)
         {
-            return (0, Fail<T>("يجب اختيار الجمعية عند إضافة عامل.", "You must select an association."));
+            return (0, ApiResponse<T>.FailureResponse("You must select an association.", "يجب اختيار الجمعية عند إضافة عامل."));
         }
 
         var association = await _unitOfWork.Associations.GetByIdAsync(requestedAssociationId.Value, cancellationToken);
         if (association is null)
         {
-            return (0, Fail<T>("الجمعية غير موجودة.", "Association not found."));
+            return (0, ApiResponse<T>.FailureResponse("Association not found.", "الجمعية غير موجودة."));
         }
 
         return (association.Id, null);
     }
 
-    
     private static ApiResponse<T>? EnsureWithinScope<T>(User currentUser, int workerAssociationId)
     {
         if (currentUser.EntityType == EntityType.Association && workerAssociationId != currentUser.EntityId)
         {
-            return Fail<T>("لا يمكنك الوصول إلى عامل خارج جمعيتك.", "Cannot access a worker outside your own association.");
+            return ApiResponse<T>.FailureResponse("Cannot access a worker outside your own association.", "لا يمكنك الوصول إلى عامل خارج جمعيتك.");
         }
 
         return null;
@@ -362,12 +351,12 @@ public class WorkerService : IWorkerService
     {
         if (await _unitOfWork.Countries.GetByIdAsync(countryId, cancellationToken) is null)
         {
-            return Fail<T>("الدولة غير موجودة.", "Country not found.");
+            return ApiResponse<T>.FailureResponse("Country not found.", "الدولة غير موجودة.");
         }
 
         if (await _unitOfWork.Cities.GetByIdAsync(cityId, cancellationToken) is null)
         {
-            return Fail<T>("المدينة غير موجودة.", "City not found.");
+            return ApiResponse<T>.FailureResponse("City not found.", "المدينة غير موجودة.");
         }
 
         return null;
@@ -379,7 +368,7 @@ public class WorkerService : IWorkerService
         {
             if (await _unitOfWork.Services.GetByIdAsync(serviceId, cancellationToken) is null)
             {
-                return Fail<T>("إحدى الخدمات المحددة غير موجودة.", "One or more selected services were not found.");
+                return ApiResponse<T>.FailureResponse("One or more selected services were not found.", "إحدى الخدمات المحددة غير موجودة.");
             }
         }
 
@@ -390,18 +379,17 @@ public class WorkerService : IWorkerService
     {
         if (string.IsNullOrWhiteSpace(phoneNumber) || !JordanMobileRegex.IsMatch(phoneNumber.Trim()))
         {
-            return Fail<T>("رقم الهاتف غير صالح، يجب أن يكون رقم أردني.", "Phone number must be a valid Jordanian mobile number.");
+            return ApiResponse<T>.FailureResponse("Phone number must be a valid Jordanian mobile number.", "رقم الهاتف غير صالح، يجب أن يكون رقم أردني.");
         }
 
-        if (serviceIds is null || serviceIds.Count == 0)
+        if (serviceIds.Count == 0)
         {
-            return Fail<T>("يجب اختيار خدمة واحدة على الأقل.", "At least one service must be selected.");
+            return ApiResponse<T>.FailureResponse("At least one service must be selected.", "يجب اختيار خدمة واحدة على الأقل.");
         }
 
         return null;
     }
 
-    
     private static void SyncWorkerServices(Worker worker, List<int> serviceIds)
     {
         var requestedIds = serviceIds.ToHashSet();
@@ -417,13 +405,44 @@ public class WorkerService : IWorkerService
             worker.WorkerServices.Add(new WorkerServiceLink { WorkerId = worker.Id, ServiceId = serviceId });
         }
     }
+   
+    //public async Task<ApiResponse<List<WorkerDto>>> GetAvailableWorkersForRequestAsync(
+    // int currentUserId,
+    // int serviceRequestId,
+    // CancellationToken cancellationToken = default)
+    //{
 
-    
-    private static ApiResponse<T> Fail<T>(string messageAr, string messageEn) =>
-        new(false, messageAr, messageEn, default, 400);
+    //    var request = await _unitOfWork.ServiceRequests
+    //          .GetByIdAsync(serviceRequestId, cancellationToken);
 
-    private static ApiResponse<T> Ok<T>(T data, string messageAr, string messageEn, int statusCode = 200) =>
-        new(true, messageAr, messageEn, data, statusCode);
+    //    if (request is null)
+    //    {
+    //        return ApiResponse<List<WorkerDto>>.FailureResponse(
+    //     "request not found.",
+    //     "الطلب غير موجود.");
+    //    }
+    //    var availableWorkers =
+    //   await _unitOfWork.Workers.GetAvailableWorkersForRequestAsync(
+    //       request.AssociationId,
+    //       request.ServiceId,
+    //       request.StartDate,
+    //       request.EndDate,
+    //       cancellationToken);
 
-    #endregion
+    //    return availableWorkers
+    //.Select(w => new WorkerDto(
+    //    w.Id,
+    //    w.FirstName,
+    //    w.MiddleName,
+    //    w.LastName,
+    //    w.CivilId,
+    //    w.DateOfBirth,
+    //    w.Gender,
+    //    w.MaritalStatus,
+    //    w.Nationality,
+    //    w.CountryId
+      
+    //))
+    //.ToList();
+    //}
 }

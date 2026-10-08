@@ -40,6 +40,7 @@ public class MaydanDbContext : DbContext
 
     public DbSet<Service> ServiceTypes => Set<Service>();
     public DbSet<ServiceRequest> ServiceRequests => Set<ServiceRequest>();
+    public DbSet<ServiceRequestWorker> ServiceRequestWorkers { get; set; } = null!;
 
 
 

@@ -1,6 +1,7 @@
 using Maydan.Application.DTOs.Workers;
 using Maydan.Application.Interfaces;
 using Maydan.Domain.Entities;
+using Maydan.Domain.Enums;
 using Maydan.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -109,4 +110,23 @@ public class WorkerRepository : IWorkerRepository
                 w.WorkerServices.Select(ws => ws.Service.NameEn).ToList(),
                 w.IsActive))
             .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task<List<Worker>> GetAvailableWorkersForRequestAsync(
+       int associationId,
+       int serviceId,
+       DateTime startDate,
+       DateTime endDate,
+       CancellationToken cancellationToken = default)
+    {
+        var query = _context.Workers
+            .Where(w => w.AssociationId == associationId)
+            .Where(w => w.WorkerServices.Any(ws => ws.ServiceId == serviceId))
+            .Where(w => !w.ServiceRequestWorkers.Any(srw =>
+                srw.ServiceRequest.Status == ServiceRequestStatus.InProgress &&
+                srw.ServiceRequest.StartDate <= endDate &&
+                srw.ServiceRequest.EndDate >= startDate));
+
+        return await query.ToListAsync(cancellationToken);
+    }
+    
 }

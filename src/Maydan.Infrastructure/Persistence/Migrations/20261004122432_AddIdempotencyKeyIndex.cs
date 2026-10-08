@@ -16,7 +16,24 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                 type: "int",
                 nullable: false,
                 defaultValue: 1);
-
+            migrationBuilder.Sql(@"
+    WITH Duplicates AS
+    (
+        SELECT 
+            Id,
+            ROW_NUMBER() OVER (
+                PARTITION BY IdempotencyKey, ProductionCompanyId
+                ORDER BY Id
+            ) AS RowNum
+        FROM ServiceRequests
+        WHERE IdempotencyKey IS NOT NULL
+    )
+    UPDATE sr
+    SET IdempotencyKey = NULL
+    FROM ServiceRequests sr
+    INNER JOIN Duplicates d ON sr.Id = d.Id
+    WHERE d.RowNum > 1;
+");
             migrationBuilder.CreateIndex(
                 name: "IX_ServiceRequests_IdempotencyKey_ProductionCompanyId",
                 table: "ServiceRequests",

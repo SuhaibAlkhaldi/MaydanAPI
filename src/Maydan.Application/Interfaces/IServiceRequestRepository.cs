@@ -12,4 +12,8 @@ public interface IServiceRequestRepository
     Task<List<ServiceRequest>> GetByAssociationIdAsync(int associationId, CancellationToken cancellationToken = default);
     Task<List<ServiceRequest>> GetAllAsync(CancellationToken cancellationToken = default);
     Task<List<ServiceRequest>> GetPendingOlderThanAsync(DateTime threshold, CancellationToken cancellationToken = default);
+    Task AssignToServiceRequestAsync(
+   int serviceRequestId,
+   int workerId,
+   CancellationToken cancellationToken = default);
 }

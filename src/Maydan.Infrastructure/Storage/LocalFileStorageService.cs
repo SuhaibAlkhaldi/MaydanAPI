@@ -35,5 +35,5 @@ public class LocalFileStorageService : IFileStorageService
         return $"/uploads/{subfolder}/{fileName}".Replace('\\', '/');
     }
 
-    
+
 }

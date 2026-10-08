@@ -45,4 +45,20 @@ public class ServiceRequestRepository : IServiceRequestRepository
             .Where(r => r.Status == Domain.Enums.ServiceRequestStatus.PendingWorkerSelection && !r.ReminderSent && r.CreatedAt <= threshold)
             .Include(r => r.Association)
             .ToListAsync(cancellationToken);
+
+    public async Task AssignToServiceRequestAsync(
+    int serviceRequestId,
+    int workerId,
+    CancellationToken cancellationToken = default)
+    {
+        var assignment = new ServiceRequestWorker
+        {
+            ServiceRequestId = serviceRequestId,
+            WorkerId = workerId
+        };
+
+        await _context.ServiceRequestWorkers.AddAsync(
+            assignment,
+            cancellationToken);
+    }
 }
