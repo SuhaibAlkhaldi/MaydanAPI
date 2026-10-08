@@ -1,10 +1,11 @@
-using System.Text.RegularExpressions;
 using Maydan.Application.Common;
 using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.Workers;
 using Maydan.Application.Interfaces;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
+using System.Text.RegularExpressions;
+using System.Threading;
 
 namespace Maydan.Application.Services;
 
@@ -404,4 +405,44 @@ public class WorkerService : IWorkerService
             worker.WorkerServices.Add(new WorkerServiceLink { WorkerId = worker.Id, ServiceId = serviceId });
         }
     }
+   
+    //public async Task<ApiResponse<List<WorkerDto>>> GetAvailableWorkersForRequestAsync(
+    // int currentUserId,
+    // int serviceRequestId,
+    // CancellationToken cancellationToken = default)
+    //{
+
+    //    var request = await _unitOfWork.ServiceRequests
+    //          .GetByIdAsync(serviceRequestId, cancellationToken);
+
+    //    if (request is null)
+    //    {
+    //        return ApiResponse<List<WorkerDto>>.FailureResponse(
+    //     "request not found.",
+    //     "الطلب غير موجود.");
+    //    }
+    //    var availableWorkers =
+    //   await _unitOfWork.Workers.GetAvailableWorkersForRequestAsync(
+    //       request.AssociationId,
+    //       request.ServiceId,
+    //       request.StartDate,
+    //       request.EndDate,
+    //       cancellationToken);
+
+    //    return availableWorkers
+    //.Select(w => new WorkerDto(
+    //    w.Id,
+    //    w.FirstName,
+    //    w.MiddleName,
+    //    w.LastName,
+    //    w.CivilId,
+    //    w.DateOfBirth,
+    //    w.Gender,
+    //    w.MaritalStatus,
+    //    w.Nationality,
+    //    w.CountryId
+      
+    //))
+    //.ToList();
+    //}
 }

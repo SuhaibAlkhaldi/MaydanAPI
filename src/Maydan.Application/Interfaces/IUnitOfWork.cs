@@ -19,6 +19,8 @@ public interface IUnitOfWork
     IRefreshTokenRepository RefreshTokens { get; }
     ISystemConfigurationRepository SystemConfigurations { get; }
     IServiceRepository Services { get; }
+    // Optional default implementation so existing test fakes don't need to implement it.
+    IServiceRequestRepository ServiceRequests => throw new NotImplementedException();
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 

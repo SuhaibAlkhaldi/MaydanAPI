@@ -4,6 +4,7 @@ using Maydan.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Maydan.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(MaydanDbContext))]
-    partial class MaydanDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261004124347_AddServiceTimeUnite")]
+    partial class AddServiceTimeUnite
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2137,47 +2140,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.ToTable("ServiceRequests", (string)null);
                 });
 
-            modelBuilder.Entity("Maydan.Domain.Entities.ServiceRequestWorker", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("CreatedBy")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("ServiceRequestId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("WorkerId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ServiceRequestId");
-
-                    b.HasIndex("WorkerId");
-
-                    b.ToTable("ServiceRequestWorkers");
-                });
-
             modelBuilder.Entity("Maydan.Domain.Entities.SystemConfiguration", b =>
                 {
                     b.Property<int>("Id")
@@ -2840,25 +2802,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Navigation("Project");
 
                     b.Navigation("Service");
-                });
-
-            modelBuilder.Entity("Maydan.Domain.Entities.ServiceRequestWorker", b =>
-                {
-                    b.HasOne("Maydan.Domain.Entities.ServiceRequest", "ServiceRequest")
-                        .WithMany()
-                        .HasForeignKey("ServiceRequestId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Maydan.Domain.Entities.Worker", "Worker")
-                        .WithMany()
-                        .HasForeignKey("WorkerId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ServiceRequest");
-
-                    b.Navigation("Worker");
                 });
 
             modelBuilder.Entity("Maydan.Domain.Entities.User", b =>

@@ -8,7 +8,7 @@ using Maydan.Infrastructure.Email;
 using Maydan.Infrastructure.Persistence;
 using Maydan.Infrastructure.Repositories;
 using Maydan.Infrastructure.Security;
-using Maydan.Infrastructure.Services;
+using Maydan.Infrastructure.Storage;
 
 using Maydan.Infrastructure.Web;
 
@@ -22,7 +22,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 
 builder.Services.AddControllers(options => options.Filters.Add<SystemConfigurationGateFilter>());
-
+//builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -44,7 +44,10 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-builder.Services.AddDbContext<MaydanDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("MaydanDb")));
+builder.Services.AddDbContext<MaydanDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("MaydanDb"), sqlOpts => sqlOpts.CommandTimeout(60))
+           .EnableSensitiveDataLogging(builder.Environment.IsDevelopment())
+);
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IUserManagementService, UserManagementService>();
@@ -68,6 +71,8 @@ builder.Services.AddSingleton<ISecretProtector, DataProtectionSecretProtector>()
 builder.Services.AddScoped<ISystemConfigurationService, SystemConfigurationService>();
 builder.Services.AddScoped<ISystemConfigurationGateService, SystemConfigurationGateService>();
 builder.Services.AddScoped<IServiceConfigurationService, ServiceConfigurationService>();
+builder.Services.AddScoped<IServiceRequestService, ServiceRequestService>();
+builder.Services.AddHostedService<Maydan.API.HostedServices.ServiceRequestReminderHostedService>();
 
 var uploadsRootPath = Path.Combine(
     builder.Environment.WebRootPath ?? Path.Combine(builder.Environment.ContentRootPath, "wwwroot"),
@@ -87,7 +92,8 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials());
-});
+}
+);
 
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key is not configured. Set it via user-secrets or the Jwt__Key environment variable.");
 
@@ -110,6 +116,12 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
+if (app.Environment.IsDevelopment())
+{
+    // Show detailed exceptions in Development to help debugging 500 errors
+    app.UseDeveloperExceptionPage();
+}
+
 app.UseSwagger();
 app.UseSwaggerUI();
 
@@ -119,7 +131,6 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseCors("Frontend");
-
 
 app.UseAuthentication();
 app.UseAuthorization();

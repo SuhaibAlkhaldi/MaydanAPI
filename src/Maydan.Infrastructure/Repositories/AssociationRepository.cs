@@ -24,6 +24,11 @@ public class AssociationRepository : IAssociationRepository
             .Include(a => a.City).ThenInclude(c => c.Country)
             .ToListAsync(cancellationToken);
 
+    public Task<Association?> GetByCityIdAsync(int cityId, CancellationToken cancellationToken = default) =>
+        _context.Associations
+            .Include(a => a.City).ThenInclude(c => c.Country)
+            .FirstOrDefaultAsync(a => a.CityId == cityId, cancellationToken);
+
     public async Task AddAsync(Association association, CancellationToken cancellationToken = default) =>
         await _context.Associations.AddAsync(association, cancellationToken);
 

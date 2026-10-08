@@ -7,8 +7,5 @@ public interface IFileStorageService
         string originalFileName,
         string subfolder,
         CancellationToken cancellationToken = default);
-
-    Task DeleteAsync(
-        string filePath,
-        CancellationToken cancellationToken = default);
+    //C:\Users\User\Desktop\maydan\src\Maydan.Application\Interfaces\IFileStorageService.cs
 }

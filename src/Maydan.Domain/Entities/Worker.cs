@@ -36,4 +36,5 @@ public class Worker : SharedEntities
     // assignment, not the worker themselves (deferred with the Service Request system).
 
     public ICollection<WorkerServiceLink> WorkerServices { get; set; } = new List<WorkerServiceLink>();
+    public ICollection<ServiceRequestWorker> ServiceRequestWorkers {  get; set; } = new HashSet<ServiceRequestWorker>();
 }

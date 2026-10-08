@@ -25,6 +25,7 @@ public class UnitOfWork : IUnitOfWork
     private IRefreshTokenRepository? _refreshTokens;
     private ISystemConfigurationRepository? _systemConfigurations;
     private IServiceRepository? _services;
+    private IServiceRequestRepository? _serviceRequests;
 
     public UnitOfWork(MaydanDbContext context)
     {
@@ -47,6 +48,7 @@ public class UnitOfWork : IUnitOfWork
     public IRefreshTokenRepository RefreshTokens => _refreshTokens ??= new RefreshTokenRepository(_context);
     public ISystemConfigurationRepository SystemConfigurations => _systemConfigurations ??= new SystemConfigurationRepository(_context);
     public IServiceRepository Services => _services ??= new ServiceRepository(_context);
+    public IServiceRequestRepository ServiceRequests => _serviceRequests ??= new ServiceRequestRepository(_context);
     public IProjectTypeRepository ProjectTypes =>
     _projectTypes ??= new ProjectTypeRepository(_context);
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
