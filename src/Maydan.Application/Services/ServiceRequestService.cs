@@ -395,61 +395,74 @@ public class ServiceRequestService : IServiceRequestService
         // Optional: Send Email to Production Company here that their request was rejected.
         return ApiResponse<object?>.SuccessResponse(null, "تم رفض طلب الخدمة بنجاح.", "Service request rejected successfully.");
     }
-    public async Task<ApiResponse<object?>> ApproveAsync(int currentUserId, int id, CancellationToken cancellationToken = default)
-    {
-        var (currentUser, authError) = await GetCurrentUserAsync<object?>(currentUserId, cancellationToken);
-        if (authError is not null)
-            return authError;
-        var sr = await _unitOfWork.ServiceRequests.GetByIdAsync(id, cancellationToken);
-        if (sr is null)
-            return ApiResponse<object?>.FailureResponse("لم يتم العثور على طلب الخدمة.", "Service request was not found.");
-        // Validate caller is the Association
-        if (currentUser!.EntityType != EntityType.Association || currentUser.EntityId != sr.AssociationId)
-        {
-            return ApiResponse<object?>.FailureResponse("ليس لديك الصلاحية للموافقة على طلب الخدمة هذا.", "Only the assigned association may approve this request.");
-        }
-        if (sr.Status != ServiceRequestStatus.PendingWorkerSelection)
-        {
-            return ApiResponse<object?>.FailureResponse("لا يمكن الموافقة على الطلب في حالته الحالية.", "Cannot approve request in its current status.");
-        }
-        sr.Status = ServiceRequestStatus.InProgress;
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-        // Optional: Send Email to Production Company here that their request was approved.
-        return ApiResponse<object?>.SuccessResponse(null, "تمت الموافقة على طلب الخدمة بنجاح.", "Service request approved successfully.");
-    }
-
-
-    //public async Task<ApiResponse<object?>> ApproveAndAssignAsync(int currentUserId, int id, List<int> workerIds, CancellationToken cancellationToken = default)
+    //public async Task<ApiResponse<object?>> ApproveAsync(int currentUserId, int id, CancellationToken cancellationToken = default)
     //{
     //    var (currentUser, authError) = await GetCurrentUserAsync<object?>(currentUserId, cancellationToken);
-    //    if (authError is not null) return authError;
-
+    //    if (authError is not null)
+    //        return authError;
     //    var sr = await _unitOfWork.ServiceRequests.GetByIdAsync(id, cancellationToken);
-
-
-    //    if (workerIds.Count != sr.RequestedWorkersCount)
+    //    if (sr is null)
+    //        return ApiResponse<object?>.FailureResponse("لم يتم العثور على طلب الخدمة.", "Service request was not found.");
+    //    // Validate caller is the Association
+    //    if (currentUser!.EntityType != EntityType.Association || currentUser.EntityId != sr.AssociationId)
     //    {
-    //        return ApiResponse<object?>.FailureResponse("عدد العمال المحدد لا يتطابق مع العدد المطلوب.", "Worker count mismatch.");
+    //        return ApiResponse<object?>.FailureResponse("ليس لديك الصلاحية للموافقة على طلب الخدمة هذا.", "Only the assigned association may approve this request.");
     //    }
-
-
-    //    foreach (var workerId in workerIds)
+    //    if (sr.Status != ServiceRequestStatus.PendingWorkerSelection)
     //    {
-    //        var assignment = new ServiceRequestWorker
-    //        {
-    //            ServiceRequestId = id,
-    //            WorkerId = workerId
-    //        };
-    //        await _unitOfWork.ServiceRequests.AssignToServiceRequestAsync(id,workerId,cancellationToken);
+    //        return ApiResponse<object?>.FailureResponse("لا يمكن الموافقة على الطلب في حالته الحالية.", "Cannot approve request in its current status.");
     //    }
-
-
-    //    sr.SelectedWorkersCount = workerIds.Count;
     //    sr.Status = ServiceRequestStatus.InProgress;
-
     //    await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-    //    return ApiResponse<object?>.SuccessResponse(null, "تمت الموافقة وتعيين العمال بنجاح.", "Workers assigned successfully.");
+    //    // Optional: Send Email to Production Company here that their request was approved.
+    //    return ApiResponse<object?>.SuccessResponse(null, "تمت الموافقة على طلب الخدمة بنجاح.", "Service request approved successfully.");
     //}
+
+
+    public async Task<ApiResponse<object?>> ApproveAndAssignAsync(int currentUserId, int id, List<int> workerIds, CancellationToken cancellationToken = default)
+    {
+        var (currentUser, authError) = await GetCurrentUserAsync<object?>(currentUserId, cancellationToken);
+        if (authError is not null) return authError;
+
+        var sr = await _unitOfWork.ServiceRequests.GetByIdAsync(id, cancellationToken);
+        
+
+        if (sr is null)
+        {
+            return ApiResponse<object?>.FailureResponse(
+                "Service request was not found.",
+                "طلب الخدمة غير موجود.");
+        }
+
+        if (currentUser!.EntityType != EntityType.Association ||
+       currentUser.EntityId != sr.AssociationId)
+        {
+            return ApiResponse<object?>.FailureResponse(
+                "Only the assigned association may approve and assign workers.",
+                "فقط الجمعية التابعة لها الطلب يمكنها الموافقة وتعيين العمال.");
+        }
+        if (workerIds is null || workerIds.Count != sr.RequestedWorkersCount)
+        {
+            return ApiResponse<object?>.FailureResponse("عدد العمال المحدد لا يتطابق مع العدد المطلوب.", "Worker count mismatch.");
+        }
+
+
+        foreach (var workerId in workerIds)
+        {
+            await _unitOfWork.ServiceRequests
+            .AssignToServiceRequestAsync(
+                id,
+                workerId,
+                cancellationToken);
+        }
+
+
+        sr.SelectedWorkersCount = workerIds.Count;
+        sr.Status = ServiceRequestStatus.InProgress;
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return ApiResponse<object?>.SuccessResponse(null, "تمت الموافقة وتعيين العمال بنجاح.", "Workers assigned successfully.");
+    }
 
 }

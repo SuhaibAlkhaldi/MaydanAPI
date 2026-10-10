@@ -13,7 +13,7 @@ public interface IServiceRequestService
     Task<ApiResponse<object?>> CancelAsync(int currentUserId, int id, CancellationToken cancellationToken = default);
     Task<ApiResponse<AssociationLookupDto>> ResolveAssociationByCityIdAsync(int currentUserId, int cityId, CancellationToken cancellationToken = default);
     Task<ApiResponse<object?>> RejectAsync(int currentUserId, int id, string? reason, CancellationToken cancellationToken = default);
-    Task<ApiResponse<object?>> ApproveAsync(int currentUserId, int id, CancellationToken cancellationToken = default); //future steps to add Worker IDs here later if needed
+    //Task<ApiResponse<object?>> ApproveAsync(int currentUserId, int id, CancellationToken cancellationToken = default); //future steps to add Worker IDs here later if needed
                                                                                                                        //Task<ApiResponse<object?>> CompletedAsync(int currentUserId , int id, CancellationToken cancellationToken = default);
-    //Task<ApiResponse<object?>> ApproveAndAssignAsync(int currentUserId, int serviceRequestId, List<int> workerIds, CancellationToken cancellationToken = default);
+    Task<ApiResponse<object?>> ApproveAndAssignAsync(int currentUserId, int serviceRequestId, List<int> workerIds, CancellationToken cancellationToken = default);
 }

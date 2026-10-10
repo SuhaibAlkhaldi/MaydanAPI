@@ -405,44 +405,92 @@ public class WorkerService : IWorkerService
             worker.WorkerServices.Add(new WorkerServiceLink { WorkerId = worker.Id, ServiceId = serviceId });
         }
     }
-   
-    //public async Task<ApiResponse<List<WorkerDto>>> GetAvailableWorkersForRequestAsync(
-    // int currentUserId,
-    // int serviceRequestId,
-    // CancellationToken cancellationToken = default)
-    //{
 
-    //    var request = await _unitOfWork.ServiceRequests
-    //          .GetByIdAsync(serviceRequestId, cancellationToken);
+    private async Task<(User? CurrentUser, ApiResponse<T>? Error)> GetCurrentUserAsync<T>(int currentUserId, CancellationToken cancellationToken)
+    {
+        var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken);
+        if (currentUser is null) { return (null, ApiResponse<T>.FailureResponse("لم يتم العثور على المستخدم الحالي.", "Current user was not found.")); }
+        if (!currentUser.IsActive)
+        {
+            return (null, ApiResponse<T>.FailureResponse("حساب المستخدم الحالي غير نشط.", "Current user is inactive."));
+        }
+        return (currentUser, null);
+    }
+    public async Task<ApiResponse<List<WorkerDto>>> GetAvailableWorkersForRequestAsync(
+     int currentUserId,
+     int serviceRequestId,
+     CancellationToken cancellationToken = default)
+    {
+        var request = await _unitOfWork.ServiceRequests
+            .GetByIdAsync(serviceRequestId, cancellationToken);
 
-    //    if (request is null)
-    //    {
-    //        return ApiResponse<List<WorkerDto>>.FailureResponse(
-    //     "request not found.",
-    //     "الطلب غير موجود.");
-    //    }
-    //    var availableWorkers =
-    //   await _unitOfWork.Workers.GetAvailableWorkersForRequestAsync(
-    //       request.AssociationId,
-    //       request.ServiceId,
-    //       request.StartDate,
-    //       request.EndDate,
-    //       cancellationToken);
+        if (request is null)
+        {
+            return ApiResponse<List<WorkerDto>>.FailureResponse(
+                "Request not found.",
+                "الطلب غير موجود.");
+        }
 
-    //    return availableWorkers
-    //.Select(w => new WorkerDto(
-    //    w.Id,
-    //    w.FirstName,
-    //    w.MiddleName,
-    //    w.LastName,
-    //    w.CivilId,
-    //    w.DateOfBirth,
-    //    w.Gender,
-    //    w.MaritalStatus,
-    //    w.Nationality,
-    //    w.CountryId
-      
-    //))
-    //.ToList();
-    //}
+        // Check that the current user is an Association admin
+        // belonging to the same association as the service request.
+        var (currentUser, authError) =
+            await GetCurrentUserAsync<List<WorkerDto>>(
+                currentUserId,
+                cancellationToken);
+
+        if (authError is not null)
+            return authError;
+
+        if (currentUser!.EntityType != EntityType.Association ||
+            currentUser.EntityId != request.AssociationId)
+        {
+            return ApiResponse<List<WorkerDto>>.FailureResponse(
+                "You are not authorized to view workers for this service request.",
+                "ليس لديك صلاحية لعرض عمال طلب الخدمة هذا.");
+        }
+
+        var availableWorkers =
+            await _unitOfWork.Workers.GetAvailableWorkersForRequestAsync(
+                request.AssociationId,
+                request.ServiceId,
+                request.StartDate,
+                request.EndDate,
+                cancellationToken);
+
+        var workers = availableWorkers
+            .Select(w => new WorkerDto(
+                w.Id,
+                w.FirstName,
+                w.MiddleName,
+                w.LastName,
+                w.CivilId,
+                w.DateOfBirth,
+                w.Gender,
+                w.MaritalStatus,
+                w.Nationality,
+                w.CountryId,
+                w.Country?.EnglishName,
+                w.CityId,
+                w.City?.EnglishName,
+                w.PhoneNumber,
+                w.YearsOfExperience,
+                w.AssociationId,
+                w.Association.EnglishName ?? string.Empty,
+                w.QrCode,
+                w.WorkerServices
+                    .Select(ws => ws.ServiceId)
+                    .ToList(),
+                w.WorkerServices
+                    .Select(ws => ws.Service.NameEn)
+                    .ToList(),
+                w.IsActive
+            ))
+            .ToList();
+
+        return ApiResponse<List<WorkerDto>>.SuccessResponse(
+            workers,
+            "Available workers retrieved successfully.",
+            "تم جلب العمال المتاحين بنجاح."
+        );
+    }
 }

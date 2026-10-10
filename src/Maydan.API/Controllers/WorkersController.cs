@@ -136,4 +136,22 @@ public class WorkersController : ApiControllerBase
             return HandleException(ex);
         }
     }
+
+    [HttpGet("service-request/{serviceRequestId}/available-workers")]
+    public async Task<IActionResult> GetAvailableWorkersForRequest(
+     int serviceRequestId,
+     CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized(new Maydan.Application.DTOs.Common.ApiResponse<object?>(false, "تعذر التحقق من هوية المستخدم", "Current user id is required.", null));
+        }
+
+        var response = await _workerService.GetAvailableWorkersForRequestAsync(
+            currentUserId,
+            serviceRequestId,
+            cancellationToken);
+
+        return StatusCode(response.StatusCode, response);
+    }
 }

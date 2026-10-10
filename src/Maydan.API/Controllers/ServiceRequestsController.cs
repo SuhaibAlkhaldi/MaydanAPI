@@ -7,6 +7,10 @@ using Maydan.Application.Interfaces;
 using Maydan.Application.Validators;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Maydan.API.Controllers;
 
@@ -23,6 +27,8 @@ public class ServiceRequestsController : ApiControllerBase
         _createValidator = createValidator;
     }
 
+
+
     [HttpGet("resolve-association")]
     public async Task<ActionResult<AssociationLookupDto>> ResolveAssociation([FromQuery] int cityId, CancellationToken cancellationToken)
     {
@@ -37,6 +43,21 @@ public class ServiceRequestsController : ApiControllerBase
 
 
     }
+    [HttpPost("{id:int}/approve-and-assign")]
+    public async Task<IActionResult> ApproveAndAssign(int id, [FromBody] List<int> workerIds, CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+            return Unauthorized(new ApiResponse<object?>(false, "تعذر التحقق من هوية المستخدم", "Current user id is required.", null));
+
+        var response = await _serviceRequestService.ApproveAndAssignAsync(
+            currentUserId,
+            id,
+            workerIds,
+            cancellationToken);
+
+        return StatusCode(response.StatusCode, response);
+    }
+
     [HttpPost]
     public async Task<ActionResult<ServiceRequestDto>> Create([FromBody] CreateServiceRequestDto dto, CancellationToken cancellationToken)
     {
@@ -52,28 +73,30 @@ public class ServiceRequestsController : ApiControllerBase
             return BadRequest(new Maydan.Application.DTOs.Common.ApiResponse<object?>(false, "البيانات المدخلة غير صحيحة او غير مطابقة", "Validation failed.", errors));
         }
 
-       
-            var result = await _serviceRequestService.CreateAsync(currentUserId, dto, cancellationToken);
-            if (!result.Success)
-            {
-                return StatusCode(result.StatusCode, result);
-            }
-            return CreatedResponse($"/api/ServiceRequests/{result.Data!.Id}",result);
-        
+
+        var result = await _serviceRequestService.CreateAsync(currentUserId, dto, cancellationToken);
+        if (!result.Success)
+        {
+            return StatusCode(result.StatusCode, result);
+        }
+        return CreatedResponse(
+$"/api/ServiceRequests/{result.Data!.Id}",
+result);
+
     }
 
     [HttpPost("calculate-expected-payment")]
     public async Task<ActionResult<ExpectedPaymentCalculationDto>> Calculate([FromBody] CalculationRequestDto dto, CancellationToken cancellationToken)
     {
-        
-            if (!TryGetCurrentUserId(out var currentUserId))
-            {
-                return Unauthorized(new Maydan.Application.DTOs.Common.ApiResponse<object?>(false, "  تعذر التحقق من هوية المستخدم ", "Current user id is required.", null));
-            }
 
-            var calculationResult = await _serviceRequestService.CalculateExpectedPaymentAsync(currentUserId, dto.ServiceId, dto.RequestedWorkers, dto.DurationCount, dto.TimeUnit, cancellationToken);
-            return StatusCode(calculationResult.StatusCode, calculationResult);
-       
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized(new Maydan.Application.DTOs.Common.ApiResponse<object?>(false, "  تعذر التحقق من هوية المستخدم ", "Current user id is required.", null));
+        }
+
+        var calculationResult = await _serviceRequestService.CalculateExpectedPaymentAsync(currentUserId, dto.ServiceId, dto.RequestedWorkers, dto.DurationCount, dto.TimeUnit, cancellationToken);
+        return StatusCode(calculationResult.StatusCode, calculationResult);
+
     }
 
     [HttpGet]
@@ -84,14 +107,14 @@ public class ServiceRequestsController : ApiControllerBase
             return Unauthorized(new Maydan.Application.DTOs.Common.ApiResponse<object?>(false, "تعذر التحقق من هوية المستخدم", "Current user id is required.", null));
         }
 
-       
-            var response = await _serviceRequestService.GetAllAsync(currentUserId,cancellationToken);
 
-            return StatusCode(response.StatusCode, response);
-     }
-       
-       
-    
+        var response = await _serviceRequestService.GetAllAsync(currentUserId, cancellationToken);
+
+        return StatusCode(response.StatusCode, response);
+    }
+
+
+
 
     [HttpGet("{id:int}")]
     public async Task<ActionResult<ServiceRequestDetailsDto>> GetById(int id, CancellationToken cancellationToken)
@@ -101,12 +124,12 @@ public class ServiceRequestsController : ApiControllerBase
             return Unauthorized(new Maydan.Application.DTOs.Common.ApiResponse<object?>(false, "تعذر التحقق من هوية المستخدم", "Current user id is required.", null));
         }
 
-         var response = await _serviceRequestService.GetByIdAsync(currentUserId,id,cancellationToken);
+        var response = await _serviceRequestService.GetByIdAsync(currentUserId, id, cancellationToken);
 
-            return StatusCode(response.StatusCode, response);
+        return StatusCode(response.StatusCode, response);
     }
-        
-    
+
+
 
     [HttpPost("{id:int}/cancel")]
     public async Task<ActionResult> Cancel(int id, CancellationToken cancellationToken)
@@ -117,12 +140,12 @@ public class ServiceRequestsController : ApiControllerBase
 
         }
 
-        
-            var response = await _serviceRequestService.CancelAsync( currentUserId,id, cancellationToken);
 
-            return StatusCode(response.StatusCode, response);
-        
-        
+        var response = await _serviceRequestService.CancelAsync(currentUserId, id, cancellationToken);
+
+        return StatusCode(response.StatusCode, response);
+
+
     }
 
     [HttpPost("{id:int}/reject")]
@@ -134,12 +157,13 @@ public class ServiceRequestsController : ApiControllerBase
         return StatusCode(response.StatusCode, response);
     }
 
-    [HttpPost("{id:int}/approve")]
-    public async Task<ActionResult> Approve(int id, CancellationToken cancellationToken)
-    {
-        if (!TryGetCurrentUserId(out var currentUserId))
-            return Unauthorized(new ApiResponse<object?>(false, "تعذر التحقق من هوية المستخدم", "Current user id is required.", null));
-        var response = await _serviceRequestService.ApproveAsync(currentUserId, id, cancellationToken);
-        return StatusCode(response.StatusCode, response);
-    }
+    //[HttpPost("{id:int}/approve")]
+    //public async Task<ActionResult> Approve(int id, CancellationToken cancellationToken)
+    //{
+    //    if (!TryGetCurrentUserId(out var currentUserId))
+    //        return Unauthorized(new ApiResponse<object?>(false, "تعذر التحقق من هوية المستخدم", "Current user id is required.", null));
+    //    var response = await _serviceRequestService.ApproveAsync(currentUserId, id, cancellationToken);
+    //    return StatusCode(response.StatusCode, response);
+    //}
+
 }

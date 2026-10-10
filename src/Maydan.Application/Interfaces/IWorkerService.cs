@@ -12,4 +12,9 @@ public interface IWorkerService
     Task<ApiResponse<object?>> DeleteAsync(int currentUserId, int workerId, CancellationToken cancellationToken = default);
     Task<ApiResponse<WorkerDto>> RestoreAsync(int currentUserId, int workerId, CancellationToken cancellationToken = default);
     //Task<ApiResponse<List<WorkerSummaryDto>>> GetAvailableWorkersForRequestAsync(int currentUserId, int serviceRequestId, CancellationToken cancellationToken = default);
+
+    Task<ApiResponse<List<WorkerDto>>> GetAvailableWorkersForRequestAsync(
+         int currentUserId,
+         int serviceRequestId,
+         CancellationToken cancellationToken = default);
 }
