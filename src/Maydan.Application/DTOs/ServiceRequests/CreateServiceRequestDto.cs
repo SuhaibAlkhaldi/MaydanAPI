@@ -22,8 +22,8 @@ public class CreateServiceRequestDto
     //public decimal? Latitude { get; set; }
     //public decimal? Longitude { get; set; }
 
-    public decimal UnitPriceSnapshot { get; set; }
-    public decimal ExpectedTotalAmount { get; set; }
+    //public decimal UnitPriceSnapshot { get; set; }
+    //public decimal ExpectedTotalAmount { get; set; }
 
     public string? IdempotencyKey { get; set; }
 }

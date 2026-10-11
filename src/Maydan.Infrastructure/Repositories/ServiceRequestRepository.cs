@@ -53,6 +53,7 @@ public class ServiceRequestRepository : IServiceRequestRepository
     {
         var assignment = new ServiceRequestWorker
         {
+            
             ServiceRequestId = serviceRequestId,
             WorkerId = workerId
         };
