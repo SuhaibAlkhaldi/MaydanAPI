@@ -69,7 +69,7 @@ public class ServiceRequestService : IServiceRequestService
         {
             return ApiResponse<AssociationLookupDto>.FailureResponse("لم يتم العثور على جمعية مرتبطة بالمدينة المحددة.", "No association found for the specified city.");
         }
-        var resultOfAssociationLookupDto = new AssociationLookupDto
+        var AssociationsInfo = new AssociationLookupDto
         {
             AssociationId = association.Id,
             EnglishName = association.EnglishName,
@@ -78,7 +78,7 @@ public class ServiceRequestService : IServiceRequestService
             Latitude = association.Latitude,
             Longitude = association.Longitude
         };
-        return ApiResponse<AssociationLookupDto>.SuccessResponse(resultOfAssociationLookupDto, "تم العثور على الجمعية بنجاح.", "Association found successfully.");
+        return ApiResponse<AssociationLookupDto>.SuccessResponse(AssociationsInfo, "تم العثور على الجمعية بنجاح.", "Association found successfully.");
     }
 
 
@@ -126,7 +126,7 @@ public class ServiceRequestService : IServiceRequestService
         {
             return ApiResponse<ServiceRequestDto>.FailureResponse("لم يتم العثور على الخدمة.", "Service was not found.");
         }
-        var resultOfServiceRequestDto = new ServiceRequest
+        var ServiceRequestInfo = new ServiceRequest
         {
             ProjectId = dto.ProjectId,
             ProductionCompanyId = Validateproject.ProductionCompanyId,
@@ -152,25 +152,25 @@ public class ServiceRequestService : IServiceRequestService
         {
             case ServiceTimeUnit.Shift:
                 // Shift = 12 hours
-                resultOfServiceRequestDto.ExpectedTotalAmount = (12 * service.Price) * dto.RequestedWorkersCount * dto.ShiftsCount;
+                ServiceRequestInfo.ExpectedTotalAmount = (12 * service.Price) * dto.RequestedWorkersCount * dto.ShiftsCount;
                 break;
             case ServiceTimeUnit.Day:
                 // Day = 9 hours
-                resultOfServiceRequestDto.ExpectedTotalAmount = (9 * service.Price) * dto.RequestedWorkersCount * dto.ShiftsCount;
+                ServiceRequestInfo.ExpectedTotalAmount = (9 * service.Price) * dto.RequestedWorkersCount * dto.ShiftsCount;
                 break;
             case ServiceTimeUnit.Hour:
                 // Hour = direct calculation
-                resultOfServiceRequestDto.ExpectedTotalAmount = (service.Price * dto.ShiftsCount) * dto.RequestedWorkersCount;
+                ServiceRequestInfo.ExpectedTotalAmount = (service.Price * dto.ShiftsCount) * dto.RequestedWorkersCount;
                 break;
             default: return ApiResponse<ServiceRequestDto>.FailureResponse("وحدة الوقت غير صالحة.", "Invalid time unit.");
         }
-        await _unitOfWork.ServiceRequests.AddAsync(resultOfServiceRequestDto, cancellationToken); await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.ServiceRequests.AddAsync(ServiceRequestInfo, cancellationToken); await _unitOfWork.SaveChangesAsync(cancellationToken);
         // ======================================================== // Notifications // ========================================================
 
         var assocUsers = await _unitOfWork.Users.GetByEntityAsync(EntityType.Association, association.Id, search: null, cancellationToken);
         var prodUsers = await _unitOfWork.Users.GetByEntityAsync(EntityType.ProductionCompany, Validateproject.ProductionCompanyId, search: null, cancellationToken);
         var subject = "New service request pending worker selection";
-        var body = $"A new service request (Id: {resultOfServiceRequestDto.Id}) was created " + $"for project '{Validateproject.ProjectNameEn}' " + $"and awaits worker selection.";
+        var body = $"A new service request (Id: {ServiceRequestInfo.Id}) was created " + $"for project '{Validateproject.ProjectNameEn}' " + $"and awaits worker selection.";
         if (!string.IsNullOrWhiteSpace(association.ContactEmail))
         {
             await _emailSender.SendAsync(association.ContactEmail, subject, body, cancellationToken);
@@ -189,8 +189,8 @@ public class ServiceRequestService : IServiceRequestService
                 await _emailSender.SendAsync(user.Email, subject, body, cancellationToken);
             }
         }
-        var result = new ServiceRequestDto { Id = resultOfServiceRequestDto.Id, Status = resultOfServiceRequestDto.Status };
-        return ApiResponse<ServiceRequestDto>.SuccessResponse(result, "تم إنشاء طلب الخدمة بنجاح.", "Service request created successfully.");
+        var CreationResult = new ServiceRequestDto { Id = ServiceRequestInfo.Id, Status = ServiceRequestInfo.Status };
+        return ApiResponse<ServiceRequestDto>.SuccessResponse(CreationResult, "تم إنشاء طلب الخدمة بنجاح.", "Service request created successfully.");
     }
     public async Task<ApiResponse<List<ServiceRequestDto>>> GetAllAsync(int currentUserId, CancellationToken cancellationToken = default)
     {
@@ -200,21 +200,23 @@ public class ServiceRequestService : IServiceRequestService
             return authError;
         }
         var permissionError = EnsureCanViewServiceRequests<List<ServiceRequestDto>>(currentUser!);
-        if (permissionError is not null) { return permissionError; }
-        List<ServiceRequest> results;
+        if (permissionError is not null) { 
+            return permissionError;
+        }
+        List<ServiceRequest> AllServiceRequests;
         if (currentUser!.EntityType == EntityType.ProductionCompany)
         {
-            results = await _unitOfWork.ServiceRequests.GetByProductionCompanyIdAsync(currentUser.EntityId, cancellationToken);
+            AllServiceRequests = await _unitOfWork.ServiceRequests.GetByProductionCompanyIdAsync(currentUser.EntityId, cancellationToken);
         }
         else if (currentUser.EntityType == EntityType.Association)
         {
-            results = await _unitOfWork.ServiceRequests.GetByAssociationIdAsync(currentUser.EntityId, cancellationToken);
+            AllServiceRequests = await _unitOfWork.ServiceRequests.GetByAssociationIdAsync(currentUser.EntityId, cancellationToken);
         }
         else
         {
-            results = new List<ServiceRequest>();
+            AllServiceRequests = new List<ServiceRequest>();
         }
-        var response = results.Select(r =>
+        var response = AllServiceRequests.Select(r =>
             new ServiceRequestDto { Id = r.Id, Status = r.Status }).ToList();
         return ApiResponse<List<ServiceRequestDto>>.SuccessResponse(response, "تم جلب طلبات الخدمة بنجاح.", "Service requests retrieved successfully.");
     }
@@ -229,45 +231,45 @@ public class ServiceRequestService : IServiceRequestService
         {
             return permissionError;
         }
-        var VarOfCurrentRequestId = await _unitOfWork.ServiceRequests.GetByIdAsync(id, cancellationToken); if (VarOfCurrentRequestId is null)
+        var CurrentRequestId = await _unitOfWork.ServiceRequests.GetByIdAsync(id, cancellationToken); if (CurrentRequestId is null)
         {
             return ApiResponse<ServiceRequestDetailsDto>.FailureResponse("لم يتم العثور على طلب الخدمة.", "Service request was not found.");
         } // Ensure caller is allowed to view this request
-        if (currentUser!.EntityType == EntityType.ProductionCompany && currentUser.EntityId != VarOfCurrentRequestId.ProductionCompanyId)
+        if (currentUser!.EntityType == EntityType.ProductionCompany && currentUser.EntityId != CurrentRequestId.ProductionCompanyId)
         {
             return ApiResponse<ServiceRequestDetailsDto>.FailureResponse("ليس لديك الصلاحية لعرض طلب الخدمة هذا.", "Caller is not authorized to view this service request.");
         }
-        if (currentUser.EntityType == EntityType.Association && currentUser.EntityId != VarOfCurrentRequestId.AssociationId)
+        if (currentUser.EntityType == EntityType.Association && currentUser.EntityId != CurrentRequestId.AssociationId)
         {
             return ApiResponse<ServiceRequestDetailsDto>.FailureResponse("ليس لديك الصلاحية لعرض طلب الخدمة هذا.", "Caller is not authorized to view this service request.");
         }
-        var result = new ServiceRequestDetailsDto
+        var ServiceRequestDetails = new ServiceRequestDetailsDto
         {
-            Id = VarOfCurrentRequestId.Id,
-            ServiceId = VarOfCurrentRequestId.ServiceId,
-            ServiceNameEn = VarOfCurrentRequestId.Service?.NameEn ?? string.Empty,
-            ServiceNameAr = VarOfCurrentRequestId.Service?.NameAr ?? string.Empty,
-            ProjectId = VarOfCurrentRequestId.ProjectId,
-            ProjectNameEn = VarOfCurrentRequestId.Project?.ProjectNameEn ?? string.Empty,
-            ProjectNameAr = VarOfCurrentRequestId.Project?.ProjectNameAr ?? string.Empty,
-            AssociationId = VarOfCurrentRequestId.AssociationId,
-            AssociationNameEn = VarOfCurrentRequestId.Association?.EnglishName ?? string.Empty,
-            AssociationNameAr = VarOfCurrentRequestId.Association?.ArabicName ?? string.Empty,
-            CityId = VarOfCurrentRequestId.Association?.CityId ?? 0,
-            StartDate = VarOfCurrentRequestId.StartDate,
-            EndDate = VarOfCurrentRequestId.EndDate,
-            ShiftsCount = VarOfCurrentRequestId.ShiftsCount,
-            RequestedWorkersCount = VarOfCurrentRequestId.RequestedWorkersCount,
-            SelectedWorkersCount = VarOfCurrentRequestId.SelectedWorkersCount,
-            AttendanceFrequency = VarOfCurrentRequestId.AttendanceFrequency,
-            UnitPriceSnapshot = VarOfCurrentRequestId.UnitPriceSnapshot,
-            ExpectedTotalAmount = VarOfCurrentRequestId.ExpectedTotalAmount,
-            Status = VarOfCurrentRequestId.Status,
-            CreatedAt = VarOfCurrentRequestId.CreatedAt,
-            CancelledAt = VarOfCurrentRequestId.CancelledAt,
-            AdditionalRequirements = VarOfCurrentRequestId.AdditionalRequirements
+            Id = CurrentRequestId.Id,
+            ServiceId = CurrentRequestId.ServiceId,
+            ServiceNameEn = CurrentRequestId.Service?.NameEn ?? string.Empty,
+            ServiceNameAr = CurrentRequestId.Service?.NameAr ?? string.Empty,
+            ProjectId = CurrentRequestId.ProjectId,
+            ProjectNameEn = CurrentRequestId.Project?.ProjectNameEn ?? string.Empty,
+            ProjectNameAr = CurrentRequestId.Project?.ProjectNameAr ?? string.Empty,
+            AssociationId = CurrentRequestId.AssociationId,
+            AssociationNameEn = CurrentRequestId.Association?.EnglishName ?? string.Empty,
+            AssociationNameAr = CurrentRequestId.Association?.ArabicName ?? string.Empty,
+            CityId = CurrentRequestId.Association?.CityId ?? 0,
+            StartDate = CurrentRequestId.StartDate,
+            EndDate = CurrentRequestId.EndDate,
+            ShiftsCount = CurrentRequestId.ShiftsCount,
+            RequestedWorkersCount = CurrentRequestId.RequestedWorkersCount,
+            SelectedWorkersCount = CurrentRequestId.SelectedWorkersCount,
+            AttendanceFrequency = CurrentRequestId.AttendanceFrequency,
+            UnitPriceSnapshot = CurrentRequestId.UnitPriceSnapshot,
+            ExpectedTotalAmount = CurrentRequestId.ExpectedTotalAmount,
+            Status = CurrentRequestId.Status,
+            CreatedAt = CurrentRequestId.CreatedAt,
+            CancelledAt = CurrentRequestId.CancelledAt,
+            AdditionalRequirements = CurrentRequestId.AdditionalRequirements
         };
-        return ApiResponse<ServiceRequestDetailsDto>.SuccessResponse(result, "تم جلب طلب الخدمة بنجاح.", "Service request retrieved successfully.");
+        return ApiResponse<ServiceRequestDetailsDto>.SuccessResponse(ServiceRequestDetails, "تم جلب طلب الخدمة بنجاح.", "Service request retrieved successfully.");
     }
 
     public async Task<ApiResponse<object?>> CancelAsync(int currentUserId, int id, CancellationToken cancellationToken = default)
@@ -282,8 +284,8 @@ public class ServiceRequestService : IServiceRequestService
         {
             return permissionError;
         }
-        var VarOfCanceledRequestId = await _unitOfWork.ServiceRequests.GetByIdAsync(id, cancellationToken);
-        if (VarOfCanceledRequestId is null)
+        var CanceledRequestId = await _unitOfWork.ServiceRequests.GetByIdAsync(id, cancellationToken);
+        if (CanceledRequestId is null)
         {
             return ApiResponse<object?>.FailureResponse("لم يتم العثور على طلب الخدمة.", "Service request was not found.");
         }
@@ -293,16 +295,16 @@ public class ServiceRequestService : IServiceRequestService
         bool isAdmin = effective.Contains(ManageServiceRequestsPermissionId);
         if (!isAdmin)
         {
-            if (currentUser!.EntityType != EntityType.ProductionCompany || currentUser.EntityId != VarOfCanceledRequestId.ProductionCompanyId)
+            if (currentUser!.EntityType != EntityType.ProductionCompany || currentUser.EntityId != CanceledRequestId.ProductionCompanyId)
             {
                 return ApiResponse<object?>.FailureResponse("ليس لديك الصلاحية لإلغاء طلب الخدمة هذا.", "Only the owning production company may cancel this request.");
             }
         }
-        if (VarOfCanceledRequestId.Status != ServiceRequestStatus.PendingWorkerSelection)
+        if (CanceledRequestId.Status != ServiceRequestStatus.PendingWorkerSelection)
         {
             return ApiResponse<object?>.FailureResponse("لا تستطيع الغاء طلبك ", "Cannot cancel the request after worker assignment has started.");
         }
-        VarOfCanceledRequestId.Status = ServiceRequestStatus.Cancelled; VarOfCanceledRequestId.CancelledAt = DateTime.UtcNow; await _unitOfWork.SaveChangesAsync(cancellationToken);
+        CanceledRequestId.Status = ServiceRequestStatus.Cancelled; CanceledRequestId.CancelledAt = DateTime.UtcNow; await _unitOfWork.SaveChangesAsync(cancellationToken);
         return ApiResponse<object?>.SuccessResponse(null, "تم إلغاء طلب الخدمة بنجاح.", "Service request cancelled successfully.");
     }
 
@@ -344,7 +346,7 @@ public class ServiceRequestService : IServiceRequestService
             ServiceTimeUnit.Day => "days (9 hours each)",
             ServiceTimeUnit.Hour => "hours",
             _ => "unknown"
-        }; var result = new ExpectedPaymentCalculationDto
+        }; var CalculationInfo = new ExpectedPaymentCalculationDto
         {
             UnitPrice = service.Price,
             RequestedWorkers = requestedWorkers,
@@ -352,7 +354,7 @@ public class ServiceRequestService : IServiceRequestService
             TotalExpectedPayment = totalExpected,
             FormattedMessage = $"Expected payment for {requestedWorkers} workers " + $"for {durationCount} {timeUnitLabel}: " + $"{totalExpected:N2} JOD."
         };
-        return ApiResponse<ExpectedPaymentCalculationDto>.SuccessResponse(result, "تم حساب المبلغ المتوقع بنجاح.", "Expected payment calculated successfully.");
+        return ApiResponse<ExpectedPaymentCalculationDto>.SuccessResponse(CalculationInfo, "تم حساب المبلغ المتوقع بنجاح.", "Expected payment calculated successfully.");
     }
 
     public async Task<ApiResponse<object?>> RejectAsync(int currentUserId, int id, string? reason, CancellationToken cancellationToken = default)
@@ -360,20 +362,20 @@ public class ServiceRequestService : IServiceRequestService
         var (currentUser, authError) = await GetCurrentUserAsync<object?>(currentUserId, cancellationToken);
         if (authError is not null)
             return authError;
-        var VarForRejectedRequestId = await _unitOfWork.ServiceRequests.GetByIdAsync(id, cancellationToken);
-        if (VarForRejectedRequestId is null)
+        var RejectedRequestId = await _unitOfWork.ServiceRequests.GetByIdAsync(id, cancellationToken);
+        if (RejectedRequestId is null)
             return ApiResponse<object?>.FailureResponse("لم يتم العثور على طلب الخدمة.", "Service request was not found.");
 
         // Validate caller is the Association assigned to this request
-        if (currentUser!.EntityType != EntityType.Association || currentUser.EntityId != VarForRejectedRequestId.AssociationId)
+        if (currentUser!.EntityType != EntityType.Association || currentUser.EntityId != RejectedRequestId.AssociationId)
         {
             return ApiResponse<object?>.FailureResponse("ليس لديك الصلاحية لرفض طلب الخدمة هذا.", "Only the assigned association may reject this request.");
         }
-        if (VarForRejectedRequestId.Status != ServiceRequestStatus.PendingWorkerSelection)
+        if (RejectedRequestId.Status != ServiceRequestStatus.PendingWorkerSelection)
         {
             return ApiResponse<object?>.FailureResponse("لا يمكن رفض الطلب في حالته الحالية.", "Cannot reject request in its current status.");
         }
-        VarForRejectedRequestId.Status = ServiceRequestStatus.Rejected;
+        RejectedRequestId.Status = ServiceRequestStatus.Rejected;
         // If you add a RejectionReason property to ServiceRequest entity, you can set it here:
         //sr.RejectionReason = reason;
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -409,33 +411,28 @@ public class ServiceRequestService : IServiceRequestService
         var (currentUser, authError) = await GetCurrentUserAsync<object?>(currentUserId, cancellationToken);
         if (authError is not null) return authError;
 
-        var VarForApprovingCurrentRequest = await _unitOfWork.ServiceRequests.GetByIdAsync(id, cancellationToken);
+        var CurrentRequestToApprove = await _unitOfWork.ServiceRequests.GetByIdAsync(id, cancellationToken);
         
 
-        if (VarForApprovingCurrentRequest is null)
+        if (CurrentRequestToApprove is null)
         {
             return ApiResponse<object?>.FailureResponse(
                 "Service request was not found.",
                 "طلب الخدمة غير موجود.");
         }
-        if (currentUser!.EntityType != EntityType.Association || currentUser.EntityId != VarForApprovingCurrentRequest.AssociationId)
+        if (currentUser!.EntityType != EntityType.Association || currentUser.EntityId != CurrentRequestToApprove.AssociationId)
                 {
                     return ApiResponse<object?>.FailureResponse("ليس لديك الصلاحية للموافقة على طلب الخدمة هذا.", "Only the assigned association may approve this request.");
                }
-       if (currentUser!.EntityType != EntityType.Association ||currentUser.EntityId != VarForApprovingCurrentRequest.AssociationId)
-        {
-            return ApiResponse<object?>.FailureResponse(
-                "Only the assigned association may approve and assign workers.",
-                "فقط الجمعية التابعة لها الطلب يمكنها الموافقة وتعيين العمال.");
-        }
+       
         // Make sure the request is in the correct status
-        if (VarForApprovingCurrentRequest.Status != ServiceRequestStatus.PendingWorkerSelection)
+        if (CurrentRequestToApprove.Status != ServiceRequestStatus.PendingWorkerSelection)
         {
             return ApiResponse<object?>.FailureResponse(
                 "Cannot approve and assign workers for the request in its current status.",
                 "لا يمكن الموافقة وتعيين العمال في حالة الطلب الحالية.");
         }
-        if (workerIds is null || workerIds.Count != VarForApprovingCurrentRequest.RequestedWorkersCount)
+        if (workerIds is null || workerIds.Count != CurrentRequestToApprove.RequestedWorkersCount)
         {
             return ApiResponse<object?>.FailureResponse("عدد العمال المحدد لا يتطابق مع العدد المطلوب.", "Worker count mismatch.");
         }
@@ -461,7 +458,7 @@ public class ServiceRequestService : IServiceRequestService
                     $"العامل ذو الرقم {workerId} غير موجود.");
             }
 
-            if (worker.AssociationId != VarForApprovingCurrentRequest.AssociationId)
+            if (worker.AssociationId != CurrentRequestToApprove.AssociationId)
             {
                 return ApiResponse<object?>.FailureResponse(
                     $"Worker {workerId} does not belong to the request association.",
@@ -473,8 +470,8 @@ public class ServiceRequestService : IServiceRequestService
         }
 
 
-        VarForApprovingCurrentRequest.SelectedWorkersCount = workerIds.Count;
-        VarForApprovingCurrentRequest.Status = ServiceRequestStatus.InProgress;
+        CurrentRequestToApprove.SelectedWorkersCount = workerIds.Count;
+        CurrentRequestToApprove.Status = ServiceRequestStatus.InProgress;
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
