@@ -13,7 +13,7 @@ public class ServiceRequestService : IServiceRequestService
     private readonly IEmailSender _emailSender;
 
     private const int RequestServicePermissionId = 15;
-    private const int ViewServiceRequestsPermissionId = 16;
+    private const int ViewServiceRequests = 16;
     private const int ManageServiceRequestsPermissionId = 17;
 
     public ServiceRequestService(IUnitOfWork unitOfWork, IEmailSender emailSender)
@@ -43,7 +43,7 @@ public class ServiceRequestService : IServiceRequestService
     private static ApiResponse<T>? EnsureCanViewServiceRequests<T>(User currentUser)
     {
         var permissions = GetEffectivePermissionIds(currentUser);
-        if (!permissions.Contains(ViewServiceRequestsPermissionId) && !permissions.Contains(ManageServiceRequestsPermissionId))
+        if (!permissions.Contains(ViewServiceRequests) && !permissions.Contains(ManageServiceRequestsPermissionId))
         {
             return
                 ApiResponse<T>.FailureResponse("لا يملك المستخدم صلاحية عرض طلبات الخدمة.", "Caller does not hold View Service Requests permission.");

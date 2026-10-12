@@ -49,6 +49,7 @@ namespace Maydan.Infrastructure.Persistence.Seed
         private const int DeleteProjects = 28;
         private const int ReviewProjects = 29;
         private const int ManageProjects = 30;
+        //private const int ViewServiceRequestsPermissionId = 16;
 
         // Locations/Attendance/Payments — added by the RBAC gaps ticket (2026-09-21), matching
         // PermissionSeedConfiguration.cs ids 31-36.
@@ -174,9 +175,9 @@ namespace Maydan.Infrastructure.Persistence.Seed
                 ManageAssociationUsers,
                 ViewGroups, ManageGroups,
                 ViewAttendance, ManageAttendance,
-                ViewPayments
+                ViewPayments,ViewServiceRequests
             };
-
+            
             var allPermissionIds = Enumerable.Range(1, 40);
 
             var grants = ForRole(BaytAlUrdon, allPermissionIds)

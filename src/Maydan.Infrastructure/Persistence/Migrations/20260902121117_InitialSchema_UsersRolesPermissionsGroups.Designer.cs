@@ -118,7 +118,7 @@ namespace Maydan.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("PermissionId");
 
-                    b.ToTable("RolePermissions", (string)null);
+                    b.ToTable("", (string)null);
                 });
 
             modelBuilder.Entity("Maydan.Domain.Entities.User", b =>
