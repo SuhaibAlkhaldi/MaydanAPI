@@ -3,10 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Maydan.API.Models.Projects;
 
-// Mirrors CreateProjectRequest, with two differences matching workforcment's projects.service.ts
-// update() call exactly: Id travels in the body (PUT /api/Projects, not /api/Projects/{id} — an
-// unusual convention, but it's what the frontend already sends), and WorkPermitImage is optional
-// since an edit doesn't have to replace the work permit file.
+
 public class UpdateProjectRequest
 {
     [Required]

@@ -18,3 +18,4 @@ secrets.json
 
 ## User-uploaded files must never be committed to the repo
 **/wwwroot/uploads/
+docs/business/workers-implementation-plan.md

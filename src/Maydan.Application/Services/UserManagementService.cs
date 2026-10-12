@@ -399,7 +399,14 @@ public class UserManagementService : IUserManagementService
             throw new UnauthorizedAccessException("Current user is inactive.");
         }
 
-        if (!GetEffectivePermissionIds(currentUser).Contains(ManageUsersPermissionId))
+        // ManageUsersPermissionId (Bayt-AlUrdon/ASEZA today, though GetScopedUserAsync below still
+        // confines them to their OWN entity — neither holds an Association's or ProductionCompany's
+        // EntityType) OR the narrower ManageAssociationUsersPermissionId (the Association role's own
+        // self-service grant) OR ManageProductionCompanyUsersPermissionId (the ProductionHouse role's
+        // own self-service grant, same shape). Deliberately NOT extended on
+        // UpdateDirectPermissionsAsync/UpdateGroupsAsync — this permission only ever covers
+        // activate/deactivate.
+        if (!GetEffectivePermissionIds(currentUser).Overlaps(new[] { ManageUsersPermissionId, ManageAssociationUsersPermissionId, ManageProductionCompanyUsersPermissionId }))
         {
             throw new UnauthorizedAccessException("Caller does not hold the Manage Users permission.");
         }
@@ -481,6 +488,18 @@ public class UserManagementService : IUserManagementService
     // Matches PermissionSeedConfiguration.cs ids 1/3.
     private const int ViewUsersPermissionId = 1;
     private const int ManageUsersPermissionId = 3;
+
+    // Matches PermissionSeedConfiguration.cs id 39 — the narrow, self-service activate/deactivate
+    // grant for the Association role (see that seed's own comment). Only ever OR'd alongside
+    // ManageUsersPermissionId in UpdateUserStatusAsync below, same "specific permission OR the
+    // broader one" shape AssociationService.GetAuthorizedUserAsync already uses — this does NOT
+    // widen UpdateDirectPermissionsAsync/UpdateGroupsAsync, which stay ManageUsersPermissionId-only.
+    private const int ManageAssociationUsersPermissionId = 39;
+
+    // Matches PermissionSeedConfiguration.cs id 40 — the ProductionHouse role's own self-service
+    // activate/deactivate grant, same shape and same reasoning as ManageAssociationUsersPermissionId
+    // above (Phase 1 of the ProductionHouse self-service user-management gap).
+    private const int ManageProductionCompanyUsersPermissionId = 40;
 
     // Matches RoleSeedConfiguration.cs / RolePermissionSeedConfiguration.cs's own RoleId constants.
     private const int BaytAlUrdonRoleId = 1;

@@ -29,6 +29,8 @@ public class WorkerConfiguration : IEntityTypeConfiguration<Worker>
 
         builder.Property(w => w.PhoneNumber).HasMaxLength(30);
 
+        builder.Property(w => w.Nationality).HasMaxLength(100);
+
         builder.Property(w => w.QrCode).IsRequired().HasMaxLength(200);
         builder.HasIndex(w => w.QrCode).IsUnique();
 
@@ -37,6 +39,19 @@ public class WorkerConfiguration : IEntityTypeConfiguration<Worker>
         builder.HasOne(w => w.Association)
             .WithMany(a => a.Workers)
             .HasForeignKey(w => w.AssociationId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Worker full-profile fields (Phase 1, 2026-09-30): reuse the existing Country/City
+        // reference tables (same ones Association already uses) instead of a free-text Address
+        // column — optional (nullable FK) since these are manually entered for now.
+        builder.HasOne(w => w.Country)
+            .WithMany()
+            .HasForeignKey(w => w.CountryId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(w => w.City)
+            .WithMany()
+            .HasForeignKey(w => w.CityId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

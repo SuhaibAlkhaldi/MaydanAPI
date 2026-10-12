@@ -1,7 +1,6 @@
 namespace Maydan.Application.DTOs.Projects;
 
-// Matches workforcment's projects.service.ts getAll()'s ProjectsQuery exactly — field for field,
-// same names — so ProjectsController's [FromQuery] binding needs no translation layer.
+
 public class ProjectQueryDto
 {
     public bool IsDeleted { get; set; }

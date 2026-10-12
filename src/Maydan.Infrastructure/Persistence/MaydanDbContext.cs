@@ -33,6 +33,7 @@ public class MaydanDbContext : DbContext
     public DbSet<ProductionCompany> ProductionCompanies => Set<ProductionCompany>();
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<Worker> Workers => Set<Worker>();
+    public DbSet<WorkerServiceLink> WorkerServiceLinks => Set<WorkerServiceLink>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<SystemConfiguration> SystemConfigurations => Set<SystemConfiguration>();

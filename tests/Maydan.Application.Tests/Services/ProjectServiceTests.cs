@@ -3,6 +3,7 @@ using Maydan.Application.Interfaces;
 using Maydan.Application.Services;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Maydan.Application.Tests.Services;
 
@@ -33,6 +34,14 @@ public class ProjectServiceTests
         Id = id,
         NameEn = "Feature Film",
         NameAr = "فيلم طويل",
+        IsActive = true
+    };
+
+    private static Role NewEmptyRole(int roleId) => new()
+    {
+        RoleId = roleId,
+        RoleNameEn = $"Role {roleId}",
+        RoleNameAr = $"Role {roleId}",
         IsActive = true
     };
 
@@ -78,11 +87,11 @@ public class ProjectServiceTests
 
         var result = await service.CreateAsync(ValidCreateDto(producer.UserId, locationManager.UserId, projectType.Id), currentUser.UserId);
 
-        Assert.Equal("New Documentary", result.ProjectNameEn);
-        Assert.Equal(5, result.ProductionCompanyId);
-        Assert.Equal(producer.UserId, result.ProducerUserId);
-        Assert.Equal($"{producer.FirstNameEn} {producer.LastNameEn}", result.ProducerNameEn);
-        Assert.False(result.IsDeleted);
+        Assert.Equal("New Documentary", result.Data!.ProjectNameEn);
+        Assert.Equal(5, result.Data!.ProductionCompanyId);
+        Assert.Equal(producer.UserId, result.Data!.ProducerUserId);
+        Assert.Equal($"{producer.FirstNameEn} {producer.LastNameEn}", result.Data!.ProducerNameEn);
+        Assert.False(result.Data!.IsDeleted);
         Assert.NotNull(projectRepository.AddedProject);
         Assert.Equal(currentUser.UserId, projectRepository.AddedProject!.CreatedBy);
     }
@@ -206,10 +215,53 @@ public class ProjectServiceTests
             projectTypes: [projectType],
             projects: [project]);
 
-        var results = await service.GetAllAsync(new ProjectQueryDto { IsDeleted = false });
+        var results = await service.GetAllAsync(producer.UserId, new ProjectQueryDto { IsDeleted = false });
 
-        Assert.Single(results);
-        Assert.Equal(10, results[0].Id);
+        Assert.Single(results.Data!);
+        Assert.Equal(10, results.Data![0].Id);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_ProductionCompanyUserWithoutAllProjectsPermission_SeesOnlyAssignedProjects()
+    {
+        var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
+        currentUser.Role = NewEmptyRole(currentUser.RoleId);
+
+        var otherProducer = NewUser(2, EntityType.ProductionCompany, 5);
+        var locationManager = NewUser(3, EntityType.ProductionCompany, 5);
+        var projectType = NewProjectType(7);
+        var assignedProject = NewProject(id: 10, otherProducer.UserId, currentUser.UserId, projectType.Id, productionCompanyId: 5);
+        var hiddenProject = NewProject(id: 11, otherProducer.UserId, locationManager.UserId, projectType.Id, productionCompanyId: 5);
+
+        var (service, _) = BuildService(
+            users: [currentUser, otherProducer, locationManager],
+            projectTypes: [projectType],
+            projects: [assignedProject, hiddenProject]);
+
+        var results = await service.GetAllAsync(currentUser.UserId, new ProjectQueryDto { IsDeleted = false });
+
+        var result = Assert.Single(results.Data!);
+        Assert.Equal(assignedProject.Id, result.Id);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_UnassignedProductionCompanyUserWithoutAllProjectsPermission_ThrowsUnauthorizedAccessException()
+    {
+        var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
+        currentUser.Role = NewEmptyRole(currentUser.RoleId);
+
+        var producer = NewUser(2, EntityType.ProductionCompany, 5);
+        var locationManager = NewUser(3, EntityType.ProductionCompany, 5);
+        var projectType = NewProjectType(7);
+        var project = NewProject(id: 10, producer.UserId, locationManager.UserId, projectType.Id, productionCompanyId: 5);
+
+        var (service, _) = BuildService(
+            users: [currentUser, producer, locationManager],
+            projectTypes: [projectType],
+            projects: [project]);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(
+            () => service.GetByIdAsync(currentUser.UserId, project.Id));
     }
 
     [Fact]
@@ -225,18 +277,19 @@ public class ProjectServiceTests
             projectTypes: [projectType],
             projects: [project]);
 
-        var result = await service.GetByIdAsync(10);
+        var result = await service.GetByIdAsync(producer.UserId, 10);
 
-        Assert.Equal(10, result.Id);
-        Assert.Equal(projectType.NameEn, result.ProjectTypeNameEn);
+        Assert.Equal(10, result.Data!.Id);
+        Assert.Equal(projectType.NameEn, result.Data!.ProjectTypeNameEn);
     }
 
     [Fact]
     public async Task GetByIdAsync_MissingProject_ThrowsKeyNotFoundException()
     {
-        var (service, _) = BuildService(users: [], projectTypes: []);
+        var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
+        var (service, _) = BuildService(users: [currentUser], projectTypes: []);
 
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.GetByIdAsync(404));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.GetByIdAsync(currentUser.UserId, 404));
     }
 
     [Fact]
@@ -255,7 +308,7 @@ public class ProjectServiceTests
 
         // Mirrors MaydanDbContext's global soft-delete query filter — a deleted project is
         // invisible to the normal get-by-id path, the same way it would 404 in production.
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.GetByIdAsync(10));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.GetByIdAsync(producer.UserId, 10));
     }
 
     // ---------------------------------------------------------------------
@@ -280,10 +333,10 @@ public class ProjectServiceTests
 
         var result = await service.UpdateAsync(10, ValidUpdateDto(newProducer.UserId, locationManager.UserId, projectType.Id), currentUser.UserId);
 
-        Assert.Equal("Updated Documentary", result.ProjectNameEn);
-        Assert.Equal(newProducer.UserId, result.ProducerUserId);
+        Assert.Equal("Updated Documentary", result.Data!.ProjectNameEn);
+        Assert.Equal(newProducer.UserId, result.Data!.ProducerUserId);
         // WorkPermitImagePath was null on the update request — the existing path must survive.
-        Assert.Equal("/uploads/work-permits/original.pdf", result.WorkPermitImagePath);
+        Assert.Equal("/uploads/work-permits/original.pdf", result.Data!.WorkPermitImagePath);
     }
 
     [Fact]
@@ -306,7 +359,7 @@ public class ProjectServiceTests
 
         var result = await service.UpdateAsync(10, dto, currentUser.UserId);
 
-        Assert.Equal("/uploads/work-permits/replaced.pdf", result.WorkPermitImagePath);
+        Assert.Equal("/uploads/work-permits/replaced.pdf", result.Data!.WorkPermitImagePath);
     }
 
     [Fact]
@@ -431,7 +484,7 @@ public class ProjectServiceTests
 
         var result = await service.RestoreAsync(10, currentUser.UserId);
 
-        Assert.False(result.IsDeleted);
+        Assert.False(result.Data!.IsDeleted);
         Assert.False(project.IsDeleted);
         Assert.Null(project.DeletedAt);
     }
@@ -491,8 +544,8 @@ public class ProjectServiceTests
 
         var result = await service.GetProjectTypesAsync();
 
-        Assert.Equal(2, result.Count);
-        Assert.All(result, dto => Assert.Equal("Feature Film", dto.NameEn));
+        Assert.Equal(2, result.Data!.Count);
+        Assert.All(result.Data!, dto => Assert.Equal("Feature Film", dto.NameEn));
     }
 
     // ---------------------------------------------------------------------
@@ -549,10 +602,53 @@ public class ProjectServiceTests
         public Task<User?> GetDetailsReadOnlyAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<User?> GetByUserNameEnAsync(User user, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<User?> GetByUserNameArAsync(User user, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<User?> GetWithPermissionsAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<User?> GetWithPermissionsAsync(int userId, CancellationToken cancellationToken = default)
+        {
+            var user = _usersById.GetValueOrDefault(userId);
+            if (user is not null && user.Role == null)
+            {
+                user.Role = BuildProjectRole(user.RoleId);
+            }
+
+            return Task.FromResult(user);
+        }
         public Task<List<User>> GetByIdsInEntityAsync(IEnumerable<int> userIds, EntityType entityType, int entityId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task AddAsync(User user, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public void Remove(User user) => throw new NotSupportedException();
+
+        private static Role BuildProjectRole(int roleId)
+        {
+            var role = new Role
+            {
+                RoleId = roleId,
+                RoleNameEn = $"Role {roleId}",
+                RoleNameAr = $"Role {roleId}",
+                IsActive = true
+            };
+
+            foreach (var permissionId in new[] { 25, 26, 27, 28, 29, 30 })
+            {
+                var permission = new Permission
+                {
+                    PermissionId = permissionId,
+                    PermissionNameEn = $"Permission {permissionId}",
+                    PermissionNameAr = $"Permission {permissionId}",
+                    Module = "Projects",
+                    IsActive = true
+                };
+
+                role.RolePermissions.Add(new RolePermission
+                {
+                    RoleId = role.RoleId,
+                    Role = role,
+                    PermissionId = permissionId,
+                    Permission = permission,
+                    IsActive = true
+                });
+            }
+
+            return role;
+        }
     }
 
     private sealed class FakeProjectTypeRepository : IProjectTypeRepository
@@ -688,18 +784,21 @@ public class ProjectServiceTests
         public IGroupRepository Groups => throw new NotSupportedException();
         public ICountryRepository Countries => throw new NotSupportedException();
         public ICityRepository Cities => throw new NotSupportedException();
-        public ICityLocationRepository CityLocations => throw new NotSupportedException();
-        public IAssociationProjectSupervisorRepository AssociationProjectSupervisors => throw new NotSupportedException();
         public IAssociationRepository Associations => throw new NotSupportedException();
         public IProductionCompanyRepository ProductionCompanies => throw new NotSupportedException();
         public IWorkerRepository Workers => throw new NotSupportedException();
+        public ICityLocationRepository CityLocations => throw new NotSupportedException();
+        public IAssociationProjectSupervisorRepository AssociationProjectSupervisors => throw new NotSupportedException();
         public IPasswordResetTokenRepository PasswordResetTokens => throw new NotSupportedException();
         public IRefreshTokenRepository RefreshTokens => throw new NotSupportedException();
         public ISystemConfigurationRepository SystemConfigurations => throw new NotSupportedException();
         public IServiceRepository Services => throw new NotSupportedException();
 
-        public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Task.FromResult(1);
+        public Task ExecuteInTransactionAsync(Func<Task> operation, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
 
-        public Task ExecuteInTransactionAsync(Func<Task> operation, CancellationToken cancellationToken = default) => operation();
+        public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Task.FromResult(1);
     }
 }
