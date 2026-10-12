@@ -1,6 +1,5 @@
 namespace Maydan.Application.Interfaces;
 
-
 public interface IFileStorageService
 {
     Task<string> SaveAsync(
