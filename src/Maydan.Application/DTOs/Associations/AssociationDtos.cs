@@ -1,5 +1,6 @@
 using Maydan.Application.DTOs.Onboarding;
 using Maydan.Application.DTOs.UserManagement;
+using Maydan.Application.DTOs.Workers;
 
 namespace Maydan.Application.DTOs.Associations;
 
@@ -91,4 +92,5 @@ public class UpdateAssociationDto : CreateAssociationDto
 public class AssociationDetailsDto : AssociationDto
 {
     public List<UserSummaryDto> Users { get; set; } = new();
+    public List<WorkerSummaryDto> Workers { get; set;  } = new();
 }

@@ -1,11 +1,11 @@
+using Maydan.Application.DTOs;
+using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.Projects;
 using Maydan.Application.Interfaces;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
 
 namespace Maydan.Application.Services;
-
-
 
 public class ProjectService : IProjectService
 {
@@ -23,20 +23,28 @@ public class ProjectService : IProjectService
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<ProjectDto> CreateAsync(
+    public async Task<ApiResponse<ProjectDto>> CreateAsync(
         CreateProjectDto request,
         int currentUserId,
         CancellationToken cancellationToken = default)
     {
-        var currentUser = await GetCurrentUserWithPermissionsAsync(currentUserId, cancellationToken);
-        EnsureHasAnyProjectPermission(currentUser, CreateProjectsPermissionId, ManageProjectsPermissionId);
-
-        if (currentUser.EntityType != EntityType.ProductionCompany)
+        var (currentUser, authError) = await AuthorizeUserAsync<ProjectDto>(currentUserId, cancellationToken);
+        if (authError is not null)
         {
-            throw new InvalidOperationException("Only Production Company users can create projects.");
+            return authError;
         }
 
-        ValidateProjectPayload(
+        if (!HasAnyProjectPermission(currentUser!, CreateProjectsPermissionId, ManageProjectsPermissionId))
+        {
+            return ApiResponse<ProjectDto>.FailureResponse("لا تملك الصلاحية المطلوبة لإنشاء المشاريع.", "Caller does not hold the required Projects permission.");
+        }
+
+        if (currentUser!.EntityType != EntityType.ProductionCompany)
+        {
+            return ApiResponse<ProjectDto>.FailureResponse("يمكن لمستخدمي شركات الإنتاج فقط إنشاء المشاريع.", "Only Production Company users can create projects.");
+        }
+
+        var validationError = ValidateProjectPayload<ProjectDto>(
             request.ProjectNameEn,
             request.ProjectNameAr,
             request.StartDate,
@@ -44,31 +52,33 @@ public class ProjectService : IProjectService
             request.ProducerUserId,
             request.LocationManagerUserId);
 
-        if (!await _unitOfWork.ProjectTypes.ExistsAsync(request.ProjectTypeId, cancellationToken))
+        if (validationError is not null)
         {
-            throw new KeyNotFoundException("Invalid Project Type.");
+            return validationError;
         }
 
-        var producer = await GetSameCompanyUserAsync(request.ProducerUserId, currentUser, "Producer", cancellationToken);
-        var locationManager = await GetSameCompanyUserAsync(request.LocationManagerUserId, currentUser, "Location Manager", cancellationToken);
+        if (!await _unitOfWork.ProjectTypes.ExistsAsync(request.ProjectTypeId, cancellationToken))
+        {
+            return ApiResponse<ProjectDto>.FailureResponse("نوع المشروع غير صالح.", "Invalid Project Type.");
+        }
+
+        var (producer, producerError) = await GetSameCompanyUserAsync<ProjectDto>(request.ProducerUserId, currentUser, "Producer", cancellationToken);
+        if (producerError is not null) return producerError;
+
+        var (locationManager, managerError) = await GetSameCompanyUserAsync<ProjectDto>(request.LocationManagerUserId, currentUser, "Location Manager", cancellationToken);
+        if (managerError is not null) return managerError;
 
         var project = new Project
         {
             ProjectNameEn = request.ProjectNameEn.Trim(),
             ProjectNameAr = request.ProjectNameAr.Trim(),
-
             StartDate = request.StartDate,
             EndDate = request.EndDate,
-
             ProjectTypeId = request.ProjectTypeId,
-
-            ProducerUserId = producer.UserId,
-            LocationManagerUserId = locationManager.UserId,
-
+            ProducerUserId = producer!.UserId,
+            LocationManagerUserId = locationManager!.UserId,
             WorkPermitImagePath = request.WorkPermitImagePath,
-
             ProductionCompanyId = currentUser.EntityId,
-
             CreatedBy = currentUser.UserId,
             IsActive = true
         };
@@ -76,18 +86,26 @@ public class ProjectService : IProjectService
         await _unitOfWork.Projects.AddAsync(project, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var createdProject = await _unitOfWork.Projects.GetByIdAsync(project.Id, cancellationToken)
-            ?? throw new KeyNotFoundException("Project could not be loaded after creation.");
+        var createdProject = await _unitOfWork.Projects.GetByIdAsync(project.Id, cancellationToken);
+        if (createdProject is null)
+        {
+            return ApiResponse<ProjectDto>.FailureResponse("تعذر تحميل المشروع بعد الإنشاء.", "Project could not be loaded after creation.");
+        }
 
-        return MapToDto(createdProject);
+        var dto = MapToDto(createdProject);
+        return ApiResponse<ProjectDto>.SuccessResponse(dto, "تم إنشاء المشروع بنجاح", "Project created successfully", 201);
     }
 
-    public async Task<List<ProjectDto>> GetAllAsync(
+    public async Task<ApiResponse<List<ProjectDto>>> GetAllAsync(
         int currentUserId,
         ProjectQueryDto query,
         CancellationToken cancellationToken = default)
     {
-        var currentUser = await GetCurrentUserWithPermissionsAsync(currentUserId, cancellationToken);
+        var (currentUser, authError) = await AuthorizeUserAsync<List<ProjectDto>>(currentUserId, cancellationToken);
+        if (authError is not null)
+        {
+            return authError;
+        }
 
         var projects = await _unitOfWork.Projects.GetAllAsync(
             query.IsDeleted,
@@ -98,45 +116,70 @@ public class ProjectService : IProjectService
             query.SearchByProductionCompanyId,
             cancellationToken);
 
-        return projects
-            .Where(project => CanViewProject(currentUser, project))
+        var dtos = projects
+            .Where(project => CanViewProject(currentUser!, project))
             .Select(MapToDto)
             .ToList();
+
+        return ApiResponse<List<ProjectDto>>.SuccessResponse(dtos, "تم جلب المشاريع بنجاح", "Projects retrieved successfully");
     }
 
-    public async Task<ProjectDto> GetByIdAsync(
+    public async Task<ApiResponse<ProjectDto>> GetByIdAsync(
         int currentUserId,
         int id,
         CancellationToken cancellationToken = default)
     {
-        var currentUser = await GetCurrentUserWithPermissionsAsync(currentUserId, cancellationToken);
-
-        var project = await _unitOfWork.Projects.GetByIdAsync(id, cancellationToken)
-            ?? throw new KeyNotFoundException("Project was not found.");
-
-        if (!CanViewProject(currentUser, project))
+        var (currentUser, authError) = await AuthorizeUserAsync<ProjectDto>(currentUserId, cancellationToken);
+        if (authError is not null)
         {
-            throw new UnauthorizedAccessException("Cannot view a project outside the caller's authorized scope.");
+            return authError;
         }
 
-        return MapToDto(project);
+        var project = await _unitOfWork.Projects.GetByIdAsync(id, cancellationToken);
+        if (project is null)
+        {
+            return ApiResponse<ProjectDto>.FailureResponse("المشروع غير موجود.", "Project was not found.");
+        }
+
+        if (!CanViewProject(currentUser!, project))
+        {
+            return ApiResponse<ProjectDto>.FailureResponse("لا تملك صلاحية الوصول لهذا المشروع.", "Cannot view a project outside the caller's authorized scope.");
+        }
+
+        var dto = MapToDto(project);
+        return ApiResponse<ProjectDto>.SuccessResponse(dto, "تم جلب تفاصيل المشروع بنجاح", "Project details retrieved successfully");
     }
 
-    public async Task<ProjectDto> UpdateAsync(
+    public async Task<ApiResponse<ProjectDto>> UpdateAsync(
         int id,
         UpdateProjectDto request,
         int currentUserId,
         CancellationToken cancellationToken = default)
     {
-        var currentUser = await GetCurrentUserWithPermissionsAsync(currentUserId, cancellationToken);
-        EnsureHasAnyProjectPermission(currentUser, EditProjectsPermissionId, ManageProjectsPermissionId);
+        var (currentUser, authError) = await AuthorizeUserAsync<ProjectDto>(currentUserId, cancellationToken);
+        if (authError is not null)
+        {
+            return authError;
+        }
 
-        var project = await _unitOfWork.Projects.GetByIdAsync(id, cancellationToken)
-            ?? throw new KeyNotFoundException("Project was not found.");
+        if (!HasAnyProjectPermission(currentUser!, EditProjectsPermissionId, ManageProjectsPermissionId))
+        {
+            return ApiResponse<ProjectDto>.FailureResponse("لا تملك الصلاحية المطلوبة لتعديل المشاريع.", "Caller does not hold the required Projects permission.");
+        }
 
-        EnsureSameProductionCompany(project, currentUser);
+        var project = await _unitOfWork.Projects.GetByIdAsync(id, cancellationToken);
+        if (project is null)
+        {
+            return ApiResponse<ProjectDto>.FailureResponse("المشروع غير موجود.", "Project was not found.");
+        }
 
-        ValidateProjectPayload(
+        var companyError = EnsureSameProductionCompany<ProjectDto>(project, currentUser!);
+        if (companyError is not null)
+        {
+            return companyError;
+        }
+
+        var validationError = ValidateProjectPayload<ProjectDto>(
             request.ProjectNameEn,
             request.ProjectNameAr,
             request.StartDate,
@@ -144,23 +187,30 @@ public class ProjectService : IProjectService
             request.ProducerUserId,
             request.LocationManagerUserId);
 
-        if (!await _unitOfWork.ProjectTypes.ExistsAsync(request.ProjectTypeId, cancellationToken))
+        if (validationError is not null)
         {
-            throw new KeyNotFoundException("Invalid Project Type.");
+            return validationError;
         }
 
-        var producer = await GetSameCompanyUserAsync(request.ProducerUserId, currentUser, "Producer", cancellationToken);
-        var locationManager = await GetSameCompanyUserAsync(request.LocationManagerUserId, currentUser, "Location Manager", cancellationToken);
+        if (!await _unitOfWork.ProjectTypes.ExistsAsync(request.ProjectTypeId, cancellationToken))
+        {
+            return ApiResponse<ProjectDto>.FailureResponse("نوع المشروع غير صالح.", "Invalid Project Type.");
+        }
+
+        var (producer, producerError) = await GetSameCompanyUserAsync<ProjectDto>(request.ProducerUserId, currentUser!, "Producer", cancellationToken);
+        if (producerError is not null) return producerError;
+
+        var (locationManager, managerError) = await GetSameCompanyUserAsync<ProjectDto>(request.LocationManagerUserId, currentUser!, "Location Manager", cancellationToken);
+        if (managerError is not null) return managerError;
 
         project.ProjectNameEn = request.ProjectNameEn.Trim();
         project.ProjectNameAr = request.ProjectNameAr.Trim();
         project.StartDate = request.StartDate;
         project.EndDate = request.EndDate;
         project.ProjectTypeId = request.ProjectTypeId;
-        project.ProducerUserId = producer.UserId;
-        project.LocationManagerUserId = locationManager.UserId;
+        project.ProducerUserId = producer!.UserId;
+        project.LocationManagerUserId = locationManager!.UserId;
 
-        // Null/empty = no new file uploaded on this edit — keep the existing stored path.
         if (!string.IsNullOrWhiteSpace(request.WorkPermitImagePath))
         {
             project.WorkPermitImagePath = request.WorkPermitImagePath;
@@ -168,50 +218,81 @@ public class ProjectService : IProjectService
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var updatedProject = await _unitOfWork.Projects.GetByIdAsync(project.Id, cancellationToken)
-            ?? throw new KeyNotFoundException("Project could not be loaded after update.");
+        var updatedProject = await _unitOfWork.Projects.GetByIdAsync(project.Id, cancellationToken);
+        if (updatedProject is null)
+        {
+            return ApiResponse<ProjectDto>.FailureResponse("تعذر تحميل المشروع بعد التحديث.", "Project could not be loaded after update.");
+        }
 
-        return MapToDto(updatedProject);
+        var dto = MapToDto(updatedProject);
+        return ApiResponse<ProjectDto>.SuccessResponse(dto, "تم تحديث المشروع بنجاح", "Project updated successfully");
     }
 
-    public async Task DeleteAsync(
+    public async Task<ApiResponse<bool>> DeleteAsync(
         int id,
         int currentUserId,
         CancellationToken cancellationToken = default)
     {
-        var currentUser = await GetCurrentUserWithPermissionsAsync(currentUserId, cancellationToken);
-        EnsureHasAnyProjectPermission(currentUser, DeleteProjectsPermissionId, ManageProjectsPermissionId);
+        var (currentUser, authError) = await AuthorizeUserAsync<bool>(currentUserId, cancellationToken);
+        if (authError is not null)
+        {
+            return authError;
+        }
 
-        var project = await _unitOfWork.Projects.GetByIdAsync(id, cancellationToken)
-            ?? throw new KeyNotFoundException("Project was not found.");
+        if (!HasAnyProjectPermission(currentUser!, DeleteProjectsPermissionId, ManageProjectsPermissionId))
+        {
+            return ApiResponse<bool>.FailureResponse("لا تملك الصلاحية المطلوبة لحذف المشاريع.", "Caller does not hold the required Projects permission.");
+        }
 
-        EnsureSameProductionCompany(project, currentUser);
+        var project = await _unitOfWork.Projects.GetByIdAsync(id, cancellationToken);
+        if (project is null)
+        {
+            return ApiResponse<bool>.FailureResponse("المشروع غير موجود.", "Project was not found.");
+        }
 
-        // MaydanDbContext.SaveChangesAsync intercepts EntityState.Deleted for every SharedEntities
-        // and converts it into a soft delete (IsDeleted = true, DeletedAt = UtcNow) — this does not
-        // hard-delete the row.
+        var companyError = EnsureSameProductionCompany<bool>(project, currentUser!);
+        if (companyError is not null)
+        {
+            return companyError;
+        }
+
         _unitOfWork.Projects.Remove(project);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return ApiResponse<bool>.SuccessResponse(true, "تم حذف المشروع بنجاح", "Project deleted successfully");
     }
 
-    public async Task<ProjectDto> RestoreAsync(
+    public async Task<ApiResponse<ProjectDto>> RestoreAsync(
         int id,
         int currentUserId,
         CancellationToken cancellationToken = default)
     {
-        var currentUser = await GetCurrentUserWithPermissionsAsync(currentUserId, cancellationToken);
-        EnsureHasAnyProjectPermission(currentUser, DeleteProjectsPermissionId, ManageProjectsPermissionId);
+        var (currentUser, authError) = await AuthorizeUserAsync<ProjectDto>(currentUserId, cancellationToken);
+        if (authError is not null)
+        {
+            return authError;
+        }
 
-        // GetByIdAsync would never find this project — the global soft-delete query filter
-        // excludes it precisely because it's deleted. GetByIdIncludingDeletedAsync bypasses that.
-        var project = await _unitOfWork.Projects.GetByIdIncludingDeletedAsync(id, cancellationToken)
-            ?? throw new KeyNotFoundException("Project was not found.");
+        if (!HasAnyProjectPermission(currentUser!, DeleteProjectsPermissionId, ManageProjectsPermissionId))
+        {
+            return ApiResponse<ProjectDto>.FailureResponse("لا تملك الصلاحية المطلوبة لاستعادة المشاريع.", "Caller does not hold the required Projects permission.");
+        }
 
-        EnsureSameProductionCompany(project, currentUser);
+        var project = await _unitOfWork.Projects.GetByIdIncludingDeletedAsync(id, cancellationToken);
+        if (project is null)
+        {
+            return ApiResponse<ProjectDto>.FailureResponse("المشروع غير موجود.", "Project was not found.");
+        }
+
+        var companyError = EnsureSameProductionCompany<ProjectDto>(project, currentUser!);
+        if (companyError is not null)
+        {
+            return companyError;
+        }
 
         if (!project.IsDeleted)
         {
-            throw new InvalidOperationException("Project is not deleted.");
+            return ApiResponse<ProjectDto>.FailureResponse("المشروع غير محذوف أصلًا.", "Project is not deleted.");
         }
 
         project.IsDeleted = false;
@@ -219,54 +300,67 @@ public class ProjectService : IProjectService
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return MapToDto(project);
+        var dto = MapToDto(project);
+        return ApiResponse<ProjectDto>.SuccessResponse(dto, "تم استعادة المشروع بنجاح", "Project restored successfully");
     }
 
-    public async Task<List<ProjectTypeDto>> GetProjectTypesAsync(
+    public async Task<ApiResponse<List<ProjectTypeDto>>> GetProjectTypesAsync(
         CancellationToken cancellationToken = default)
     {
         var projectTypes = await _unitOfWork.ProjectTypes.GetAllAsync(cancellationToken);
 
-        return projectTypes
+        var dtos = projectTypes
             .Select(projectType => new ProjectTypeDto(projectType.Id, projectType.NameEn, projectType.NameAr))
             .ToList();
+
+        return ApiResponse<List<ProjectTypeDto>>.SuccessResponse(dtos, "تم جلب أنواع المشاريع بنجاح", "Project types retrieved successfully");
     }
 
-
-    private async Task<User> GetCurrentUserAsync(int currentUserId, CancellationToken cancellationToken)
+    private async Task<(User? User, ApiResponse<T>? Error)> AuthorizeUserAsync<T>(int currentUserId, CancellationToken cancellationToken)
     {
-        var user = await _unitOfWork.Users.GetByIdAsync(currentUserId, cancellationToken)
-            ?? throw new UnauthorizedAccessException("Current user was not found.");
+        var user = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken);
+        if (user is null)
+        {
+            return (null, ApiResponse<T>.FailureResponse("المستخدم الحالي غير موجود.", "Current user was not found."));
+        }
 
         if (!user.IsActive)
         {
-            throw new UnauthorizedAccessException("Current user is inactive.");
+            return (null, ApiResponse<T>.FailureResponse("المستخدم الحالي غير فعّال.", "Current user is inactive."));
         }
 
-        return user;
+        return (user, null);
     }
 
-    private async Task<User> GetCurrentUserWithPermissionsAsync(int currentUserId, CancellationToken cancellationToken)
+    private static bool HasAnyProjectPermission(User user, params int[] permissionIds)
     {
-        var user = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken)
-            ?? throw new UnauthorizedAccessException("Current user was not found.");
-
-        if (!user.IsActive)
-        {
-            throw new UnauthorizedAccessException("Current user is inactive.");
-        }
-
-        return user;
+        return GetEffectivePermissionIds(user).Overlaps(permissionIds);
     }
 
-    private static void EnsureHasAnyProjectPermission(User user, params int[] permissionIds)
+    private async Task<(User? User, ApiResponse<T>? Error)> GetSameCompanyUserAsync<T>(
+        int userId,
+        User currentUser,
+        string roleLabelEn,
+        CancellationToken cancellationToken)
     {
-        if (!GetEffectivePermissionIds(user).Overlaps(permissionIds))
+        var user = await _unitOfWork.Users.GetByIdAsync(userId, cancellationToken);
+        if (user is null)
         {
-            throw new UnauthorizedAccessException("Caller does not hold the required Projects permission.");
+            return (null, ApiResponse<T>.FailureResponse($"المستخدم المحدد غير موجود.", $"{roleLabelEn} not found."));
         }
-    }
 
+        if (currentUser.EntityType is EntityType.BaytAlUrdon or EntityType.Aseza)
+        {
+            return (user, null);
+        }
+
+        if (user.EntityType != EntityType.ProductionCompany || user.EntityId != currentUser.EntityId)
+        {
+            return (null, ApiResponse<T>.FailureResponse($"يجب أن ينتمي المستخدم إلى نفس شركة الإنتاج.", $"{roleLabelEn} must belong to the same Production Company."));
+        }
+
+        return (user, null);
+    }
 
     private static bool CanViewProject(User currentUser, Project project)
     {
@@ -288,37 +382,28 @@ public class ProjectService : IProjectService
             return false;
         }
 
-        if (project.ProductionCompanyId != currentUser.EntityId)
+        return project.ProductionCompanyId == currentUser.EntityId &&
+            (hasAllProjectsPermission ||
+             project.ProducerUserId == currentUser.UserId ||
+             project.LocationManagerUserId == currentUser.UserId);
+    }
+
+    private static ApiResponse<T>? EnsureSameProductionCompany<T>(Project project, User currentUser)
+    {
+        if (currentUser.EntityType is EntityType.BaytAlUrdon or EntityType.Aseza)
         {
-            return false;
+            return null;
         }
 
-        return hasAllProjectsPermission ||
-            project.ProducerUserId == currentUser.UserId ||
-            project.LocationManagerUserId == currentUser.UserId;
+        if (project.ProductionCompanyId != currentUser.EntityId)
+        {
+            return ApiResponse<T>.FailureResponse("لا يمكنك إدارة مشروع خارج شركة الإنتاج الخاصة بك.", "Cannot manage a project outside the current Production Company.");
+        }
+
+        return null;
     }
 
-    private static HashSet<int> GetEffectivePermissionIds(User user)
-    {
-        var rolePermissionIds = user.Role.RolePermissions
-            .Where(rp => rp.IsActive && rp.Permission.IsActive)
-            .Select(rp => rp.PermissionId);
-
-        var directPermissionIds = user.UserPermissions
-            .Where(up => up.IsActive && up.Permission.IsActive)
-            .Select(up => up.PermissionId);
-
-        var groupPermissionIds = user.UserGroups
-            .Where(ug => ug.Group.IsActive)
-            .SelectMany(ug => ug.Group.GroupPermissions)
-            .Where(gp => gp.IsActive && gp.Permission.IsActive)
-            .Select(gp => gp.PermissionId);
-
-        return rolePermissionIds.Concat(directPermissionIds).Concat(groupPermissionIds).ToHashSet();
-    }
-
-
-    private static void ValidateProjectPayload(
+    private static ApiResponse<T>? ValidateProjectPayload<T>(
         string projectNameEn,
         string projectNameAr,
         DateTime startDate,
@@ -328,65 +413,54 @@ public class ProjectService : IProjectService
     {
         if (string.IsNullOrWhiteSpace(projectNameEn))
         {
-            throw new InvalidOperationException("English project name is required.");
+            return ApiResponse<T>.FailureResponse("اسم المشروع باللغة الإنجليزية مطلوب.", "English project name is required.");
         }
 
         if (string.IsNullOrWhiteSpace(projectNameAr))
         {
-            throw new InvalidOperationException("Arabic project name is required.");
+            return ApiResponse<T>.FailureResponse("اسم المشروع باللغة العربية مطلوب.", "Arabic project name is required.");
         }
 
         if (projectNameEn.Trim().Length > 200)
         {
-            throw new InvalidOperationException("English project name cannot exceed 200 characters.");
+            return ApiResponse<T>.FailureResponse("اسم المشروع باللغة الإنجليزية يجب ألا يتجاوز 200 حرف.", "English project name cannot exceed 200 characters.");
         }
 
         if (projectNameAr.Trim().Length > 200)
         {
-            throw new InvalidOperationException("Arabic project name cannot exceed 200 characters.");
+            return ApiResponse<T>.FailureResponse("اسم المشروع باللغة العربية يجب ألا يتجاوز 200 حرف.", "Arabic project name cannot exceed 200 characters.");
         }
 
         if (endDate <= startDate)
         {
-            throw new InvalidOperationException("End date must be greater than start date.");
+            return ApiResponse<T>.FailureResponse("تاريخ الانتهاء يجب أن يكون بعد تاريخ البداية.", "End date must be greater than start date.");
         }
 
         if (producerUserId == locationManagerUserId)
         {
-            throw new InvalidOperationException("Producer and Location Manager must be different users.");
+            return ApiResponse<T>.FailureResponse("يجب أن يكون المنتج ومدير الموقع شخصين مختلفين.", "Producer and Location Manager must be different users.");
         }
+
+        return null;
     }
 
-    // Shared by CreateAsync/UpdateAsync — resolves a user and confirms it belongs to the same
-    // Production Company as the current user, the exact rule CreateAsync already enforced for
-    // both Producer and Location Manager.
-    private async Task<User> GetSameCompanyUserAsync(
-        int userId,
-        User currentUser,
-        string roleLabel,
-        CancellationToken cancellationToken)
+    private static HashSet<int> GetEffectivePermissionIds(User user)
     {
-        var user = await _unitOfWork.Users.GetByIdAsync(userId, cancellationToken)
-            ?? throw new KeyNotFoundException($"{roleLabel} not found.");
+        var rolePermissionIds = user.Role?.RolePermissions?
+            .Where(rp => rp.IsActive && rp.Permission.IsActive)
+            .Select(rp => rp.PermissionId) ?? Enumerable.Empty<int>();
 
-        if (user.EntityType != EntityType.ProductionCompany || user.EntityId != currentUser.EntityId)
-        {
-            throw new InvalidOperationException($"{roleLabel} must belong to the same Production Company.");
-        }
+        var directPermissionIds = user.UserPermissions?
+            .Where(up => up.IsActive && up.Permission.IsActive)
+            .Select(up => up.PermissionId) ?? Enumerable.Empty<int>();
 
-        return user;
-    }
+        var groupPermissionIds = user.UserGroups?
+            .Where(ug => ug.Group.IsActive)
+            .SelectMany(ug => ug.Group.GroupPermissions ?? Enumerable.Empty<GroupPermission>())
+            .Where(gp => gp.IsActive && gp.Permission.IsActive)
+            .Select(gp => gp.PermissionId) ?? Enumerable.Empty<int>();
 
-    // Update/Delete/Restore all act on an EXISTING project — this confirms the caller's own
-    // Production Company owns it. Same "acting outside your own entity" boundary
-    // UserManagementService.GetScopedUserAsync() enforces for Users ("Cannot manage users outside
-    // the current entity") — same exception type, same reasoning.
-    private static void EnsureSameProductionCompany(Project project, User currentUser)
-    {
-        if (project.ProductionCompanyId != currentUser.EntityId)
-        {
-            throw new UnauthorizedAccessException("Cannot manage a project outside the current Production Company.");
-        }
+        return rolePermissionIds.Concat(directPermissionIds).Concat(groupPermissionIds).ToHashSet();
     }
 
     private static ProjectDto MapToDto(Project project)
@@ -394,33 +468,21 @@ public class ProjectService : IProjectService
         return new ProjectDto
         {
             Id = project.Id,
-
             ProjectNameEn = project.ProjectNameEn,
             ProjectNameAr = project.ProjectNameAr,
-
             StartDate = project.StartDate,
             EndDate = project.EndDate,
-
             ProjectTypeId = project.ProjectTypeId,
-            ProjectTypeNameEn = project.ProjectType.NameEn,
-            ProjectTypeNameAr = project.ProjectType.NameAr,
-
+            ProjectTypeNameEn = project.ProjectType?.NameEn ?? string.Empty,
+            ProjectTypeNameAr = project.ProjectType?.NameAr ?? string.Empty,
             ProducerUserId = project.ProducerUserId,
-            ProducerNameEn =
-                $"{project.Producer.FirstNameEn} {project.Producer.LastNameEn}",
-            ProducerNameAr =
-                $"{project.Producer.FirstNameAr} {project.Producer.LastNameAr}",
-
+            ProducerNameEn = project.Producer != null ? $"{project.Producer.FirstNameEn} {project.Producer.LastNameEn}" : string.Empty,
+            ProducerNameAr = project.Producer != null ? $"{project.Producer.FirstNameAr} {project.Producer.LastNameAr}" : string.Empty,
             LocationManagerUserId = project.LocationManagerUserId,
-            LocationManagerNameEn =
-                $"{project.LocationManager.FirstNameEn} {project.LocationManager.LastNameEn}",
-            LocationManagerNameAr =
-                $"{project.LocationManager.FirstNameAr} {project.LocationManager.LastNameAr}",
-
+            LocationManagerNameEn = project.LocationManager != null ? $"{project.LocationManager.FirstNameEn} {project.LocationManager.LastNameEn}" : string.Empty,
+            LocationManagerNameAr = project.LocationManager != null ? $"{project.LocationManager.FirstNameAr} {project.LocationManager.LastNameAr}" : string.Empty,
             WorkPermitImagePath = project.WorkPermitImagePath,
-
             ProductionCompanyId = project.ProductionCompanyId,
-
             IsDeleted = project.IsDeleted
         };
     }

@@ -49,6 +49,11 @@ public class UnitOfWork : IUnitOfWork
     public IServiceRepository Services => _services ??= new ServiceRepository(_context);
     public IProjectTypeRepository ProjectTypes =>
     _projectTypes ??= new ProjectTypeRepository(_context);
+
+    public IAssociationRepositoryV2 AssociationsV2 => new AssociationRepositoryV2(_context);
+
+    
+
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
         _context.SaveChangesAsync(cancellationToken);
 

@@ -20,6 +20,7 @@ public interface IUserRepository
     Task<User?> GetDetailsAsync(int userId, CancellationToken cancellationToken = default);
     Task<User?> GetDetailsReadOnlyAsync(int userId, CancellationToken cancellationToken = default);
     Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken = default);
+    Task<bool> PhoneExistsAsync(string phone, CancellationToken cancellationToken = default);
     Task<User?> GetByUserNameEnAsync(User user, CancellationToken cancellationToken = default);
     Task<User?> GetByUserNameArAsync(User user, CancellationToken cancellationToken = default);
 

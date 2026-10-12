@@ -25,8 +25,15 @@ public class AssociationsController : ApiControllerBase
             return Unauthorized(new ApiResponse<List<AssociationDto>>(false, "معرف المستخدم الحالي مطلوب", "Current user id is required", null!));
         }
 
-        var result = await _associationService.GetAllAsync(currentUserId, cancellationToken);
-        return Ok(result);
+        try
+        {
+            var result = await _associationService.GetAllAsync(currentUserId, cancellationToken);
+            return Ok(result);
+        }
+        catch (Exception exception)
+        {
+            return HandleException(exception);
+        }
     }
 
     [HttpGet("order-by-worker-asc")]
@@ -37,8 +44,15 @@ public class AssociationsController : ApiControllerBase
             return Unauthorized(new ApiResponse<List<AssociationDto>>(false, "معرف المستخدم الحالي مطلوب", "Current user id is required", null!));
         }
 
-        var result = await _associationService.GetOrderedByWorkersCountAsync(currentUserId, ascending: true, cancellationToken);
-        return Ok(result);
+        try
+        {
+            var result = await _associationService.GetOrderedByWorkersCountAsync(currentUserId, ascending: true, cancellationToken);
+            return Ok(result);
+        }
+        catch (Exception exception)
+        {
+            return HandleException(exception);
+        }
     }
 
     [HttpGet("order-by-worker-desc")]
@@ -49,8 +63,15 @@ public class AssociationsController : ApiControllerBase
             return Unauthorized(new ApiResponse<List<AssociationDto>>(false, "معرف المستخدم الحالي مطلوب", "Current user id is required", null!));
         }
 
-        var result = await _associationService.GetOrderedByWorkersCountAsync(currentUserId, ascending: false, cancellationToken);
-        return Ok(result);
+        try
+        {
+            var result = await _associationService.GetOrderedByWorkersCountAsync(currentUserId, ascending: false, cancellationToken);
+            return Ok(result);
+        }
+        catch (Exception exception)
+        {
+            return HandleException(exception);
+        }
     }
 
     [HttpGet("by-name")]
@@ -61,8 +82,15 @@ public class AssociationsController : ApiControllerBase
             return Unauthorized(new ApiResponse<List<AssociationDto>>(false, "معرف المستخدم الحالي مطلوب", "Current user id is required", null!));
         }
 
-        var result = await _associationService.SearchByNameAsync(currentUserId, name, cancellationToken);
-        return Ok(result);
+        try
+        {
+            var result = await _associationService.SearchByNameAsync(currentUserId, name, cancellationToken);
+            return Ok(result);
+        }
+        catch (Exception exception)
+        {
+            return HandleException(exception);
+        }
     }
 
     [HttpGet("deleted")]
@@ -73,8 +101,15 @@ public class AssociationsController : ApiControllerBase
             return Unauthorized(new ApiResponse<List<AssociationDto>>(false, "معرف المستخدم الحالي مطلوب", "Current user id is required", null!));
         }
 
-        var result = await _associationService.GetDeletedAsync(currentUserId, cancellationToken);
-        return Ok(result);
+        try
+        {
+            var result = await _associationService.GetDeletedAsync(currentUserId, cancellationToken);
+            return Ok(result);
+        }
+        catch (Exception exception)
+        {
+            return HandleException(exception);
+        }
     }
 
     [HttpGet("deleted/by-name")]
@@ -85,8 +120,15 @@ public class AssociationsController : ApiControllerBase
             return Unauthorized(new ApiResponse<List<AssociationDto>>(false, "معرف المستخدم الحالي مطلوب", "Current user id is required", null!));
         }
 
-        var result = await _associationService.SearchDeletedByNameAsync(currentUserId, name, cancellationToken);
-        return Ok(result);
+        try
+        {
+            var result = await _associationService.SearchDeletedByNameAsync(currentUserId, name, cancellationToken);
+            return Ok(result);
+        }
+        catch (Exception exception)
+        {
+            return HandleException(exception);
+        }
     }
 
     [HttpGet("{id:int}")]
@@ -97,13 +139,15 @@ public class AssociationsController : ApiControllerBase
             return Unauthorized(new ApiResponse<AssociationDto>(false, "معرف المستخدم الحالي مطلوب", "Current user id is required", null!));
         }
 
-        var result = await _associationService.GetByIdAsync(currentUserId, id, cancellationToken);
-        if (!result.Success)
+        try
         {
-            return BadRequest(result);
+            var result = await _associationService.GetByIdAsync(currentUserId, id, cancellationToken);
+            return Ok(result);
         }
-
-        return Ok(result);
+        catch (Exception exception)
+        {
+            return HandleException(exception);
+        }
     }
 
     [HttpGet("{id:int}/details")]
@@ -114,13 +158,15 @@ public class AssociationsController : ApiControllerBase
             return Unauthorized(new ApiResponse<AssociationDetailsDto>(false, "معرف المستخدم الحالي مطلوب", "Current user id is required", null!));
         }
 
-        var result = await _associationService.GetDetailsAsync(currentUserId, id, cancellationToken);
-        if (!result.Success)
+        try
         {
-            return BadRequest(result);
+            var result = await _associationService.GetDetailsAsync(currentUserId, id, cancellationToken);
+            return Ok(result);
         }
-
-        return Ok(result);
+        catch (Exception exception)
+        {
+            return HandleException(exception);
+        }
     }
 
     [HttpPost]
@@ -131,13 +177,20 @@ public class AssociationsController : ApiControllerBase
             return Unauthorized(new ApiResponse<AssociationDto>(false, "معرف المستخدم الحالي مطلوب", "Current user id is required", null!));
         }
 
-        var result = await _associationService.CreateAsync(currentUserId, dto, cancellationToken);
-        if (!result.Success)
+        try
         {
-            return BadRequest(result);
-        }
+            var result = await _associationService.CreateAsync(currentUserId, dto, cancellationToken);
+            if (!result.Success)
+            {
+                return BadRequest(result);
+            }
 
-        return Created($"/api/Associations/{result.Data?.Id}", result);
+            return Created($"/api/Associations/{result.Data?.Id}", result);
+        }
+        catch (Exception exception)
+        {
+            return HandleException(exception);
+        }
     }
 
     [HttpPut]
@@ -148,13 +201,15 @@ public class AssociationsController : ApiControllerBase
             return Unauthorized(new ApiResponse<AssociationDto>(false, "معرف المستخدم الحالي مطلوب", "Current user id is required", null!));
         }
 
-        var result = await _associationService.UpdateAsync(currentUserId, dto, cancellationToken);
-        if (!result.Success)
+        try
         {
-            return BadRequest(result);
+            var result = await _associationService.UpdateAsync(currentUserId, dto, cancellationToken);
+            return Ok(result);
         }
-
-        return Ok(result);
+        catch (Exception exception)
+        {
+            return HandleException(exception);
+        }
     }
 
     [HttpDelete]
@@ -165,13 +220,15 @@ public class AssociationsController : ApiControllerBase
             return Unauthorized(new ApiResponse<bool>(false, "معرف المستخدم الحالي مطلوب", "Current user id is required", false));
         }
 
-        var result = await _associationService.DeleteAsync(currentUserId, id, cancellationToken);
-        if (!result.Success)
+        try
         {
-            return BadRequest(result);
+            var result = await _associationService.DeleteAsync(currentUserId, id, cancellationToken);
+            return Ok(result);
         }
-
-        return Ok(result);
+        catch (Exception exception)
+        {
+            return HandleException(exception);
+        }
     }
 
     [HttpPatch("restore")]
@@ -182,12 +239,14 @@ public class AssociationsController : ApiControllerBase
             return Unauthorized(new ApiResponse<AssociationDto>(false, "معرف المستخدم الحالي مطلوب", "Current user id is required", null!));
         }
 
-        var result = await _associationService.RestoreAsync(currentUserId, id, cancellationToken);
-        if (!result.Success)
+        try
         {
-            return BadRequest(result);
+            var result = await _associationService.RestoreAsync(currentUserId, id, cancellationToken);
+            return Ok(result);
         }
-
-        return Ok(result);
+        catch (Exception exception)
+        {
+            return HandleException(exception);
+        }
     }
 }

@@ -1,4 +1,6 @@
+using Maydan.Application.DTOs;
 using Maydan.Application.DTOs.Associations;
+using Maydan.Application.DTOs.Common;
 using Maydan.Application.Interfaces;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
@@ -14,7 +16,7 @@ public class AssociationProjectSupervisorService : IAssociationProjectSupervisor
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<List<AssociationProjectSupervisorDto>> GetAllAsync(int projectId, int associationId, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<List<AssociationProjectSupervisorDto>>> GetAllAsync(int projectId, int associationId, CancellationToken cancellationToken = default)
     {
         var projectFilter = projectId > 0 ? projectId : (int?)null;
         var associationFilter = associationId > 0 ? associationId : (int?)null;
@@ -22,27 +24,38 @@ public class AssociationProjectSupervisorService : IAssociationProjectSupervisor
         var supervisors = await _unitOfWork.AssociationProjectSupervisors.GetAllAsync(projectFilter, associationFilter, cancellationToken);
         var associationNames = await ResolveAssociationNamesAsync(supervisors, cancellationToken);
 
-        return supervisors.Select(s => MapToDto(s, associationNames)).ToList();
+        var dtos = supervisors.Select(s => MapToDto(s, associationNames)).ToList();
+
+        return ApiResponse<List<AssociationProjectSupervisorDto>>.SuccessResponse(
+            dtos,
+            "Project supervisors retrieved successfully.",
+            "تم جلب مشرفين المشاريع بنجاح."
+        );
     }
 
-    public async Task<AssociationProjectSupervisorDto> CreateAsync(CreateAssociationProjectSupervisorDto dto, int currentUserId, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<AssociationProjectSupervisorDto>> CreateAsync(CreateAssociationProjectSupervisorDto dto, int currentUserId, CancellationToken cancellationToken = default)
     {
-        await GetCurrentUserAsync(currentUserId, cancellationToken);
+        var userValidation = await ValidateCurrentUserAsync(currentUserId, cancellationToken);
+        if (!userValidation.IsSuccess)
+        {
+            return ApiResponse<AssociationProjectSupervisorDto>.FailureResponse(userValidation.MessageEn!, userValidation.MessageAr!);
+        }
 
-        var project = await _unitOfWork.Projects.GetByIdAsync(dto.ProjectId, cancellationToken)
-            ?? throw new KeyNotFoundException("Project was not found.");
+        var project = await _unitOfWork.Projects.GetByIdAsync(dto.ProjectId, cancellationToken);
+        if (project is null)
+        {
+            return ApiResponse<AssociationProjectSupervisorDto>.FailureResponse("Project was not found.", "المشروع غير موجود.");
+        }
 
-        var supervisorUser = await _unitOfWork.Users.GetByIdAsync(dto.AssociationUserId, cancellationToken)
-            ?? throw new KeyNotFoundException("User was not found.");
+        var supervisorUser = await _unitOfWork.Users.GetByIdAsync(dto.AssociationUserId, cancellationToken);
+        if (supervisorUser is null)
+        {
+            return ApiResponse<AssociationProjectSupervisorDto>.FailureResponse("User was not found.", "المستخدم غير موجود.");
+        }
 
-        // The feature's own name and home (under the Associations area) make this intent clear —
-        // a "supervisor" here is specifically an Association-role user, the same real rows Phase
-        // 2b's EntityId wiring scoped. Rejecting any other role up front avoids silently creating
-        // an assignment the enriched list can never resolve an AssociationName for anyway (an
-        // AssociationId only exists for EntityType.Association users).
         if (supervisorUser.EntityType != EntityType.Association)
         {
-            throw new InvalidOperationException("Supervisor must be an Association-role user.");
+            return ApiResponse<AssociationProjectSupervisorDto>.FailureResponse("Supervisor must be an Association-role user.", "يجب أن يكون المشرف مستخدماً بصفة جمعية.");
         }
 
         var supervisor = new AssociationProjectSupervisor
@@ -58,46 +71,63 @@ public class AssociationProjectSupervisorService : IAssociationProjectSupervisor
         await _unitOfWork.AssociationProjectSupervisors.AddAsync(supervisor, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var created = await _unitOfWork.AssociationProjectSupervisors.GetByIdAsync(supervisor.Id, cancellationToken)
-            ?? throw new KeyNotFoundException("Supervisor assignment could not be loaded after creation.");
+        var created = await _unitOfWork.AssociationProjectSupervisors.GetByIdAsync(supervisor.Id, cancellationToken);
+        if (created is null)
+        {
+            return ApiResponse<AssociationProjectSupervisorDto>.FailureResponse("Supervisor assignment could not be loaded after creation.", "تعذر تحميل تعيين المشرف بعد الإنشاء.");
+        }
 
         var associationNames = await ResolveAssociationNamesAsync(new[] { created }, cancellationToken);
 
-        return MapToDto(created, associationNames);
+        var resultDto = MapToDto(created, associationNames);
+
+        return ApiResponse<AssociationProjectSupervisorDto>.SuccessResponse(
+            resultDto,
+            "Supervisor assigned successfully.",
+            "تم تعيين المشرف بنجاح."
+        );
     }
 
-    public async Task DeleteAsync(int id, int currentUserId, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<bool>> DeleteAsync(int id, int currentUserId, CancellationToken cancellationToken = default)
     {
-        await GetCurrentUserAsync(currentUserId, cancellationToken);
+        var userValidation = await ValidateCurrentUserAsync(currentUserId, cancellationToken);
+        if (!userValidation.IsSuccess)
+        {
+            return ApiResponse<bool>.FailureResponse(userValidation.MessageEn!, userValidation.MessageAr!);
+        }
 
-        var supervisor = await _unitOfWork.AssociationProjectSupervisors.GetByIdAsync(id, cancellationToken)
-            ?? throw new KeyNotFoundException("Supervisor assignment was not found.");
+        var supervisor = await _unitOfWork.AssociationProjectSupervisors.GetByIdAsync(id, cancellationToken);
+        if (supervisor is null)
+        {
+            return ApiResponse<bool>.FailureResponse("Supervisor assignment was not found.", "تعيين المشرف غير موجود.");
+        }
 
-        // MaydanDbContext.SaveChangesAsync intercepts EntityState.Deleted for every SharedEntities
-        // and converts it into a soft delete (IsDeleted = true, DeletedAt = UtcNow) — this does not
-        // hard-delete the row (same pattern as ProjectService.DeleteAsync).
-        _unitOfWork.AssociationProjectSupervisors.Remove(supervisor);
+        await _unitOfWork.AssociationProjectSupervisors.Remove(supervisor);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return ApiResponse<bool>.SuccessResponse(
+            true,
+            "Supervisor assignment deleted successfully.",
+            "تم حذف تعيين المشرف بنجاح."
+        );
     }
 
-    private async Task<User> GetCurrentUserAsync(int currentUserId, CancellationToken cancellationToken)
+    private async Task<(bool IsSuccess, string? MessageEn, string? MessageAr)> ValidateCurrentUserAsync(int currentUserId, CancellationToken cancellationToken)
     {
-        var user = await _unitOfWork.Users.GetByIdAsync(currentUserId, cancellationToken)
-            ?? throw new UnauthorizedAccessException("Current user was not found.");
+        var user = await _unitOfWork.Users.GetByIdAsync(currentUserId, cancellationToken);
+        if (user is null)
+        {
+            return (false, "Current user was not found.", "المستخدم الحالي غير موجود.");
+        }
 
         if (!user.IsActive)
         {
-            throw new UnauthorizedAccessException("Current user is inactive.");
+            return (false, "Current user is inactive.", "المستخدم الحالي غير نشط.");
         }
 
-        return user;
+        return (true, null, null);
     }
 
-    // User.EntityId is a soft FK (no single target table, see User.cs's own comment) — it can't be
-    // Include()'d, so resolving each distinct association's name is a small separate lookup per
-    // unique EntityId in the result set (not per row), via the same active-only
-    // IAssociationRepository.GetByIdAsync every other CreateXAsync in this codebase already uses to
-    // validate a real association.
     private async Task<Dictionary<int, string>> ResolveAssociationNamesAsync(IEnumerable<AssociationProjectSupervisor> supervisors, CancellationToken cancellationToken)
     {
         var associationIds = supervisors

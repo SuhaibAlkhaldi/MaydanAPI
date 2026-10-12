@@ -7,10 +7,6 @@ public class ApiResponse<T>
     public string MessageEn { get; set; } = string.Empty;
     public T? Data { get; set; }
 
-    // Workers module (2026-09-30): lets a Service communicate the intended HTTP status code
-    // directly on the returned envelope instead of throwing — the Controller just does
-    // `StatusCode(response.StatusCode, response)`. Defaults to 200 so every existing caller that
-    // never sets it (ServiceConfigurationService, etc.) is unaffected.
     public int StatusCode { get; set; } = 200;
 
     public ApiResponse()
@@ -24,5 +20,15 @@ public class ApiResponse<T>
         MessageEn = messageEn;
         Data = data;
         StatusCode = statusCode;
+    }
+
+    public static ApiResponse<T> SuccessResponse(T? data, string messageAr, string messageEn, int statusCode = 200)
+    {
+        return new ApiResponse<T>(true, messageAr, messageEn, data, statusCode);
+    }
+
+    public static ApiResponse<T> FailureResponse(string messageAr, string messageEn, int statusCode = 400)
+    {
+        return new ApiResponse<T>(false, messageAr, messageEn, default, statusCode);
     }
 }

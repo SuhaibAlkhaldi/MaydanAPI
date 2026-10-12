@@ -17,9 +17,41 @@ public class AssociationProjectSupervisorRepository : IAssociationProjectSupervi
 
     public Task<List<AssociationProjectSupervisor>> GetAllAsync(int? projectId, int? associationId, CancellationToken cancellationToken = default)
     {
+  
         var query = _context.AssociationProjectSupervisors
-            .Include(s => s.Project)
-            .Include(s => s.User)
+            .AsNoTracking()
+            .Select(s => new AssociationProjectSupervisor
+            {
+                Id = s.Id,
+                Project = new Project
+                {
+                    Id = s.Project.Id,
+                    ProjectNameEn = s.Project.ProjectNameEn,
+                    ProjectNameAr = s.Project.ProjectNameAr,
+                    StartDate = s.Project.StartDate,
+                    EndDate = s.Project.EndDate,
+                    ProjectTypeId = s.Project.ProjectTypeId,
+                    ProducerUserId = s.Project.ProducerUserId,
+                    LocationManagerUserId = s.Project.LocationManagerUserId,
+                    WorkPermitImagePath = s.Project.WorkPermitImagePath,
+                    ProductionCompanyId = s.Project.ProductionCompanyId
+                },
+                User = new User
+                {
+                    UserId = s.User.UserId,
+                    FirstNameAr = s.User.FirstNameAr,
+                    LastNameAr = s.User.LastNameAr,
+                    FirstNameEn = s.User.FirstNameEn,
+                    LastNameEn = s.User.LastNameEn,
+                    Email = s.User.Email,
+                    PhoneNumber = s.User.PhoneNumber,                    
+                },
+                CreatedAt = s.CreatedAt,
+                CreatedBy = s.CreatedBy,
+                IsActive = s.IsActive
+            })
+            //.Include(s => s.Project)
+            //.Include(s => s.User)
             .AsQueryable();
 
         if (projectId is not null)
@@ -35,8 +67,8 @@ public class AssociationProjectSupervisorRepository : IAssociationProjectSupervi
         return query.OrderByDescending(s => s.CreatedAt).ToListAsync(cancellationToken);
     }
 
-    public Task<AssociationProjectSupervisor?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
-        _context.AssociationProjectSupervisors
+    public async Task<AssociationProjectSupervisor?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
+        await _context.AssociationProjectSupervisors
             .Include(s => s.Project)
             .Include(s => s.User)
             .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
@@ -44,5 +76,9 @@ public class AssociationProjectSupervisorRepository : IAssociationProjectSupervi
     public async Task AddAsync(AssociationProjectSupervisor supervisor, CancellationToken cancellationToken = default) =>
         await _context.AssociationProjectSupervisors.AddAsync(supervisor, cancellationToken);
 
-    public void Remove(AssociationProjectSupervisor supervisor) => _context.AssociationProjectSupervisors.Remove(supervisor);
+    public Task<bool> Remove(AssociationProjectSupervisor supervisor )
+    {
+        _context.AssociationProjectSupervisors.Remove(supervisor);
+        return Task.FromResult(true);
+    }
 }

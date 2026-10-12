@@ -37,3 +37,14 @@ public class Worker : SharedEntities
 
     public ICollection<WorkerServiceLink> WorkerServices { get; set; } = new List<WorkerServiceLink>();
 }
+public record WorkerSummary(
+int Id,
+    string FirstName,
+    string LastName,
+    string PhoneNumber,
+    string CivilId,
+    List<string> ServicesEn,
+    List<string> ServicesAr,
+    int? YearsOfExperience,
+    string? AssociationName
+    );
