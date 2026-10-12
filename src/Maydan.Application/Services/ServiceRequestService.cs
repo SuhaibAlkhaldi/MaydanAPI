@@ -4,6 +4,7 @@ using Maydan.Application.Exceptions;
 using Maydan.Application.Interfaces;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
+using System.Linq;
 
 namespace Maydan.Application.Services;
 
@@ -12,10 +13,13 @@ public class ServiceRequestService : IServiceRequestService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IEmailSender _emailSender;
 
-    private const int RequestServicePermissionId = 15;
-    private const int ViewServiceRequests = 16;
-    private const int ManageServiceRequestsPermissionId = 17;
-
+    //private const int RequestService = 15;
+    //private const int ViewServiceRequests = 16;
+    //private const int ManageServiceRequestsPermissionId = 17;
+    private const string RequestServicePermission = "Request Service";
+    private const string ViewServiceRequestsPermission = "View Service Requests";
+    private const string ManageServiceRequestsPermission = "Manage Service Requests";
+    //PermissionNameEn
     public ServiceRequestService(IUnitOfWork unitOfWork, IEmailSender emailSender)
     {
         _unitOfWork = unitOfWork;
@@ -33,27 +37,52 @@ public class ServiceRequestService : IServiceRequestService
     }
     private static ApiResponse<T>? EnsureCanRequestService<T>(User currentUser)
     {
-        var permissions = GetEffectivePermissionIds(currentUser);
-        if (!permissions.Contains(RequestServicePermissionId) && !permissions.Contains(ManageServiceRequestsPermissionId))
+        var permissions = GetEffectivePermissions(currentUser);
+
+        if (!permissions.Contains(RequestServicePermission) &&
+            !permissions.Contains(ManageServiceRequestsPermission))
         {
-            return ApiResponse<T>.FailureResponse("لا يملك المستخدم صلاحية طلب الخدمة.", "Caller does not hold Request Service permission.");
+            return ApiResponse<T>.FailureResponse(
+                "لا يملك المستخدم صلاحية طلب الخدمة.",
+                "Caller does not hold Request Service permission.");
         }
+
         return null;
     }
-    private static ApiResponse<T>? EnsureCanViewServiceRequests<T>(User currentUser)
+    private static ApiResponse<T>? EnsureCanViewServiceRequests<T>(
+    User currentUser)
     {
-        var permissions = GetEffectivePermissionIds(currentUser);
-        if (!permissions.Contains(ViewServiceRequests) && !permissions.Contains(ManageServiceRequestsPermissionId))
+        var permissions = GetEffectivePermissions(currentUser);
+
+        if (!permissions.Contains(ViewServiceRequestsPermission))
         {
-            return
-                ApiResponse<T>.FailureResponse("لا يملك المستخدم صلاحية عرض طلبات الخدمة.", "Caller does not hold View Service Requests permission.");
+            return ApiResponse<T>.FailureResponse(
+                "لا يملك المستخدم صلاحية عرض طلبات الخدمة.",
+                "Caller does not hold View Service Requests permission.");
         }
+
         return null;
     }
-    private static HashSet<int> GetEffectivePermissionIds(User user)
+    private static HashSet<string> GetEffectivePermissions(User user)
     {
-        var rolePermissionIds = user.Role.RolePermissions.Where(rp => rp.IsActive && rp.Permission.IsActive).Select(rp => rp.PermissionId); var directPermissionIds = user.UserPermissions.Where(up => up.IsActive && up.Permission.IsActive).Select(up => up.PermissionId); var groupPermissionIds = user.UserGroups.Where(ug => ug.Group.IsActive).SelectMany(ug => ug.Group.GroupPermissions).Where(gp => gp.IsActive && gp.Permission.IsActive).Select(gp => gp.PermissionId);
-        return rolePermissionIds.Concat(directPermissionIds).Concat(groupPermissionIds).ToHashSet();
+        var rolePermissions = user.Role.RolePermissions
+            .Where(rp => rp.IsActive && rp.Permission.IsActive)
+            .Select(rp => rp.Permission.PermissionNameEn);
+
+        var directPermissions = user.UserPermissions
+            .Where(up => up.IsActive && up.Permission.IsActive)
+            .Select(up => up.Permission.PermissionNameEn);
+
+        var groupPermissions = user.UserGroups
+            .Where(ug => ug.Group.IsActive)
+            .SelectMany(ug => ug.Group.GroupPermissions)
+            .Where(gp => gp.IsActive && gp.Permission.IsActive)
+            .Select(gp => gp.Permission.PermissionNameEn);
+
+        return rolePermissions
+            .Concat(directPermissions)
+            .Concat(groupPermissions)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
     public async Task<ApiResponse<AssociationLookupDto>> ResolveAssociationByCityIdAsync(int currentUserId, int cityId, CancellationToken cancellationToken = default)
     {
@@ -291,8 +320,8 @@ public class ServiceRequestService : IServiceRequestService
         }
         // Admin can cancel any request. 
         // Otherwise, caller must be the owning production company.
-        var effective = GetEffectivePermissionIds(currentUser!);
-        bool isAdmin = effective.Contains(ManageServiceRequestsPermissionId);
+        var effective = GetEffectivePermissions(currentUser!);
+        bool isAdmin = effective.Contains(ManageServiceRequestsPermission);
         if (!isAdmin)
         {
             if (currentUser!.EntityType != EntityType.ProductionCompany || currentUser.EntityId != CanceledRequestId.ProductionCompanyId)

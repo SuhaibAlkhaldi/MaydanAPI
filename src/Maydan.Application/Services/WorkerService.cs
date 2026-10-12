@@ -21,7 +21,6 @@ public class WorkerService : IWorkerService
 
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICivilIdHasher _civilIdHasher;
-
     public WorkerService(IUnitOfWork unitOfWork, ICivilIdHasher civilIdHasher)
     {
         _unitOfWork = unitOfWork;
