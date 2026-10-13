@@ -114,113 +114,309 @@ public class ServiceRequestService : IServiceRequestService
 
 
     // Create Service Request
-    public async Task<ApiResponse<ServiceRequestDto>> CreateAsync(int currentUserId, CreateServiceRequestDto dto, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<ServiceRequestDto>> CreateAsync(
+    int currentUserId,
+    CreateServiceRequestDto dto,
+    CancellationToken cancellationToken = default)
     {
-        var (currentUser, authError) = await GetCurrentUserAsync<ServiceRequestDto>(currentUserId, cancellationToken);
+        var (currentUser, authError) =
+            await GetCurrentUserAsync<ServiceRequestDto>(
+                currentUserId, cancellationToken);
+
         if (authError is not null)
-        {
             return authError;
-        }
-        var permissionError = EnsureCanRequestService<ServiceRequestDto>(currentUser!);
+
+        var permissionError =
+            EnsureCanRequestService<ServiceRequestDto>(currentUser!);
+
         if (permissionError is not null)
-        {
             return permissionError;
+
+        // Validate request values
+        if (dto.RequestedWorkersCount <= 0 || dto.ShiftsCount <= 0)
+        {
+            return ApiResponse<ServiceRequestDto>.FailureResponse(
+                "عدد العمال والمدة يجب أن يكونا أكبر من صفر.",
+                "Workers count and duration must be greater than zero.");
         }
+
+        if (dto.EndDate < dto.StartDate)
+        {
+            return ApiResponse<ServiceRequestDto>.FailureResponse(
+                "تاريخ النهاية يجب ألا يسبق تاريخ البداية.",
+                "End date cannot be earlier than start date.");
+        }
+
         // Validate project
-        var Validateproject = await _unitOfWork.Projects.GetByIdAsync(dto.ProjectId, cancellationToken);
-        if (Validateproject is null)
+        var project = await _unitOfWork.Projects
+            .GetByIdAsync(dto.ProjectId, cancellationToken);
+
+        if (project is null)
         {
-            return ApiResponse<ServiceRequestDto>.FailureResponse("لم يتم العثور على المشروع.", "Project was not found.");
+            return ApiResponse<ServiceRequestDto>.FailureResponse(
+                "لم يتم العثور على المشروع.",
+                "Project was not found.");
         }
-        if (currentUser!.EntityType != EntityType.ProductionCompany || currentUser.EntityId != Validateproject.ProductionCompanyId)
+
+        if (currentUser!.EntityType != EntityType.ProductionCompany ||
+            currentUser.EntityId != project.ProductionCompanyId)
         {
-            return ApiResponse<ServiceRequestDto>.FailureResponse("يجب أن ينتمي المستخدم إلى شركة الإنتاج التي تملك المشروع.", "Caller must belong to the production company that owns the project.");
-        } // Find association in the requested city
-        var association = await _unitOfWork.Associations.GetByCityIdAsync(dto.CityId, cancellationToken);
+            return ApiResponse<ServiceRequestDto>.FailureResponse(
+                "يجب أن ينتمي المستخدم إلى شركة الإنتاج التي تملك المشروع.",
+                "Caller must belong to the production company that owns the project.");
+        }
+
+        // Find association in the requested city
+        var association = await _unitOfWork.Associations
+            .GetByCityIdAsync(dto.CityId, cancellationToken);
+
         if (association is null)
         {
-            return  ApiResponse<ServiceRequestDto>.FailureResponse("لم يتم العثور على جمعية مرتبطة بالمدينة المحددة.", "No association found for the specified city.");
+            return ApiResponse<ServiceRequestDto>.FailureResponse(
+                "لم يتم العثور على جمعية مرتبطة بالمدينة المحددة.",
+                "No association found for the specified city.");
         }
-        // Idempotency / duplicate prevention
+
+        // Prevent duplicate requests
         if (!string.IsNullOrWhiteSpace(dto.IdempotencyKey))
         {
-            var existingRequest = await _unitOfWork.ServiceRequests.GetByIdempotencyKeyAsync(dto.IdempotencyKey, Validateproject.ProductionCompanyId, cancellationToken);
+            var existingRequest =
+                await _unitOfWork.ServiceRequests.GetByIdempotencyKeyAsync(
+                    dto.IdempotencyKey,
+                    project.ProductionCompanyId,
+                    cancellationToken);
+
             if (existingRequest is not null)
             {
-                return ApiResponse<ServiceRequestDto>.FailureResponse("تعذرت إنشاء طلب خدمة مكرر.", "Duplicate service request detected.");
+                return ApiResponse<ServiceRequestDto>.FailureResponse(
+                    "تعذرت إنشاء طلب خدمة مكرر.",
+                    "Duplicate service request detected.");
             }
         }
-        // Get service
-        var service = await _unitOfWork.Services.GetByIdAsync(dto.ServiceId, cancellationToken); if (service is null)
+
+        // Get service from database
+        var service = await _unitOfWork.Services
+            .GetByIdAsync(dto.ServiceId, cancellationToken);
+
+        if (service is null)
         {
-            return ApiResponse<ServiceRequestDto>.FailureResponse("لم يتم العثور على الخدمة.", "Service was not found.");
+            return ApiResponse<ServiceRequestDto>.FailureResponse(
+                "لم يتم العثور على الخدمة.",
+                "Service was not found.");
         }
-        var ServiceRequestInfo = new ServiceRequest
+
+        // Validate the service's calculation type
+        if (!Enum.IsDefined(typeof(CalculationType), service.CalculationType))
+        {
+            return ApiResponse<ServiceRequestDto>.FailureResponse(
+                "نوع احتساب سعر الخدمة غير صالح.",
+                "Invalid service calculation type.");
+        }
+
+        // Calculate payment using the service's actual unit price
+        decimal expectedTotalAmount =
+            service.Price *
+            dto.ShiftsCount *
+            dto.RequestedWorkersCount;
+
+        // Create service request
+        var serviceRequestInfo = new ServiceRequest
         {
             ProjectId = dto.ProjectId,
-            ProductionCompanyId = Validateproject.ProductionCompanyId,
-            ServiceId = dto.ServiceId,
+            ProductionCompanyId = project.ProductionCompanyId,
+            ServiceId = service.Id,
             AssociationId = association.Id,
+
             StartDate = dto.StartDate,
             EndDate = dto.EndDate,
-            TimeUnit = dto.TimeUnit,
+
             ShiftsCount = dto.ShiftsCount,
             RequestedWorkersCount = dto.RequestedWorkersCount,
             AttendanceFrequency = dto.AttendanceFrequency,
             AdditionalRequirements = dto.AdditionalRequirements,
+
             IdempotencyKey = dto.IdempotencyKey,
+
             CreatedAt = DateTime.UtcNow,
             CreatedBy = currentUserId,
-            //this make sure that the price is selected from the database.86
-            UnitPriceSnapshot = service.Price
 
+            // Snapshot of the price at request creation time
+            UnitPriceSnapshot = service.Price,
+
+            ExpectedTotalAmount = expectedTotalAmount
         };
-        //resultOfServiceRequestDto.UnitPriceSnapshot = service.Price;
-        // Calculate expected total amount
-        switch (dto.TimeUnit)
-        {
-            case ServiceTimeUnit.Shift:
-                // Shift = 12 hours
-                ServiceRequestInfo.ExpectedTotalAmount = (12 * service.Price) * dto.RequestedWorkersCount * dto.ShiftsCount;
-                break;
-            case ServiceTimeUnit.Day:
-                // Day = 9 hours
-                ServiceRequestInfo.ExpectedTotalAmount = (9 * service.Price) * dto.RequestedWorkersCount * dto.ShiftsCount;
-                break;
-            case ServiceTimeUnit.Hour:
-                // Hour = direct calculation
-                ServiceRequestInfo.ExpectedTotalAmount = (service.Price * dto.ShiftsCount) * dto.RequestedWorkersCount;
-                break;
-            default: return ApiResponse<ServiceRequestDto>.FailureResponse("وحدة الوقت غير صالحة.", "Invalid time unit.");
-        }
-        await _unitOfWork.ServiceRequests.AddAsync(ServiceRequestInfo, cancellationToken); await _unitOfWork.SaveChangesAsync(cancellationToken);
-        // ======================================================== // Notifications // ========================================================
 
-        var assocUsers = await _unitOfWork.Users.GetByEntityAsync(EntityType.Association, association.Id, search: null, cancellationToken);
-        var prodUsers = await _unitOfWork.Users.GetByEntityAsync(EntityType.ProductionCompany, Validateproject.ProductionCompanyId, search: null, cancellationToken);
+        await _unitOfWork.ServiceRequests.AddAsync(
+            serviceRequestInfo, cancellationToken);
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Send notifications
+        var associationUsers = await _unitOfWork.Users.GetByEntityAsync(
+            EntityType.Association,
+            association.Id,
+            search: null,
+            cancellationToken);
+
+        var productionCompanyUsers =
+            await _unitOfWork.Users.GetByEntityAsync(
+                EntityType.ProductionCompany,
+                project.ProductionCompanyId,
+                search: null,
+                cancellationToken);
+
         var subject = "New service request pending worker selection";
-        var body = $"A new service request (Id: {ServiceRequestInfo.Id}) was created " + $"for project '{Validateproject.ProjectNameEn}' " + $"and awaits worker selection.";
+
+        var body =
+            $"A new service request (Id: {serviceRequestInfo.Id}) was created " +
+            $"for project '{project.ProjectNameEn}' " +
+            "and awaits worker selection.";
+
         if (!string.IsNullOrWhiteSpace(association.ContactEmail))
         {
-            await _emailSender.SendAsync(association.ContactEmail, subject, body, cancellationToken);
+            await _emailSender.SendAsync(
+                association.ContactEmail,
+                subject,
+                body,
+                cancellationToken);
         }
-        foreach (var user in assocUsers)
+
+        foreach (var user in associationUsers)
         {
             if (!string.IsNullOrWhiteSpace(user.Email))
             {
-                await _emailSender.SendAsync(user.Email, subject, body, cancellationToken);
+                await _emailSender.SendAsync(
+                    user.Email, subject, body, cancellationToken);
             }
         }
-        foreach (var user in prodUsers)
+
+        foreach (var user in productionCompanyUsers)
         {
             if (!string.IsNullOrWhiteSpace(user.Email))
             {
-                await _emailSender.SendAsync(user.Email, subject, body, cancellationToken);
+                await _emailSender.SendAsync(
+                    user.Email, subject, body, cancellationToken);
             }
         }
-        var CreationResult = new ServiceRequestDto { Id = ServiceRequestInfo.Id, Status = ServiceRequestInfo.Status };
-        return ApiResponse<ServiceRequestDto>.SuccessResponse(CreationResult, "تم إنشاء طلب الخدمة بنجاح.", "Service request created successfully.");
+
+        var creationResult = new ServiceRequestDto
+        {
+            Id = serviceRequestInfo.Id,
+            Status = serviceRequestInfo.Status
+        };
+
+        return ApiResponse<ServiceRequestDto>.SuccessResponse(
+            creationResult,
+            "تم إنشاء طلب الخدمة بنجاح.",
+            "Service request created successfully.");
     }
+    //public async Task<ApiResponse<ServiceRequestDto>> CreateAsync(int currentUserId, CreateServiceRequestDto dto, CancellationToken cancellationToken = default)
+    //{
+    //    var (currentUser, authError) = await GetCurrentUserAsync<ServiceRequestDto>(currentUserId, cancellationToken);
+    //    if (authError is not null)
+    //    {
+    //        return authError;
+    //    }
+    //    var permissionError = EnsureCanRequestService<ServiceRequestDto>(currentUser!);
+    //    if (permissionError is not null)
+    //    {
+    //        return permissionError;
+    //    }
+    //    // Validate project
+    //    var Validateproject = await _unitOfWork.Projects.GetByIdAsync(dto.ProjectId, cancellationToken);
+    //    if (Validateproject is null)
+    //    {
+    //        return ApiResponse<ServiceRequestDto>.FailureResponse("لم يتم العثور على المشروع.", "Project was not found.");
+    //    }
+    //    if (currentUser!.EntityType != EntityType.ProductionCompany || currentUser.EntityId != Validateproject.ProductionCompanyId)
+    //    {
+    //        return ApiResponse<ServiceRequestDto>.FailureResponse("يجب أن ينتمي المستخدم إلى شركة الإنتاج التي تملك المشروع.", "Caller must belong to the production company that owns the project.");
+    //    } // Find association in the requested city
+    //    var association = await _unitOfWork.Associations.GetByCityIdAsync(dto.CityId, cancellationToken);
+    //    if (association is null)
+    //    {
+    //        return  ApiResponse<ServiceRequestDto>.FailureResponse("لم يتم العثور على جمعية مرتبطة بالمدينة المحددة.", "No association found for the specified city.");
+    //    }
+    //    // Idempotency / duplicate prevention
+    //    if (!string.IsNullOrWhiteSpace(dto.IdempotencyKey))
+    //    {
+    //        var existingRequest = await _unitOfWork.ServiceRequests.GetByIdempotencyKeyAsync(dto.IdempotencyKey, Validateproject.ProductionCompanyId, cancellationToken);
+    //        if (existingRequest is not null)
+    //        {
+    //            return ApiResponse<ServiceRequestDto>.FailureResponse("تعذرت إنشاء طلب خدمة مكرر.", "Duplicate service request detected.");
+    //        }
+    //    }
+    //    // Get service
+    //    var service = await _unitOfWork.Services.GetByIdAsync(dto.ServiceId, cancellationToken); if (service is null)
+    //    {
+    //        return ApiResponse<ServiceRequestDto>.FailureResponse("لم يتم العثور على الخدمة.", "Service was not found.");
+    //    }
+    //    var ServiceRequestInfo = new ServiceRequest
+    //    {
+    //        ProjectId = dto.ProjectId,
+    //        ProductionCompanyId = Validateproject.ProductionCompanyId,
+    //        ServiceId = dto.ServiceId,
+    //        AssociationId = association.Id,
+    //        StartDate = dto.StartDate,
+    //        EndDate = dto.EndDate,
+    //        TimeUnit = dto.TimeUnit,
+    //        ShiftsCount = dto.ShiftsCount,
+    //        RequestedWorkersCount = dto.RequestedWorkersCount,
+    //        AttendanceFrequency = dto.AttendanceFrequency,
+    //        AdditionalRequirements = dto.AdditionalRequirements,
+    //        IdempotencyKey = dto.IdempotencyKey,
+    //        CreatedAt = DateTime.UtcNow,
+    //        CreatedBy = currentUserId,
+    //        //this make sure that the price is selected from the database.86
+    //        UnitPriceSnapshot = service.Price
+
+    //    };
+    //    //resultOfServiceRequestDto.UnitPriceSnapshot = service.Price;
+    //    // Calculate expected total amount
+    //    switch (dto.TimeUnit)
+    //    {
+    //        case ServiceTimeUnit.Shift:
+    //            // Shift = 12 hours
+    //            ServiceRequestInfo.ExpectedTotalAmount = (12 * service.Price) * dto.RequestedWorkersCount * dto.ShiftsCount;
+    //            break;
+    //        case ServiceTimeUnit.Day:
+    //            // Day = 9 hours
+    //            ServiceRequestInfo.ExpectedTotalAmount = (9 * service.Price) * dto.RequestedWorkersCount * dto.ShiftsCount;
+    //            break;
+    //        case ServiceTimeUnit.Hour:
+    //            // Hour = direct calculation
+    //            ServiceRequestInfo.ExpectedTotalAmount = (service.Price * dto.ShiftsCount) * dto.RequestedWorkersCount;
+    //            break;
+    //        default: return ApiResponse<ServiceRequestDto>.FailureResponse("وحدة الوقت غير صالحة.", "Invalid time unit.");
+    //    }
+    //    await _unitOfWork.ServiceRequests.AddAsync(ServiceRequestInfo, cancellationToken); await _unitOfWork.SaveChangesAsync(cancellationToken);
+    //    // ======================================================== // Notifications // ========================================================
+
+    //    var assocUsers = await _unitOfWork.Users.GetByEntityAsync(EntityType.Association, association.Id, search: null, cancellationToken);
+    //    var prodUsers = await _unitOfWork.Users.GetByEntityAsync(EntityType.ProductionCompany, Validateproject.ProductionCompanyId, search: null, cancellationToken);
+    //    var subject = "New service request pending worker selection";
+    //    var body = $"A new service request (Id: {ServiceRequestInfo.Id}) was created " + $"for project '{Validateproject.ProjectNameEn}' " + $"and awaits worker selection.";
+    //    if (!string.IsNullOrWhiteSpace(association.ContactEmail))
+    //    {
+    //        await _emailSender.SendAsync(association.ContactEmail, subject, body, cancellationToken);
+    //    }
+    //    foreach (var user in assocUsers)
+    //    {
+    //        if (!string.IsNullOrWhiteSpace(user.Email))
+    //        {
+    //            await _emailSender.SendAsync(user.Email, subject, body, cancellationToken);
+    //        }
+    //    }
+    //    foreach (var user in prodUsers)
+    //    {
+    //        if (!string.IsNullOrWhiteSpace(user.Email))
+    //        {
+    //            await _emailSender.SendAsync(user.Email, subject, body, cancellationToken);
+    //        }
+    //    }
+    //    var CreationResult = new ServiceRequestDto { Id = ServiceRequestInfo.Id, Status = ServiceRequestInfo.Status };
+    //    return ApiResponse<ServiceRequestDto>.SuccessResponse(CreationResult, "تم إنشاء طلب الخدمة بنجاح.", "Service request created successfully.");
+    //}
     public async Task<ApiResponse<List<ServiceRequestDto>>> GetAllAsync(int currentUserId, CancellationToken cancellationToken = default)
     {
         var (currentUser, authError) = await GetCurrentUserAsync<List<ServiceRequestDto>>(currentUserId, cancellationToken);
@@ -337,55 +533,133 @@ public class ServiceRequestService : IServiceRequestService
         return ApiResponse<object?>.SuccessResponse(null, "تم إلغاء طلب الخدمة بنجاح.", "Service request cancelled successfully.");
     }
 
-   
 
-    public async Task<ApiResponse<ExpectedPaymentCalculationDto>> CalculateExpectedPaymentAsync(int currentUserId, int serviceId, int requestedWorkers, int durationCount, ServiceTimeUnit timeUnit, CancellationToken cancellationToken = default)
+
+    //public async Task<ApiResponse<ExpectedPaymentCalculationDto>> CalculateExpectedPaymentAsync(int currentUserId, int serviceId, int requestedWorkers, int durationCount, ServiceTimeUnit timeUnit, CancellationToken cancellationToken = default)
+    //{
+    //    var (currentUser, authError) = await GetCurrentUserAsync<ExpectedPaymentCalculationDto>(currentUserId, cancellationToken);
+    //    if (authError is not null)
+    //    {
+    //        return authError;
+    //    }
+    //    var permissionError = EnsureCanRequestService<ExpectedPaymentCalculationDto>(currentUser!);
+    //    if (permissionError is not null) { return permissionError; }
+    //    var service = await _unitOfWork.Services.GetByIdAsync(serviceId, cancellationToken);
+    //    if (service is null)
+    //    {
+    //        return ApiResponse<ExpectedPaymentCalculationDto>.FailureResponse("لم يتم العثور على الخدمة.", "Service was not found.");
+    //    }
+    //    decimal totalExpected; switch (timeUnit)
+    //    {
+    //        case ServiceTimeUnit.Shift:
+    //            // Shift = 12 hours
+    //            totalExpected = (12 * service.Price) * requestedWorkers * durationCount;
+    //            break;
+    //        case ServiceTimeUnit.Day:
+    //            // Day = 9 hours
+    //            totalExpected = (9 * service.Price) * requestedWorkers * durationCount;
+    //            break;
+    //        case ServiceTimeUnit.Hour:
+    //            // Hour = direct calculation
+    //            totalExpected = (service.Price * durationCount) * requestedWorkers;
+    //            break;
+    //        default: return ApiResponse<ExpectedPaymentCalculationDto>.FailureResponse("وحدة الوقت غير صالحة.", "Invalid time unit.");
+    //    }
+    //    string timeUnitLabel = timeUnit switch
+    //    {
+    //        ServiceTimeUnit.Shift => "shifts (12 hours each)",
+    //        ServiceTimeUnit.Day => "days (9 hours each)",
+    //        ServiceTimeUnit.Hour => "hours",
+    //        _ => "unknown"
+    //    }; var CalculationInfo = new ExpectedPaymentCalculationDto
+    //    {
+    //        UnitPrice = service.Price,
+    //        RequestedWorkers = requestedWorkers,
+    //        DurationUnits = durationCount,
+    //        TotalExpectedPayment = totalExpected,
+    //        FormattedMessage = $"Expected payment for {requestedWorkers} workers " + $"for {durationCount} {timeUnitLabel}: " + $"{totalExpected:N2} JOD."
+    //    };
+    //    return ApiResponse<ExpectedPaymentCalculationDto>.SuccessResponse(CalculationInfo, "تم حساب المبلغ المتوقع بنجاح.", "Expected payment calculated successfully.");
+    //}
+
+    public async Task<ApiResponse<ExpectedPaymentCalculationDto>>CalculateExpectedPaymentAsync(
+        int currentUserId,
+        int serviceId,
+        int requestedWorkers,
+        int durationCount,
+        CancellationToken cancellationToken = default)
     {
-        var (currentUser, authError) = await GetCurrentUserAsync<ExpectedPaymentCalculationDto>(currentUserId, cancellationToken);
+        var (currentUser, authError) =
+            await GetCurrentUserAsync<ExpectedPaymentCalculationDto>(
+                currentUserId, cancellationToken);
+
         if (authError is not null)
-        {
             return authError;
-        }
-        var permissionError = EnsureCanRequestService<ExpectedPaymentCalculationDto>(currentUser!);
-        if (permissionError is not null) { return permissionError; }
-        var service = await _unitOfWork.Services.GetByIdAsync(serviceId, cancellationToken);
+
+        var permissionError =
+            EnsureCanRequestService<ExpectedPaymentCalculationDto>(currentUser!);
+
+        if (permissionError is not null)
+            return permissionError;
+
+        var service = await _unitOfWork.Services
+            .GetByIdAsync(serviceId, cancellationToken);
+
         if (service is null)
         {
-            return ApiResponse<ExpectedPaymentCalculationDto>.FailureResponse("لم يتم العثور على الخدمة.", "Service was not found.");
+            return ApiResponse<ExpectedPaymentCalculationDto>
+                .FailureResponse(
+                    "لم يتم العثور على الخدمة.",
+                    "Service was not found.");
         }
-        decimal totalExpected; switch (timeUnit)
+
+        if (requestedWorkers <= 0 || durationCount <= 0)
         {
-            case ServiceTimeUnit.Shift:
-                // Shift = 12 hours
-                totalExpected = (12 * service.Price) * requestedWorkers * durationCount;
-                break;
-            case ServiceTimeUnit.Day:
-                // Day = 9 hours
-                totalExpected = (9 * service.Price) * requestedWorkers * durationCount;
-                break;
-            case ServiceTimeUnit.Hour:
-                // Hour = direct calculation
-                totalExpected = (service.Price * durationCount) * requestedWorkers;
-                break;
-            default: return ApiResponse<ExpectedPaymentCalculationDto>.FailureResponse("وحدة الوقت غير صالحة.", "Invalid time unit.");
+            return ApiResponse<ExpectedPaymentCalculationDto>
+                .FailureResponse(
+                    "عدد العمال والمدة يجب أن يكونا أكبر من صفر.",
+                    "Workers count and duration must be greater than zero.");
         }
-        string timeUnitLabel = timeUnit switch
+
+        if (!Enum.IsDefined(typeof(CalculationType), service.CalculationType))
         {
-            ServiceTimeUnit.Shift => "shifts (12 hours each)",
-            ServiceTimeUnit.Day => "days (9 hours each)",
-            ServiceTimeUnit.Hour => "hours",
-            _ => "unknown"
-        }; var CalculationInfo = new ExpectedPaymentCalculationDto
+            return ApiResponse<ExpectedPaymentCalculationDto>
+                .FailureResponse(
+                    "نوع احتساب سعر الخدمة غير صالح.",
+                    "Invalid service calculation type.");
+        }
+
+        // Price is already the price per hour, shift, or day.
+        decimal totalExpected =
+            service.Price * requestedWorkers * durationCount;
+
+        string timeUnitLabel = service.CalculationType switch
+        {
+            CalculationType.PerHour => "hours",
+            CalculationType.PerShift => "shifts",
+            CalculationType.PerDay => "days",
+            _ => "units"
+        };
+
+        var calculationInfo = new ExpectedPaymentCalculationDto
         {
             UnitPrice = service.Price,
             RequestedWorkers = requestedWorkers,
             DurationUnits = durationCount,
             TotalExpectedPayment = totalExpected,
-            FormattedMessage = $"Expected payment for {requestedWorkers} workers " + $"for {durationCount} {timeUnitLabel}: " + $"{totalExpected:N2} JOD."
-        };
-        return ApiResponse<ExpectedPaymentCalculationDto>.SuccessResponse(CalculationInfo, "تم حساب المبلغ المتوقع بنجاح.", "Expected payment calculated successfully.");
-    }
 
+            FormattedMessage =
+                $"Expected payment for {requestedWorkers} workers " +
+                $"for {durationCount} {timeUnitLabel}: " +
+                $"{totalExpected:N2} JOD."
+        };
+
+        return ApiResponse<ExpectedPaymentCalculationDto>
+            .SuccessResponse(
+                calculationInfo,
+                "تم حساب المبلغ المتوقع بنجاح.",
+                "Expected payment calculated successfully.");
+    }
     public async Task<ApiResponse<object?>> RejectAsync(int currentUserId, int id, string? reason, CancellationToken cancellationToken = default)
     {
         var (currentUser, authError) = await GetCurrentUserAsync<object?>(currentUserId, cancellationToken);

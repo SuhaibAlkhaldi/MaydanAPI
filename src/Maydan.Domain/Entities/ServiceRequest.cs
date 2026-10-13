@@ -26,12 +26,14 @@ public class ServiceRequest : SharedEntities
     /// Time unit for payment calculation (Shift, Day, or Hour).
     /// Shift = 12 hours, Day = 9 hours, Hour = Direct hourly rate.
     /// </summary>
-    public ServiceTimeUnit TimeUnit { get; set; } = ServiceTimeUnit.Shift;
+    //public ServiceTimeUnit TimeUnit { get; set; } = ServiceTimeUnit.Shift;
 
     /// <summary>
     /// Duration count: number of shifts/days/hours depending on TimeUnit.
     /// </summary>
     public int ShiftsCount { get; set; }
+    //DurationCount 
+
 
     // Worker Related Properties
     public int RequestedWorkersCount { get; set; }

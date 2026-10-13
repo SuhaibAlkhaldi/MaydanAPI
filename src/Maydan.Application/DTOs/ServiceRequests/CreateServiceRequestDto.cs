@@ -11,9 +11,9 @@ public class CreateServiceRequestDto
 
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
-    public ServiceTimeUnit TimeUnit { get; set; } = ServiceTimeUnit.Shift;
+    //public ServiceTimeUnit TimeUnit { get; set; } = ServiceTimeUnit.Shift;
     public int ShiftsCount { get; set; }
-
+    
     public int RequestedWorkersCount { get; set; }
     public int AttendanceFrequency { get; set; }
     public string? AdditionalRequirements { get; set; }

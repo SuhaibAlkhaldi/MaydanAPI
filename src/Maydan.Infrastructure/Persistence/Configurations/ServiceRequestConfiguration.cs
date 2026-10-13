@@ -14,7 +14,6 @@ public class ServiceRequestConfiguration : IEntityTypeConfiguration<ServiceReque
 
         builder.Property(r => r.UnitPriceSnapshot).HasPrecision(18, 2);
         builder.Property(r => r.ExpectedTotalAmount).HasPrecision(18, 2);
-        builder.Property(r => r.TimeUnit).HasDefaultValue(Maydan.Domain.Enums.ServiceTimeUnit.Shift);
 
         builder.Property(r => r.AdditionalRequirements).HasMaxLength(1000);
         builder.Property(r => r.IdempotencyKey).HasMaxLength(100);
