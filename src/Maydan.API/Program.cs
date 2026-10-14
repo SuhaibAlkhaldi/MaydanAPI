@@ -9,7 +9,7 @@ using Maydan.Infrastructure.Email;
 using Maydan.Infrastructure.Persistence;
 using Maydan.Infrastructure.Repositories;
 using Maydan.Infrastructure.Security;
-using Maydan.Infrastructure.Storage;
+using Maydan.Infrastructure.Services;
 
 using Maydan.Infrastructure.Web;
 
@@ -73,7 +73,8 @@ builder.Services.AddScoped<IServiceConfigurationService, ServiceConfigurationSer
 var uploadsRootPath = Path.Combine(
     builder.Environment.WebRootPath ?? Path.Combine(builder.Environment.ContentRootPath, "wwwroot"),
     "uploads");
-builder.Services.AddSingleton<IFileStorageService>(new LocalFileStorageService(uploadsRootPath));
+builder.Services.AddSingleton<IFileStorageService>(new LocalFileStorageService
+(uploadsRootPath));
 
 builder.Services.AddSingleton<ICivilIdHasher, HmacCivilIdHasher>();
 builder.Services.AddSingleton<IPasswordHasher, PasswordHasher>();
@@ -122,6 +123,7 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseCors("Frontend");
+
 
 app.UseAuthentication();
 app.UseAuthorization();

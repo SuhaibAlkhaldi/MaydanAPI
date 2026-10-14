@@ -40,7 +40,8 @@ public class ProjectsController : ApiControllerBase
 
         try
         {
-            return Ok(await _projectService.GetAllAsync(currentUserId, query, cancellationToken));
+            var response = await _projectService.GetAllAsync(currentUserId, query, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -65,7 +66,8 @@ public class ProjectsController : ApiControllerBase
 
         try
         {
-            return Ok(await _projectService.GetByIdAsync(currentUserId, id, cancellationToken));
+            var response = await _projectService.GetByIdAsync(currentUserId, id, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -90,6 +92,11 @@ public class ProjectsController : ApiControllerBase
 
         try
         {
+            if (request.WorkPermitImage is null)
+            {
+                return BadRequest(new ApiResponse<object?>(false, "صورة تصريح العمل مطلوبة.", "Work permit image is required.", null, 400));
+            }
+
             string workPermitImagePath;
             await using (var stream = request.WorkPermitImage.OpenReadStream())
             {
@@ -161,8 +168,8 @@ public class ProjectsController : ApiControllerBase
                 WorkPermitImagePath = workPermitImagePath
             };
 
-            var result = await _projectService.UpdateAsync(request.Id, dto, currentUserId, cancellationToken);
-            return Ok(result);
+            var response = await _projectService.UpdateAsync(request.Id, dto, currentUserId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -212,7 +219,8 @@ public class ProjectsController : ApiControllerBase
 
         try
         {
-            return Ok(await _projectService.RestoreAsync(projectId, currentUserId, cancellationToken));
+            var response = await _projectService.RestoreAsync(projectId, currentUserId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {

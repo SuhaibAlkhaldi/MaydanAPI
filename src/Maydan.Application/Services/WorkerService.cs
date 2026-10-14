@@ -21,7 +21,6 @@ namespace Maydan.Application.Services;
 public class WorkerService : IWorkerService
 
 {
-
     private const int ViewWorkersPermissionId = 23;
 
     private const int ManageWorkersPermissionId = 24;
