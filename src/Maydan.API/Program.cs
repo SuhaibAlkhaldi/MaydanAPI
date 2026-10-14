@@ -8,7 +8,7 @@ using Maydan.Infrastructure.Email;
 using Maydan.Infrastructure.Persistence;
 using Maydan.Infrastructure.Repositories;
 using Maydan.Infrastructure.Security;
-using Maydan.Infrastructure.Storage;
+using Maydan.Infrastructure.Services;
 
 using Maydan.Infrastructure.Web;
 
@@ -56,6 +56,7 @@ builder.Services.AddScoped<IAssociationService, AssociationService>();
 builder.Services.AddScoped<IAssociationProjectSupervisorService, AssociationProjectSupervisorService>();
 builder.Services.AddScoped<IProductionCompanyService, ProductionCompanyService>();
 builder.Services.AddScoped<IProductionCompanyOnboardingService, ProductionCompanyOnboardingService>();
+builder.Services.AddScoped<IWorkerService, WorkerService>();
 builder.Services.AddScoped<IEntityOnboardingService, EntityOnboardingService>();
 builder.Services.AddScoped<IFrontendLinkBuilder, FrontendLinkBuilder>();
 
@@ -75,12 +76,6 @@ builder.Services.AddSingleton<IFileStorageService>(new LocalFileStorageService(u
 
 builder.Services.AddSingleton<ICivilIdHasher, HmacCivilIdHasher>();
 builder.Services.AddSingleton<IPasswordHasher, PasswordHasher>();
-
-
-var uploadsRootPath = Path.Combine(
-    builder.Environment.WebRootPath ?? Path.Combine(builder.Environment.ContentRootPath, "wwwroot"),
-    "uploads");
-builder.Services.AddSingleton<IFileStorageService>(new LocalFileStorageService(uploadsRootPath));
 
 builder.Services.AddValidatorsFromAssembly(typeof(Maydan.Application.AssemblyReference).Assembly);
 
@@ -124,6 +119,7 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseCors("Frontend");
+
 
 app.UseAuthentication();
 app.UseAuthorization();

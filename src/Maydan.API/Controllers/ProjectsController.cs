@@ -1,11 +1,11 @@
 using Maydan.API.Models.Projects;
+using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.Projects;
 using Maydan.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Maydan.API.Controllers;
-
 
 [ApiController]
 [Route("api/[controller]")]
@@ -24,13 +24,19 @@ public class ProjectsController : ApiControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<ProjectDto>>> GetAll(
+    public async Task<ActionResult> GetAll(
         [FromQuery] ProjectQueryDto query,
         CancellationToken cancellationToken)
     {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
+        }
+
         try
         {
-            return Ok(await _projectService.GetAllAsync(query, cancellationToken));
+            var response = await _projectService.GetAllAsync(currentUserId, query, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -39,13 +45,19 @@ public class ProjectsController : ApiControllerBase
     }
 
     [HttpGet("{id:int}")]
-    public async Task<ActionResult<ProjectDto>> GetById(
+    public async Task<ActionResult> GetById(
         int id,
         CancellationToken cancellationToken)
     {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
+        }
+
         try
         {
-            return Ok(await _projectService.GetByIdAsync(id, cancellationToken));
+            var response = await _projectService.GetByIdAsync(currentUserId, id, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -54,19 +66,21 @@ public class ProjectsController : ApiControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<ProjectDto>> Create(
+    public async Task<ActionResult> Create(
         [FromForm] CreateProjectRequest request,
         CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new { message = "Current user id is required." });
+            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
         }
 
         try
         {
-
-            return Ok(await _projectService.GetAllAsync(currentUserId, query, cancellationToken));
+            if (request.WorkPermitImage is null)
+            {
+                return BadRequest(new ApiResponse<object?>(false, "صورة تصريح العمل مطلوبة.", "Work permit image is required.", null, 400));
+            }
 
             string workPermitImagePath;
             await using (var stream = request.WorkPermitImage.OpenReadStream())
@@ -90,101 +104,8 @@ public class ProjectsController : ApiControllerBase
                 WorkPermitImagePath = workPermitImagePath
             };
 
-            var result = await _projectService.CreateAsync(dto, currentUserId, cancellationToken);
-            return Created($"/api/Projects/{result.Id}", result);
-        }
-        catch (Exception exception)
-        {
-            return HandleException(exception);
-        }
-    }
-
-    [HttpGet("{id:int}")]
-    public async Task<ActionResult<ProjectDto>> GetById(
-        int id,
-
-    [HttpPut]
-    public async Task<ActionResult<ProjectDto>> Update(
-        [FromForm] UpdateProjectRequest request,
-        CancellationToken cancellationToken)
-    {
-        if (!TryGetCurrentUserId(out var currentUserId))
-        {
-            return Unauthorized(new { message = "Current user id is required." });
-        }
-
-        try
-        {
-
-            return Ok(await _projectService.GetByIdAsync(currentUserId, id, cancellationToken));
-            string? workPermitImagePath = null;
-            if (request.WorkPermitImage is not null)
-            {
-                await using var stream = request.WorkPermitImage.OpenReadStream();
-                workPermitImagePath = await _fileStorageService.SaveAsync(
-                    stream,
-                    request.WorkPermitImage.FileName,
-                    WorkPermitsSubfolder,
-                    cancellationToken);
-            }
-
-            var dto = new UpdateProjectDto
-            {
-                ProjectNameEn = request.ProjectNameEn,
-                ProjectNameAr = request.ProjectNameAr,
-                StartDate = request.StartDate,
-                EndDate = request.EndDate,
-                ProjectTypeId = request.ProjectTypeId,
-                ProducerUserId = request.ProducerUserId,
-                LocationManagerUserId = request.LocationManagerUserId,
-                WorkPermitImagePath = workPermitImagePath
-            };
-
-            var result = await _projectService.UpdateAsync(request.Id, dto, currentUserId, cancellationToken);
-            return Ok(result);
-        }
-        catch (Exception exception)
-        {
-            return HandleException(exception);
-        }
-    }
-
-    [HttpPost]
-    public async Task<ActionResult<ProjectDto>> Create(
-        [FromForm] CreateProjectRequest request,
-        CancellationToken cancellationToken)
-    {
-        if (!TryGetCurrentUserId(out var currentUserId))
-        {
-            return Unauthorized(new { message = "Current user id is required." });
-        }
-
-        try
-        {
-            string workPermitImagePath;
-            await using (var stream = request.WorkPermitImage.OpenReadStream())
-            {
-                workPermitImagePath = await _fileStorageService.SaveAsync(
-                    stream,
-                    request.WorkPermitImage.FileName,
-                    WorkPermitsSubfolder,
-                    cancellationToken);
-            }
-
-            var dto = new CreateProjectDto
-            {
-                ProjectNameEn = request.ProjectNameEn,
-                ProjectNameAr = request.ProjectNameAr,
-                StartDate = request.StartDate,
-                EndDate = request.EndDate,
-                ProjectTypeId = request.ProjectTypeId,
-                ProducerUserId = request.ProducerUserId,
-                LocationManagerUserId = request.LocationManagerUserId,
-                WorkPermitImagePath = workPermitImagePath
-            };
-
-            var result = await _projectService.CreateAsync(dto, currentUserId, cancellationToken);
-            return Created($"/api/Projects/{result.Id}", result);
+            var response = await _projectService.CreateAsync(dto, currentUserId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -193,13 +114,13 @@ public class ProjectsController : ApiControllerBase
     }
 
     [HttpPut]
-    public async Task<ActionResult<ProjectDto>> Update(
+    public async Task<ActionResult> Update(
         [FromForm] UpdateProjectRequest request,
         CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new { message = "Current user id is required." });
+            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
         }
 
         try
@@ -227,8 +148,8 @@ public class ProjectsController : ApiControllerBase
                 WorkPermitImagePath = workPermitImagePath
             };
 
-            var result = await _projectService.UpdateAsync(request.Id, dto, currentUserId, cancellationToken);
-            return Ok(result);
+            var response = await _projectService.UpdateAsync(request.Id, dto, currentUserId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -237,19 +158,19 @@ public class ProjectsController : ApiControllerBase
     }
 
     [HttpDelete]
-    public async Task<IActionResult> Delete(
+    public async Task<ActionResult> Delete(
         [FromQuery] int id,
         CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new { message = "Current user id is required." });
+            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
         }
 
         try
         {
-            await _projectService.DeleteAsync(id, currentUserId, cancellationToken);
-            return NoContent();
+            var response = await _projectService.DeleteAsync(id, currentUserId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -258,18 +179,19 @@ public class ProjectsController : ApiControllerBase
     }
 
     [HttpPatch("restore")]
-    public async Task<ActionResult<ProjectDto>> Restore(
+    public async Task<ActionResult> Restore(
         [FromQuery] int projectId,
         CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new { message = "Current user id is required." });
+            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
         }
 
         try
         {
-            return Ok(await _projectService.RestoreAsync(projectId, currentUserId, cancellationToken));
+            var response = await _projectService.RestoreAsync(projectId, currentUserId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {

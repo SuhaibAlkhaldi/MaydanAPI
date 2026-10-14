@@ -1,10 +1,10 @@
+using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.Projects;
 using Maydan.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Maydan.API.Controllers;
-
 
 [ApiController]
 [Route("api/[controller]")]
@@ -19,11 +19,13 @@ public class ProjectTypesController : ApiControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<ProjectTypeDto>>> GetAll(CancellationToken cancellationToken)
+    //changes the return to action-result to comaptapile with other controller cause he is return (response.StatusCode, response)
+    public async Task<ActionResult> GetAll(CancellationToken cancellationToken)
     {
         try
         {
-            return Ok(await _projectService.GetProjectTypesAsync(cancellationToken));
+            var response = await _projectService.GetProjectTypesAsync(cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {

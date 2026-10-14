@@ -1,3 +1,4 @@
+using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.ProductionCompanies;
 using Maydan.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -5,21 +6,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Maydan.API.Controllers;
 
-// Production House Management (MAYD-80/81/82) — the ProductionCompaniesController
-// AuthController.RegisterProductionCompany's own comment said didn't exist yet. Route/verb shape
-// matches workforcment's production-company.service.ts exactly: GET (list, search + isDeleted
-// query params together — one endpoint, not AssociationsController's four-separate-routes split),
-// GET/{id} (details).
-//
-// Status route: PATCH {id}/status/update, matching UsersController.UpdateUserStatus's own shape
-// (a one-field toggle, PATCH not PUT) rather than CityController.Restore's restore/{id} shape —
-// Restore undoes a soft-delete (a different operation this module doesn't have at all, see this
-// controller's own comment on GetAll's isDeleted param), while this is a plain active/inactive
-// toggle, the exact same semantic operation UsersController.UpdateUserStatus already names this way.
-//
-// [Authorize]-only at the controller level (matches every other controller in this codebase) — the
-// REAL enforcement is server-side in ProductionCompanyService.GetAuthorizedUserAsync (View-or-Manage
-// for list/details, Manage-only for the status toggle), not a bare attribute.
 [Authorize]
 [Route("api/[controller]")]
 public class ProductionCompanyController : ApiControllerBase
@@ -32,17 +18,18 @@ public class ProductionCompanyController : ApiControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<ProductionCompanyDto>>> GetAll(
+    public async Task<ActionResult> GetAll(
         [FromQuery] string? search, [FromQuery] bool isDeleted, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new { message = "Current user id is required." });
+            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
         }
 
         try
         {
-            return Ok(await _productionCompanyService.GetAllAsync(currentUserId, search, isDeleted, cancellationToken));
+            var response = await _productionCompanyService.GetAllAsync(currentUserId, search, isDeleted, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -51,16 +38,17 @@ public class ProductionCompanyController : ApiControllerBase
     }
 
     [HttpGet("{id:int}")]
-    public async Task<ActionResult<ProductionCompanyDto>> GetById(int id, CancellationToken cancellationToken)
+    public async Task<ActionResult> GetById(int id, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new { message = "Current user id is required." });
+            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
         }
 
         try
         {
-            return Ok(await _productionCompanyService.GetByIdAsync(currentUserId, id, cancellationToken));
+            var response = await _productionCompanyService.GetByIdAsync(currentUserId, id, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -69,17 +57,18 @@ public class ProductionCompanyController : ApiControllerBase
     }
 
     [HttpPatch("{id:int}/status/update", Name = "Update Production Company Status")]
-    public async Task<ActionResult<ProductionCompanyDto>> UpdateStatus(
+    public async Task<ActionResult> UpdateStatus(
         int id, [FromBody] UpdateProductionCompanyStatusDto dto, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new { message = "Current user id is required." });
+            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
         }
 
         try
         {
-            return Ok(await _productionCompanyService.UpdateStatusAsync(currentUserId, id, dto, cancellationToken));
+            var response = await _productionCompanyService.UpdateStatusAsync(currentUserId, id, dto, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
