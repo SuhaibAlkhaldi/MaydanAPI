@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace Maydan.Infrastructure.Persistence.Migrations
+namespace Maydan.Infrastructure.Migrations
 {
     [DbContext(typeof(MaydanDbContext))]
     partial class MaydanDbContextModelSnapshot : ModelSnapshot
@@ -66,7 +66,7 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
-                    b.Property<decimal?>("Latitude")
+                    b.Property<decimal>("Latitude")
                         .HasPrecision(9, 6)
                         .HasColumnType("decimal(9,6)");
 
@@ -74,7 +74,7 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<decimal?>("Longitude")
+                    b.Property<decimal>("Longitude")
                         .HasPrecision(9, 6)
                         .HasColumnType("decimal(9,6)");
 
@@ -83,7 +83,23 @@ namespace Maydan.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ArabicName")
+                        .IsUnique();
+
                     b.HasIndex("CityId");
+
+                    b.HasIndex("ContactPhone")
+                        .IsUnique()
+                        .HasFilter("[ContactPhone] IS NOT NULL");
+
+                    b.HasIndex("EnglishName")
+                        .IsUnique();
+
+                    b.HasIndex("ArabicName", "EnglishName")
+                        .IsUnique();
+
+                    b.HasIndex("Latitude", "Longitude")
+                        .IsUnique();
 
                     b.ToTable("Associations", (string)null);
                 });
@@ -127,6 +143,91 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("AssociationProjectSupervisors", (string)null);
+                });
+
+            modelBuilder.Entity("Maydan.Domain.Entities.AssociationV2", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ArabicName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("CityId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ContactEmail")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ContactPhone")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EnglishName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("Latitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<string>("LocationOnGoogleMaps")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<decimal>("Longitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ArabicName")
+                        .IsUnique();
+
+                    b.HasIndex("CityId");
+
+                    b.HasIndex("ContactEmail")
+                        .IsUnique()
+                        .HasFilter("[ContactEmail] IS NOT NULL AND [ContactEmail] != ''");
+
+                    b.HasIndex("ContactPhone")
+                        .IsUnique()
+                        .HasFilter("[ContactPhone] IS NOT NULL AND [ContactPhone] != ''");
+
+                    b.HasIndex("EnglishName")
+                        .IsUnique();
+
+                    b.HasIndex("Latitude", "Longitude")
+                        .IsUnique();
+
+                    b.ToTable("AssociationsV2", (string)null);
                 });
 
             modelBuilder.Entity("Maydan.Domain.Entities.City", b =>
@@ -2177,6 +2278,12 @@ namespace Maydan.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("RoleId");
 
+                    b.HasIndex("FirstNameAr", "LastNameAr")
+                        .IsUnique();
+
+                    b.HasIndex("FirstNameEn", "LastNameEn")
+                        .IsUnique();
+
                     b.ToTable("Users", (string)null);
 
                     b.HasData(
@@ -2371,6 +2478,9 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Property<int>("AssociationId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("AssociationV2Id")
+                        .HasColumnType("int");
+
                     b.Property<int?>("CityId")
                         .HasColumnType("int");
 
@@ -2449,6 +2559,8 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AssociationId");
+
+                    b.HasIndex("AssociationV2Id");
 
                     b.HasIndex("CityId");
 
@@ -2533,6 +2645,17 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Navigation("Project");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Maydan.Domain.Entities.AssociationV2", b =>
+                {
+                    b.HasOne("Maydan.Domain.Entities.City", "City")
+                        .WithMany("AssociationsV2")
+                        .HasForeignKey("CityId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("City");
                 });
 
             modelBuilder.Entity("Maydan.Domain.Entities.City", b =>
@@ -2720,6 +2843,10 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Maydan.Domain.Entities.AssociationV2", null)
+                        .WithMany("Workers")
+                        .HasForeignKey("AssociationV2Id");
+
                     b.HasOne("Maydan.Domain.Entities.City", "City")
                         .WithMany()
                         .HasForeignKey("CityId")
@@ -2761,9 +2888,16 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Navigation("Workers");
                 });
 
+            modelBuilder.Entity("Maydan.Domain.Entities.AssociationV2", b =>
+                {
+                    b.Navigation("Workers");
+                });
+
             modelBuilder.Entity("Maydan.Domain.Entities.City", b =>
                 {
                     b.Navigation("Associations");
+
+                    b.Navigation("AssociationsV2");
                 });
 
             modelBuilder.Entity("Maydan.Domain.Entities.Country", b =>

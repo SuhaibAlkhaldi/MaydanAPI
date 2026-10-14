@@ -11,7 +11,7 @@ public class LocalFileStorageService : IFileStorageService
         _rootPath = rootPath;
     }
 
-  
+
     public async Task<string> SaveAsync(
         Stream content,
         string originalFileName,
@@ -36,7 +36,7 @@ public class LocalFileStorageService : IFileStorageService
         return $"/uploads/{relativeSubfolder}/{safeFileName}";
     }
 
-  
+
     public Task DeleteAsync(
         string filePath,
         CancellationToken cancellationToken = default)

@@ -159,4 +159,9 @@ public class UserRepository : IUserRepository
         await _context.Users.AddAsync(user, cancellationToken);
 
     public void Remove(User user) => _context.Users.Remove(user);
+
+    public Task<bool> PhoneExistsAsync(string phone, CancellationToken cancellationToken = default)
+    {
+        return _context.Users.AnyAsync(u => u.PhoneNumber == phone, cancellationToken);
+    }
 }

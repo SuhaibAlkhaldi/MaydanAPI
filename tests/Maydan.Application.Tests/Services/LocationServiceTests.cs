@@ -402,6 +402,11 @@ public class LocationServiceTests
         public Task<List<User>> GetByIdsInEntityAsync(IEnumerable<int> userIds, EntityType entityType, int entityId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task AddAsync(User user, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public void Remove(User user) => throw new NotSupportedException();
+
+        public Task<bool> PhoneExistsAsync(string phone, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     // Remove() simulates MaydanDbContext.SaveChangesAsync's global soft-delete interception
@@ -545,6 +550,10 @@ public class LocationServiceTests
         public IRefreshTokenRepository RefreshTokens => throw new NotSupportedException();
         public ISystemConfigurationRepository SystemConfigurations => throw new NotSupportedException();
         public IServiceRepository Services => throw new NotSupportedException();
+
+        public IAssociationRepositoryV2 AssociationsV2 => throw new NotImplementedException();
+
+        public IWorkerRepositoryV2 WorkersV2 => throw new NotImplementedException();
 
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Task.FromResult(1);
 

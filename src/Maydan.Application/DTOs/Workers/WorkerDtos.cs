@@ -26,13 +26,16 @@ public record WorkerDto(
     bool IsActive);
 
 public record WorkerSummaryDto(
-    int Id,
+int Id,
     string FirstName,
     string LastName,
+    string PhoneNumber,
     string CivilId,
-    List<string> ServiceNames,
+    List<string> ServicesEn,
+    List<string> ServicesAr,
     int? YearsOfExperience,
-    string? PhoneNumber);
+    string? AssociationName
+    );
 
 public class CreateWorkerDto
 {

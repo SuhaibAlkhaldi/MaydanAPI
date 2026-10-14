@@ -24,13 +24,18 @@ public class ProjectsController : ApiControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult> GetAll(
+    public async Task<ActionResult<ApiResponse<List<ProjectDto>>>> GetAll(
         [FromQuery] ProjectQueryDto query,
         CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
+            return Unauthorized(new ApiResponse<List<ProjectDto>>
+            {
+                Success = false,
+                MessageAr = "رمز المستخدم الحالي مطلوب",
+                MessageEn = "Current user id is required."
+            });
         }
 
         try
@@ -45,13 +50,18 @@ public class ProjectsController : ApiControllerBase
     }
 
     [HttpGet("{id:int}")]
-    public async Task<ActionResult> GetById(
+    public async Task<ActionResult<ApiResponse<ProjectDto>>> GetById(
         int id,
         CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
+            return Unauthorized(new ApiResponse<ProjectDto>
+            {
+                Success = false,
+                MessageAr = "رمز المستخدم الحالي مطلوب",
+                MessageEn = "Current user id is required."
+            });
         }
 
         try
@@ -66,13 +76,18 @@ public class ProjectsController : ApiControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult> Create(
+    public async Task<ActionResult<ApiResponse<ProjectDto>>> Create(
         [FromForm] CreateProjectRequest request,
         CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
+            return Unauthorized(new ApiResponse<ProjectDto>
+            {
+                Success = false,
+                MessageAr = "رمز المستخدم الحالي مطلوب",
+                MessageEn = "Current user id is required."
+            });
         }
 
         try
@@ -104,8 +119,8 @@ public class ProjectsController : ApiControllerBase
                 WorkPermitImagePath = workPermitImagePath
             };
 
-            var response = await _projectService.CreateAsync(dto, currentUserId, cancellationToken);
-            return StatusCode(response.StatusCode, response);
+            var result = await _projectService.CreateAsync(dto, currentUserId, cancellationToken);
+            return Created($"/api/Projects/{result.Data?.Id}", result);
         }
         catch (Exception exception)
         {
@@ -114,13 +129,18 @@ public class ProjectsController : ApiControllerBase
     }
 
     [HttpPut]
-    public async Task<ActionResult> Update(
+    public async Task<ActionResult<ApiResponse<ProjectDto>>> Update(
         [FromForm] UpdateProjectRequest request,
         CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
+            return Unauthorized(new ApiResponse<ProjectDto>
+            {
+                Success = false,
+                MessageAr = "رمز المستخدم الحالي مطلوب",
+                MessageEn = "Current user id is required."
+            });
         }
 
         try
@@ -158,19 +178,23 @@ public class ProjectsController : ApiControllerBase
     }
 
     [HttpDelete]
-    public async Task<ActionResult> Delete(
+    public async Task<ActionResult<ApiResponse<bool>>> Delete(
         [FromQuery] int id,
         CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
+            return Unauthorized(new ApiResponse<bool>
+            {
+                Success = false,
+                MessageAr = "رمز المستخدم الحالي مطلوب",
+                MessageEn = "Current user id is required."
+            });
         }
 
         try
         {
-            var response = await _projectService.DeleteAsync(id, currentUserId, cancellationToken);
-            return StatusCode(response.StatusCode, response);
+            return Ok(await _projectService.DeleteAsync(id, currentUserId, cancellationToken));
         }
         catch (Exception exception)
         {
@@ -179,13 +203,18 @@ public class ProjectsController : ApiControllerBase
     }
 
     [HttpPatch("restore")]
-    public async Task<ActionResult> Restore(
+    public async Task<ActionResult<ApiResponse<ProjectDto>>> Restore(
         [FromQuery] int projectId,
         CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
+            return Unauthorized(new ApiResponse<ProjectDto>
+            {
+                Success = false,
+                MessageAr = "رمز المستخدم الحالي مطلوب",
+                MessageEn = "Current user id is required."
+            });
         }
 
         try

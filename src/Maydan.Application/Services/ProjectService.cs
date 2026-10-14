@@ -489,5 +489,10 @@ public class ProjectService : IProjectService
     private static ApiResponse<T> Ok<T>(T data, string messageAr, string messageEn, int statusCode = 200) =>
         new(true, messageAr, messageEn, data, statusCode);
 
+    Task<ApiResponse<bool>> IProjectService.DeleteAsync(int id, int currentUserId, CancellationToken cancellationToken)
+    {
+        throw new NotImplementedException();
+    }
+
     #endregion
 }

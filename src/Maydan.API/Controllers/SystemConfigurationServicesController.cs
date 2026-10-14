@@ -114,7 +114,7 @@ public class SystemConfigurationServicesController : ApiControllerBase
         try
         {
             await _serviceConfigurationService.DeleteServiceAsync(currentUserId, id, cancellationToken);
-            return Success<object?>(null, "تم حذف الخدمة بنجاح", "Service deleted successfully.");
+            return Success<object>(null, "تم حذف الخدمة بنجاح", "Service deleted successfully.");
         }
         catch (Exception ex)
         {

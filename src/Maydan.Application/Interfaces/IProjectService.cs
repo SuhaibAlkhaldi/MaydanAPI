@@ -1,4 +1,5 @@
 using Maydan.Application.DTOs.Common;
+using Maydan.Application.DTOs;
 using Maydan.Application.DTOs.Projects;
 
 namespace Maydan.Application.Interfaces;
@@ -26,7 +27,7 @@ public interface IProjectService
         int currentUserId,
         CancellationToken cancellationToken = default);
 
-    Task<ApiResponse<object?>> DeleteAsync(
+    Task<ApiResponse<bool>> DeleteAsync(
         int id,
         int currentUserId,
         CancellationToken cancellationToken = default);

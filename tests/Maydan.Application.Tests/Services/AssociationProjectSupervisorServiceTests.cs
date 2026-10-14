@@ -83,14 +83,14 @@ public class AssociationProjectSupervisorServiceTests
             new CreateAssociationProjectSupervisorDto { ProjectId = project.Id, AssociationUserId = associationUser.UserId },
             caller.UserId);
 
-        Assert.Equal(project.Id, result.ProjectId);
-        Assert.Equal(associationUser.UserId, result.AssociationUserId);
-        Assert.Equal(association.Id, result.AssociationId);
-        Assert.Equal(project.ProjectNameEn, result.ProjectName);
-        Assert.Equal(association.EnglishName, result.AssociationName);
-        Assert.Equal("First30 Last30", result.UserName);
-        Assert.Equal(associationUser.Email, result.Email);
-        Assert.Equal(associationUser.PhoneNumber, result.PhoneNumber);
+        Assert.Equal(project.Id, result.Data?.ProjectId);
+        Assert.Equal(associationUser.UserId, result.Data?.AssociationUserId);
+        Assert.Equal(association.Id, result.Data?.AssociationId);
+        Assert.Equal(project.ProjectNameEn, result.Data?.ProjectName);
+        Assert.Equal(association.EnglishName, result.Data?.AssociationName);
+        Assert.Equal("First30 Last30", result.Data?.UserName);
+        Assert.Equal(associationUser.Email, result.Data?.Email);
+        Assert.Equal(associationUser.PhoneNumber, result.Data?.PhoneNumber);
     }
 
     [Fact]
@@ -147,7 +147,7 @@ public class AssociationProjectSupervisorServiceTests
 
         var result = await service.GetAllAsync(projectId: 0, associationId: 0);
 
-        Assert.Equal(2, result.Count);
+        Assert.Equal(2, result.Data!.Count);
     }
 
     [Fact]
@@ -168,7 +168,7 @@ public class AssociationProjectSupervisorServiceTests
 
         var result = await service.GetAllAsync(projectId: projectA.Id, associationId: 0);
 
-        var dto = Assert.Single(result);
+        var dto = Assert.Single(result.Data!);
         Assert.Equal(projectA.Id, dto.ProjectId);
     }
 
@@ -190,7 +190,7 @@ public class AssociationProjectSupervisorServiceTests
 
         var result = await service.GetAllAsync(projectId: 0, associationId: associationA.Id);
 
-        var dto = Assert.Single(result);
+        var dto = Assert.Single(result.Data!);
         Assert.Equal(associationA.Id, dto.AssociationId);
     }
 
@@ -259,6 +259,11 @@ public class AssociationProjectSupervisorServiceTests
         public Task<List<User>> GetByIdsInEntityAsync(IEnumerable<int> userIds, EntityType entityType, int entityId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task AddAsync(User user, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public void Remove(User user) => throw new NotSupportedException();
+
+        public Task<bool> PhoneExistsAsync(string phone, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     private sealed class FakeProjectRepository : IProjectRepository
@@ -346,6 +351,11 @@ public class AssociationProjectSupervisorServiceTests
             supervisor.IsDeleted = true;
             supervisor.DeletedAt = DateTime.UtcNow;
         }
+
+        Task<bool> IAssociationProjectSupervisorRepository.Remove(AssociationProjectSupervisor supervisor)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     private sealed class FakeUnitOfWork : IUnitOfWork
@@ -377,6 +387,10 @@ public class AssociationProjectSupervisorServiceTests
         public IRefreshTokenRepository RefreshTokens => throw new NotSupportedException();
         public ISystemConfigurationRepository SystemConfigurations => throw new NotSupportedException();
         public IServiceRepository Services => throw new NotSupportedException();
+
+        public IAssociationRepositoryV2 AssociationsV2 => throw new NotImplementedException();
+
+        public IWorkerRepositoryV2 WorkersV2 => throw new NotImplementedException();
 
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Task.FromResult(1);
         public Task ExecuteInTransactionAsync(Func<Task> operation, CancellationToken cancellationToken = default) => operation();
