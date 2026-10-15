@@ -16,13 +16,57 @@ public class AssociationRepository : IAssociationRepository
 
     public Task<Association?> GetByIdAsync(int associationId, CancellationToken cancellationToken = default) =>
         _context.Associations
-            .Include(a => a.City).ThenInclude(c => c.Country)
+        .AsNoTracking()
+            .Select(a => new Association
+            {
+                Id = a.Id,
+                ArabicName = a.ArabicName,
+                EnglishName = a.EnglishName,
+                City = new City
+                {
+                    ArabicName = a.City.ArabicName,
+                    EnglishName = a.City.EnglishName,
+                    Country = new Country
+                    {
+                        ArabicName = a.City.Country.ArabicName,
+                        EnglishName = a.City.Country.EnglishName
+                    }
+                },
+                LocationOnGoogleMaps = a.LocationOnGoogleMaps,
+                Latitude = a.Latitude,
+                Longitude = a.Longitude,
+                ContactPhone = a.ContactPhone,
+                ContactEmail = a.ContactEmail
+            })
+            //.Include(a => a.City).ThenInclude(c => c.Country)
             .FirstOrDefaultAsync(a => a.Id == associationId, cancellationToken);
 
     public Task<List<Association>> GetAllAsync(CancellationToken cancellationToken = default) =>
         _context.Associations
-            .Include(a => a.City).ThenInclude(c => c.Country)
-            .ToListAsync(cancellationToken);
+        .AsNoTracking()
+        .Select(a => new Association
+        {
+            Id = a.Id,
+            ArabicName = a.ArabicName,
+            EnglishName = a.EnglishName,
+            City = new City
+            {
+                ArabicName = a.City.ArabicName,
+                EnglishName = a.City.EnglishName,
+                Country = new Country
+                {
+                    ArabicName = a.City.Country.ArabicName,
+                    EnglishName = a.City.Country.EnglishName
+                }
+            },
+            LocationOnGoogleMaps = a.LocationOnGoogleMaps,
+            Latitude = a.Latitude,
+            Longitude = a.Longitude,
+            ContactPhone = a.ContactPhone,
+            ContactEmail = a.ContactEmail
+        })
+        //.Include(a => a.City).ThenInclude(c => c.Country)
+        .ToListAsync(cancellationToken);
 
     public async Task AddAsync(Association association, CancellationToken cancellationToken = default) =>
         await _context.Associations.AddAsync(association, cancellationToken);
@@ -32,19 +76,94 @@ public class AssociationRepository : IAssociationRepository
     public Task<Association?> GetByIdIncludingDeletedAsync(int associationId, CancellationToken cancellationToken = default) =>
         _context.Associations
             .IgnoreQueryFilters()
-            .Include(a => a.City).ThenInclude(c => c.Country)
+            .AsNoTracking()
+            .Select(a => new Association
+            {
+                Id = a.Id,
+                ArabicName = a.ArabicName,
+                EnglishName = a.EnglishName,
+                City = new City
+                {
+                    ArabicName = a.City.ArabicName,
+                    EnglishName = a.City.EnglishName,
+                    Country = new Country
+                    {
+                        ArabicName = a.City.Country.ArabicName,
+                        EnglishName = a.City.Country.EnglishName
+                    }
+                },
+                LocationOnGoogleMaps = a.LocationOnGoogleMaps,
+                Latitude = a.Latitude,
+                Longitude = a.Longitude,
+                ContactPhone = a.ContactPhone,
+                ContactEmail = a.ContactEmail
+            })
+            //.Include(a => a.City).ThenInclude(c => c.Country)
             .FirstOrDefaultAsync(a => a.Id == associationId, cancellationToken);
 
     public Task<Association?> GetByIdWithWorkersAsync(int associationId, CancellationToken cancellationToken = default) =>
         _context.Associations
-            .Include(a => a.City).ThenInclude(c => c.Country)
-            .Include(a => a.Workers)
-            .FirstOrDefaultAsync(a => a.Id == associationId, cancellationToken);
+        .AsNoTracking()
+        .Select(a => new Association
+        {
+            Id = a.Id,
+            ArabicName = a.ArabicName,
+            EnglishName = a.EnglishName,
+            City = new City
+            {
+                ArabicName = a.City.ArabicName,
+                EnglishName = a.City.EnglishName,
+                Country = new Country
+                {
+                    ArabicName = a.City.Country.ArabicName,
+                    EnglishName = a.City.Country.EnglishName
+                }
+            },
+            LocationOnGoogleMaps = a.LocationOnGoogleMaps,
+            Latitude = a.Latitude,
+            Longitude = a.Longitude,
+            ContactPhone = a.ContactPhone,
+            ContactEmail = a.ContactEmail,
+            Workers = a.Workers.Select(w => new Worker
+            {
+                Id = w.Id,
+                FirstName = w.FirstName,
+                MiddleName = w.MiddleName,
+                LastName = w.LastName, 
+                AssociationId = w.AssociationId
+            }).ToList()
+        })
+        //.Include(a => a.City).ThenInclude(c => c.Country)
+        //.Include(a => a.Workers)
+        .FirstOrDefaultAsync(a => a.Id == associationId, cancellationToken);
 
     public async Task<(Association Association, int WorkersCount)?> GetByIdWithWorkersCountAsync(int associationId, CancellationToken cancellationToken = default)
     {
         var result = await _context.Associations
-            .Include(a => a.City).ThenInclude(c => c.Country)
+        .AsNoTracking()
+         .AsNoTracking()
+            .Select(a => new Association
+            {
+                Id = a.Id,
+                ArabicName = a.ArabicName,
+                EnglishName = a.EnglishName,
+                City = new City
+                {
+                    ArabicName = a.City.ArabicName,
+                    EnglishName = a.City.EnglishName,
+                    Country = new Country
+                    {
+                        ArabicName = a.City.Country.ArabicName,
+                        EnglishName = a.City.Country.EnglishName
+                    }
+                },
+                LocationOnGoogleMaps = a.LocationOnGoogleMaps,
+                Latitude = a.Latitude,
+                Longitude = a.Longitude,
+                ContactPhone = a.ContactPhone,
+                ContactEmail = a.ContactEmail
+            })
+            //.Include(a => a.City).ThenInclude(c => c.Country)
             .Where(a => a.Id == associationId)
             .Select(a => new { Association = a, WorkersCount = a.Workers.Count() })
             .FirstOrDefaultAsync(cancellationToken);
@@ -58,18 +177,33 @@ public class AssociationRepository : IAssociationRepository
         bool? orderByWorkersCountAscending = null,
         CancellationToken cancellationToken = default)
     {
-        // Same "global filter already excludes deleted rows for the active view, only the deleted
-        // view needs to explicitly bypass it" shape as ProjectRepository.GetAllAsync's own comment.
-        // Workers.Count() below is a SEPARATE entity with its own independent soft-delete filter —
-        // IgnoreQueryFilters() here scopes only to Associations, so a deleted association's worker
-        // count still correctly excludes that association's own deleted workers.
         IQueryable<Association> query = isDeleted
             ? _context.Associations.IgnoreQueryFilters().Where(a => a.IsDeleted)
             : _context.Associations;
 
         query = query
             .AsNoTracking()
-            .Include(a => a.City).ThenInclude(c => c.Country);
+            .Select(a => new Association
+            {
+                Id = a.Id,
+                ArabicName = a.ArabicName,
+                EnglishName = a.EnglishName,
+                City = new City
+                {
+                    ArabicName = a.City.ArabicName,
+                    EnglishName = a.City.EnglishName,
+                    Country = new Country
+                    {
+                        ArabicName = a.City.Country.ArabicName,
+                        EnglishName = a.City.Country.EnglishName
+                    }
+                },
+                LocationOnGoogleMaps = a.LocationOnGoogleMaps,
+                Latitude = a.Latitude,
+                Longitude = a.Longitude,
+                ContactPhone = a.ContactPhone,
+                ContactEmail = a.ContactEmail
+            });
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
@@ -88,4 +222,12 @@ public class AssociationRepository : IAssociationRepository
 
         return results.Select(x => (x.Association, x.WorkersCount)).ToList();
     }
+
+    public async Task<bool> PhoneExistsAsync(string phone, CancellationToken cancellationToken = default) =>
+        await _context.Associations
+            .AnyAsync(a => a.ContactPhone == phone, cancellationToken);
+
+    public async Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken = default) =>
+        await _context.Associations
+            .AnyAsync(a => a.ContactEmail == email, cancellationToken);
 }

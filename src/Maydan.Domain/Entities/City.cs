@@ -11,5 +11,5 @@ public class City : SharedEntities
     public Country Country { get; set; } = null!;
 
     public ICollection<Association> Associations { get; set; } = new List<Association>();
-    public ICollection<AssociationV2> AssociationsV2 { get; set; } = new List<AssociationV2>();
+    public ICollection<Association> AssociationsV2 { get; set; } = new List<Association>();
 }

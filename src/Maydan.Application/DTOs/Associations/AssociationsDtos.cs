@@ -17,7 +17,7 @@ namespace Maydan.Application.DTOs.Associations;
 // and are read defensively with `??` fallbacks everywhere they're displayed — deliberately omitted
 // here rather than adding a CityLocationId column to Association for a field nothing currently
 // writes; that's the separate CityLocations module, a later phase. Flagged in this ticket's report.
-public class AssociationDtoV2
+public class AssociationDto
 {
     public int Id { get; set; }
     public string EnglishName { get; set; } = string.Empty;
@@ -52,7 +52,7 @@ public class AssociationDtoV2
     public int WorkersCount { get; set; }
 }
 
-public class CreateAssociationDtoV2
+public class CreateAssociationDto
 {
     public string EnglishName { get; set; } = string.Empty;
     public string ArabicName { get; set; } = string.Empty;
@@ -81,7 +81,7 @@ public class CreateAssociationDtoV2
     public OnboardAssociationAdminDto? Admin { get; set; }
 }
 
-public class UpdateAssociationDtoV2 : CreateAssociationDtoV2
+public class UpdateAssociationDto: CreateAssociationDto
 {
     public int Id { get; set; }
 }
@@ -96,7 +96,7 @@ public class UpdateAssociationDtoV2 : CreateAssociationDtoV2
 // cascade and EntityOnboardingService's admin-check already read the same way. Reuses the existing
 // UserManagementDtos.UserSummaryDto instead of a new per-association user DTO — same shape, same
 // mapping (UserManagementService.MapUserSummary, now internal for this reuse).
-public class AssociationDetailsDtoV2 : AssociationDtoV2
+public class AssociationDetailsDto : AssociationDto
 {
     public List<UserSummaryDto> Users { get; set; } = new();
     public List<WorkerSummaryDto> Workers { get; set; } = new();

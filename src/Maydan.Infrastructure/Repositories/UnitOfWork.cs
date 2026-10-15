@@ -50,7 +50,6 @@ public class UnitOfWork : IUnitOfWork
     public IProjectTypeRepository ProjectTypes =>
     _projectTypes ??= new ProjectTypeRepository(_context);
 
-    public IAssociationRepositoryV2 AssociationsV2 => new AssociationRepositoryV2(_context);
 
     
 

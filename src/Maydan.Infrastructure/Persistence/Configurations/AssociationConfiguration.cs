@@ -31,6 +31,9 @@ public class AssociationConfiguration : IEntityTypeConfiguration<Association>
             .HasFilter("[ContactPhone] IS NOT NULL");
 
         builder.Property(a => a.ContactEmail).HasMaxLength(200);
+        builder.HasIndex(a => a.ContactEmail)
+            .IsUnique()
+            .HasFilter("[ContactEmail] IS NOT NULL");
 
         builder.HasOne(a => a.City)
             .WithMany(c => c.Associations)

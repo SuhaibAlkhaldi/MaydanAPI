@@ -233,6 +233,11 @@ public class AssociationService : IAssociationService
                 return ApiResponse<AssociationDto>.FailureResponse("البريد الإلكتروني للمسؤول مستخدم بالفعل", "A user with this email already exists");
             }
 
+            if (await _unitOfWork.Users.PhoneExistsAsync(adminPayload.PhoneNumber.Trim(), cancellationToken))
+            {
+                return ApiResponse<AssociationDto>.FailureResponse("رقم الهاتف للمسؤول مستخدم بالفعل", "A user with this phone number already exists");
+            }
+
             adminRole = await _unitOfWork.Roles.GetWithPermissionsAsync(AssociationAdminUserFactory.AssociationRoleId, cancellationToken);
             if (adminRole is null)
             {
@@ -248,6 +253,8 @@ public class AssociationService : IAssociationService
             LocationOnGoogleMaps = string.IsNullOrWhiteSpace(dto.LocationOnGoogleMaps) ? null : dto.LocationOnGoogleMaps.Trim(),
             Latitude = parsedLat,
             Longitude = parsedLng,
+            ContactEmail = dto.ContactEmail.Trim(),
+            ContactPhone = dto.ContactPhone.Trim(),
             CreatedBy = currentUser!.UserId,
             IsActive = true
         };
@@ -343,6 +350,8 @@ public class AssociationService : IAssociationService
         association.LocationOnGoogleMaps = string.IsNullOrWhiteSpace(dto.LocationOnGoogleMaps) ? null : dto.LocationOnGoogleMaps.Trim();
         association.Latitude = parsedLat;
         association.Longitude = parsedLng;
+        association.ContactEmail = dto.ContactEmail.Trim();
+        association.ContactPhone = dto.ContactPhone.Trim();
 
         try
         {
@@ -569,6 +578,8 @@ public class AssociationService : IAssociationService
         CountryId = association.City.CountryId,
         CountryEnglishName = association.City.Country.EnglishName,
         CountryArabicName = association.City.Country.ArabicName,
+        ContactEmail = association.ContactEmail,
+        ContactPhone = association.ContactPhone,
         CityId = association.CityId,
         CityEnglishName = association.City.EnglishName,
         CityArabicName = association.City.ArabicName,
@@ -597,6 +608,8 @@ public class AssociationService : IAssociationService
             CityId = dto.CityId,
             CityEnglishName = dto.CityEnglishName,
             CityArabicName = dto.CityArabicName,
+            ContactEmail = dto.ContactEmail,
+            ContactPhone = dto.ContactPhone,
             IsDeleted = dto.IsDeleted,
             WorkersCount = dto.WorkersCount,
             Users = users.Select(UserManagementService.MapUserSummary).ToList(),

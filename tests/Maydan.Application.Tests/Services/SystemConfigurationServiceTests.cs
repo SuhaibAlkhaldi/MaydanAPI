@@ -209,7 +209,6 @@ public class SystemConfigurationServiceTests
         public IPasswordResetTokenRepository PasswordResetTokens => throw new NotSupportedException();
         public IRefreshTokenRepository RefreshTokens => throw new NotSupportedException();
 
-        public IAssociationRepositoryV2 AssociationsV2 => throw new NotImplementedException();
 
         public IWorkerRepositoryV2 WorkersV2 => throw new NotImplementedException();
 

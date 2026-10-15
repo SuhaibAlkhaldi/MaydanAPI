@@ -233,7 +233,6 @@ public class UserManagementServiceUpdateUserStatusTests
         public ISystemConfigurationRepository SystemConfigurations => throw new NotSupportedException();
         public IServiceRepository Services => throw new NotSupportedException();
 
-        public IAssociationRepositoryV2 AssociationsV2 => throw new NotImplementedException();
 
         public IWorkerRepositoryV2 WorkersV2 => throw new NotImplementedException();
 

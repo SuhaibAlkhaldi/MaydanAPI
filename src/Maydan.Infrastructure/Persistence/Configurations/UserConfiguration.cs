@@ -27,16 +27,12 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired()
             .HasMaxLength(100);
 
-        builder.HasIndex(u => new { u.FirstNameEn, u.LastNameEn })
-                .IsUnique();
-
-
-        builder.HasIndex(u => new { u.FirstNameAr, u.LastNameAr })
-       .IsUnique();
 
         builder.Property(u => u.PhoneNumber)
            .IsRequired()
            .HasMaxLength(20);
+        builder.HasIndex(u => u.PhoneNumber)
+           .IsUnique();
 
         builder.Property(u => u.Email)
             .IsRequired()

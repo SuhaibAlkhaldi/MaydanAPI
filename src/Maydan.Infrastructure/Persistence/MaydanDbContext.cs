@@ -29,7 +29,6 @@ public class MaydanDbContext : DbContext
     public DbSet<CityLocation> CityLocations => Set<CityLocation>();
     public DbSet<ProjectType> ProjectTypes { get; set; }
     public DbSet<Association> Associations => Set<Association>();
-    public DbSet<AssociationV2> AssociationsV2 => Set<AssociationV2>();
     public DbSet<AssociationProjectSupervisor> AssociationProjectSupervisors => Set<AssociationProjectSupervisor>();
     public DbSet<ProductionCompany> ProductionCompanies => Set<ProductionCompany>();
     public DbSet<Project> Projects => Set<Project>();

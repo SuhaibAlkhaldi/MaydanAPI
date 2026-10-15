@@ -444,7 +444,6 @@ public class UserManagementServiceTests
         // Services not used in these tests; satisfy interface by throwing when accessed.
         public IServiceRepository Services => throw new NotSupportedException();
 
-        public IAssociationRepositoryV2 AssociationsV2 => throw new NotImplementedException();
 
         public IWorkerRepositoryV2 WorkersV2 => throw new NotImplementedException();
 

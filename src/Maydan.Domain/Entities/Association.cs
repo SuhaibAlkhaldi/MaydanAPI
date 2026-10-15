@@ -14,8 +14,8 @@ public class Association : SharedEntities
     public decimal Latitude { get; set; }
     public decimal Longitude { get; set; }
 
-    public string? ContactPhone { get; set; }
-    public string? ContactEmail { get; set; }
+    public string ContactPhone { get; set; } = string.Empty;
+    public string ContactEmail { get; set; } = string.Empty;
 
     public ICollection<Worker> Workers { get; set; } = new List<Worker>();
 

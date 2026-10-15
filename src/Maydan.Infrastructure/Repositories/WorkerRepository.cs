@@ -28,7 +28,41 @@ public class WorkerRepository : IWorkerRepository
 
     public async Task<ApiResponse<Worker?>> GetByIdWithServicesAsync(int workerId, CancellationToken cancellationToken = default)
     {
-        var worker = await _context.Workers.Include(w => w.WorkerServices).FirstOrDefaultAsync(w => w.Id == workerId, cancellationToken);
+        var worker = await _context.Workers
+        .AsNoTracking()
+        .Where(w => w.Id == workerId)
+        .Select(w => new Worker
+        {
+            Id = w.Id,
+            FirstName = w.FirstName,
+            MiddleName = w.MiddleName,
+            LastName = w.LastName,
+            CivilId = w.CivilId,
+            DateOfBirth = w.DateOfBirth,
+            Gender = w.Gender,
+            MaritalStatus = w.MaritalStatus,
+            Nationality = w.Nationality,
+            CountryId = w.CountryId,
+            CityId = w.CityId,
+            PhoneNumber = w.PhoneNumber,
+            YearsOfExperience = w.YearsOfExperience,
+            AssociationId = w.AssociationId,
+            QrCode = w.QrCode,
+            IsActive = w.IsActive,
+            IsDeleted = w.IsDeleted,
+            WorkerServices = w.WorkerServices.Select(ws => new WorkerServiceLink
+            {
+
+                // Optionally include the Service entity if needed
+                Service = new Service
+                {
+                    NameEn = ws.Service.NameEn,
+                    NameAr = ws.Service.NameAr
+                }
+            }).ToList()
+        }).FirstOrDefaultAsync(cancellationToken);
+        //. Include(w => w.WorkerServices)
+        //.FirstOrDefaultAsync(w => w.Id == workerId, cancellationToken);
         if (worker is null)
         {
             return ApiResponse<Worker?>.FailureResponse("العامل غير موجود.", "Worker not found.");
@@ -79,10 +113,35 @@ public class WorkerRepository : IWorkerRepository
     public async Task<ApiResponse<List<Worker>>> GetDeletedByAssociationIdAsync(int associationId, CancellationToken cancellationToken = default)
     {
         var items = await _context.Workers.IgnoreQueryFilters()
-            .Include(w => w.Association)
-            .Include(w => w.WorkerServices)
-                .ThenInclude(ws => ws.Service)
+        .AsNoTracking()
             .Where(w => w.IsDeleted && w.AssociationId == associationId)
+            .Select(w => new Worker
+            {
+                FirstName = w.FirstName,
+                MiddleName = w.MiddleName,
+                LastName = w.LastName,
+                CivilId = w.CivilId,
+                DateOfBirth = w.DateOfBirth,
+                Gender = w.Gender,
+                MaritalStatus = w.MaritalStatus,
+                Nationality = w.Nationality,
+                PhoneNumber = w.PhoneNumber,
+                YearsOfExperience = w.YearsOfExperience,
+                QrCode = w.QrCode,
+                Association = new Association
+                {
+                    ArabicName = w.Association.ArabicName,
+                    EnglishName = w.Association.EnglishName
+                },
+                WorkerServices = w.WorkerServices.Select(ws => new WorkerServiceLink
+                {
+                    Service = new Service
+                    {
+                        NameEn = ws.Service.NameEn,
+                        NameAr = ws.Service.NameAr
+                    }
+                }).ToList()
+            })
             .ToListAsync(cancellationToken);
 
         return ApiResponse<List<Worker>>.SuccessResponse(items, "تم جلب العمال المحذوفين بنجاح.", "Deleted workers retrieved successfully.");
@@ -185,10 +244,11 @@ public class WorkerRepository : IWorkerRepository
         CancellationToken cancellationToken = default)
     {
         var query = _context.Workers
-            .Include(w => w.Association)
-            .Include(w => w.City)
-            .Include(w => w.WorkerServices)
-                .ThenInclude(ws => ws.Service)
+        .AsNoTracking()
+            //.Include(w => w.Association)
+            //.Include(w => w.City)
+            //.Include(w => w.WorkerServices)
+            //    .ThenInclude(ws => ws.Service)
             .Where(w => w.IsDeleted == isDeleted);
 
         if (associationId.HasValue)
@@ -215,7 +275,40 @@ public class WorkerRepository : IWorkerRepository
                 : query.OrderByDescending(w => w.FirstName).ThenByDescending(w => w.LastName);
         }
 
-        var results = await query.ToListAsync(cancellationToken);
+        var results = await query
+        .Select(w => new Worker
+        {
+            Id = w.Id,
+            FirstName = w.FirstName,
+            MiddleName = w.MiddleName,
+            LastName = w.LastName,
+            CivilId = w.CivilId,
+            DateOfBirth = w.DateOfBirth,
+            Gender = w.Gender,
+            MaritalStatus = w.MaritalStatus,
+            Nationality = w.Nationality,
+            PhoneNumber = w.PhoneNumber,
+            YearsOfExperience = w.YearsOfExperience,
+            Association = new Association
+            {
+                EnglishName = w.Association.EnglishName,
+                ArabicName = w.Association.ArabicName
+            },
+            City = new City
+            {
+                EnglishName = w.City!.EnglishName,
+                ArabicName = w.City!.ArabicName
+            },
+            WorkerServices = w.WorkerServices.Select(ws => new WorkerServiceLink
+            {
+                Service = new Service
+                {
+                    NameEn = ws.Service.NameEn,
+                    NameAr = ws.Service.NameAr
+                }
+            }).ToList()
+        })
+        .ToListAsync(cancellationToken);
         return ApiResponse<List<Worker>>.SuccessResponse(results, "تم استعلام العمال بنجاح.", "Workers queried successfully.");
     }
 
