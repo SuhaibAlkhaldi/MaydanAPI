@@ -123,8 +123,8 @@ public class UserManagementServiceGetUsersPagedTests
 
         var result = await service.GetUsersPagedAsync(1, term, null, 1, 10, EntityType.BaytAlUrdon, 1);
 
-        Assert.Single(result.Items);
-        Assert.Equal(expectedEmail, result.Items[0].Email);
+        Assert.Single(result.Data!.Items);
+        Assert.Equal(expectedEmail, result.Data!.Items[0].Email);
     }
 
     [Fact]
@@ -139,8 +139,8 @@ public class UserManagementServiceGetUsersPagedTests
 
         var result = await service.GetUsersPagedAsync(1, "jane.smith", null, 1, 10, EntityType.BaytAlUrdon, 1);
 
-        Assert.Single(result.Items);
-        Assert.Equal("jane.smith@example.org", result.Items[0].Email);
+        Assert.Single(result.Data!.Items);
+        Assert.Equal("jane.smith@example.org", result.Data!.Items[0].Email);
     }
 
     [Fact]
@@ -155,8 +155,8 @@ public class UserManagementServiceGetUsersPagedTests
 
         var result = await service.GetUsersPagedAsync(1, "0000011", null, 1, 10, EntityType.BaytAlUrdon, 1);
 
-        Assert.Single(result.Items);
-        Assert.Equal("jane.smith@example.org", result.Items[0].Email);
+        Assert.Single(result.Data!.Items);
+        Assert.Equal("jane.smith@example.org", result.Data!.Items[0].Email);
     }
 
     [Fact]
@@ -173,11 +173,11 @@ public class UserManagementServiceGetUsersPagedTests
         var inactiveOnly = await service.GetUsersPagedAsync(1, null, false, 1, 10, EntityType.BaytAlUrdon, 1);
         var everyone = await service.GetUsersPagedAsync(1, null, null, 1, 10, EntityType.BaytAlUrdon, 1);
 
-        Assert.Single(activeOnly.Items);
-        Assert.Equal("active@example.org", activeOnly.Items[0].Email);
-        Assert.Single(inactiveOnly.Items);
-        Assert.Equal("inactive@example.org", inactiveOnly.Items[0].Email);
-        Assert.Equal(2, everyone.Items.Count);
+        Assert.Single(activeOnly.Data!.Items);
+        Assert.Equal("active@example.org", activeOnly.Data!.Items[0].Email);
+        Assert.Single(inactiveOnly.Data!.Items);
+        Assert.Equal("inactive@example.org", inactiveOnly.Data!.Items[0].Email);
+        Assert.Equal(2, everyone.Data!.Items.Count);
     }
 
     [Fact]
@@ -193,12 +193,12 @@ public class UserManagementServiceGetUsersPagedTests
         var page1 = await service.GetUsersPagedAsync(1, null, null, 1, 10, EntityType.BaytAlUrdon, 1);
         var page3 = await service.GetUsersPagedAsync(1, null, null, 3, 10, EntityType.BaytAlUrdon, 1);
 
-        Assert.Equal(25, page1.TotalCount);
-        Assert.Equal(10, page1.Items.Count);
-        Assert.Equal(1, page1.Page);
-        Assert.Equal(25, page3.TotalCount);
-        Assert.Equal(5, page3.Items.Count); // last partial page
-        Assert.Equal(3, page3.Page);
+        Assert.Equal(25, page1.Data!.TotalCount);
+        Assert.Equal(10, page1.Data!.Items.Count);
+        Assert.Equal(1, page1.Data!.Page);
+        Assert.Equal(25, page3.Data!.TotalCount);
+        Assert.Equal(5, page3.Data!.Items.Count); // last partial page
+        Assert.Equal(3, page3.Data!.Page);
     }
 
     [Fact]
@@ -210,12 +210,12 @@ public class UserManagementServiceGetUsersPagedTests
 
         var result = await service.GetUsersPagedAsync(1, null, null, 0, 0, null, null);
 
-        Assert.Equal(1, result.Page);
-        Assert.Equal(10, result.PageSize);
+        Assert.Equal(1, result.Data!.Page);
+        Assert.Equal(10, result.Data!.PageSize);
 
         var result2 = await service.GetUsersPagedAsync(1, null, null, -5, 500, null, null);
-        Assert.Equal(1, result2.Page);
-        Assert.Equal(10, result2.PageSize);
+        Assert.Equal(1, result2.Data!.Page);
+        Assert.Equal(10, result2.Data!.PageSize);
     }
 
     private static UserManagementService BuildService(FakeUserRepository repository) =>

@@ -3,15 +3,10 @@ using Maydan.Application.Interfaces;
 using Maydan.Application.Services;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Maydan.Application.Tests.Services;
 
-// MAYD-30/MAYD-31 verification: neither GetGroupsAsync (the real Groups List backend) nor
-// GetAvailablePermissionsAsync/GetPermissionMatrixAsync (the real Permissions catalog backend) had
-// any real test coverage before this — both were live, working, but unverified. Proves the real
-// entity-scoping GetGroupsAsync enforces server-side (not a client-side filter over everything),
-// and the new PermissionsPreview field (MAYD-31 gap fix: the ticket asks for "a preview of
-// permission chips", the DTO previously carried only a count).
 public class UserManagementServiceGroupsAndPermissionsTests
 {
     private static Role BuildRole(int roleId, string nameEn) => new() { RoleId = roleId, RoleNameEn = nameEn, RoleNameAr = nameEn };
@@ -55,8 +50,8 @@ public class UserManagementServiceGroupsAndPermissionsTests
 
         var result = await service.GetGroupsAsync(1);
 
-        Assert.Single(result);
-        Assert.Equal(10, result[0].GroupId);
+        Assert.Single(result.Data!);
+        Assert.Equal(10, result.Data![0].GroupId);
         Assert.Equal(EntityType.Association, repository.LastQueriedEntityType);
         Assert.Equal(5, repository.LastQueriedEntityId);
     }
@@ -82,10 +77,9 @@ public class UserManagementServiceGroupsAndPermissionsTests
 
         var result = await service.GetGroupsAsync(1);
 
-        var summary = Assert.Single(result);
-        Assert.Equal(5, summary.PermissionCount); // real count, not capped
-        Assert.Equal(4, summary.PermissionsPreview.Count); // capped at the preview size
-        // Module-then-name order: Alpha/Alpha/Bravo/Charlie — Zeta (module) excluded, it's 5th.
+        var summary = Assert.Single(result.Data!);
+        Assert.Equal(5, summary.PermissionCount);
+        Assert.Equal(4, summary.PermissionsPreview.Count);
         Assert.Equal(new[] { "Alpha Permission", "Beta Permission", "Gamma Permission", "Delta Permission" },
             summary.PermissionsPreview.Select(p => p.PermissionNameEn));
     }
@@ -104,7 +98,8 @@ public class UserManagementServiceGroupsAndPermissionsTests
         var repository = new FakeGroupRepository(new[] { group });
         var service = BuildService(caller, groupRepository: repository);
 
-        var summary = Assert.Single(await service.GetGroupsAsync(1));
+        var groupsResponse = await service.GetGroupsAsync(1);
+        var summary = Assert.Single(groupsResponse.Data!);
 
         Assert.Equal(1, summary.PermissionCount);
         Assert.Equal(new[] { "Active Permission" }, summary.PermissionsPreview.Select(p => p.PermissionNameEn));
@@ -121,17 +116,17 @@ public class UserManagementServiceGroupsAndPermissionsTests
 
         var result = await service.GetAvailablePermissionsAsync(1, null);
 
-        Assert.Equal(2, result.Count);
+        Assert.Equal(2, result.Data!.Count);
     }
 
     [Fact]
     public async Task GetAvailablePermissionsAsync_with_a_roleId_returns_only_that_roles_active_granted_permissions()
     {
-        var caller = BuildUser(1, EntityType.BaytAlUrdon, 1, BuildRole(1, "Bayt-AlUrdon"));
+        var targetRole = BuildRole(4, "Association");
+        var caller = BuildUser(1, EntityType.Association, 1, targetRole);
 
         var granted = BuildPermission(1, "Users", "View Users");
         var notGranted = BuildPermission(2, "Groups", "View Groups");
-        var targetRole = BuildRole(4, "Association");
         targetRole.RolePermissions.Add(new RolePermission { RoleId = 4, Role = targetRole, PermissionId = 1, Permission = granted, IsActive = true });
 
         var roleRepository = new FakeRoleRepository(targetRole);
@@ -139,24 +134,23 @@ public class UserManagementServiceGroupsAndPermissionsTests
 
         var result = await service.GetAvailablePermissionsAsync(1, 4);
 
-        var permission = Assert.Single(result);
+        var permission = Assert.Single(result.Data!);
         Assert.Equal("View Users", permission.PermissionNameEn);
     }
 
-    // MAYD-34 verification gap fix (2026-09-24): UserManagementModule.md Phase 5.4 ("Prevent Self
-    // Permission Modification") — a User cannot modify their own permissions, even with
-    // AssignPermissions/Manage Users. The check is the first statement in
-    // UpdateDirectPermissionsAsync (see that method's own comment), so this rejects before any
-    // repository lookup — no FakeUserRepository/FakeGroupRepository setup needed for the target user.
     [Fact]
     public async Task UpdateDirectPermissionsAsync_rejects_a_user_modifying_their_own_permissions()
     {
         var caller = BuildUser(1, EntityType.BaytAlUrdon, 1, BuildRole(1, "Bayt-AlUrdon"));
         var service = BuildService(caller);
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
-            service.UpdateDirectPermissionsAsync(1, 1, new UpdateUserPermissionsDto { PermissionIds = new List<int> { 1 } }));
+        var result = await service.UpdateDirectPermissionsAsync(1, 1, new UpdateUserPermissionsDto { PermissionIds = new List<int> { 1 } });
+
+        Assert.False(result.Success);
+        Assert.Contains("cannot modify your own permissions", result.MessageEn, StringComparison.OrdinalIgnoreCase);
     }
+
+  
 
     private static UserManagementService BuildService(
         User caller,
@@ -188,9 +182,6 @@ public class UserManagementServiceGroupsAndPermissionsTests
         public Task<User?> GetByEmailWithAccessAsync(string email, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<List<User>> GetByEntityAsync(EntityType entityType, int entityId, string? search, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<List<User>> GetDeletedByEntityAsync(EntityType entityType, int entityId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        // MAYD-37: GetCurrentUserAsync now fetches via GetDetailsAsync (not GetByIdAsync) so
-        // UserPermissions/UserGroups are loaded for the caller — same caller lookup as GetByIdAsync
-        // above, since this fake's User has no real navigation-loading distinction.
         public Task<User?> GetDetailsAsync(int userId, CancellationToken cancellationToken = default) =>
             Task.FromResult(userId == _currentUser.UserId ? _currentUser : null);
         public Task<User?> GetDetailsReadOnlyAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();

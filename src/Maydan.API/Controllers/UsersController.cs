@@ -1,3 +1,4 @@
+using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.UserManagement;
 using Maydan.Application.Interfaces;
 using Maydan.Domain.Enums;
@@ -17,15 +18,15 @@ public class UsersController : ApiControllerBase
         _userManagementService = userManagementService;
     }
 
-    // MAYD-20: the real Users List page's endpoint — paginated, status-filterable, searchable by
-    // name/email/phone, entity-scoped per the real Business Rule (Bayt-AlUrdon/ASEZA may pass
-    // entityType/entityId to view a different entity; everyone else may not — enforced in
-    // UserManagementService.GetUsersPagedAsync, not here). Deliberately a separate action from
-    // current-entity/search below rather than adding params to either of those — both have other
-    // real callers (the UserOption dropdown API) that expect a plain array, not this paginated
-    // envelope, and neither needs pagination for that lightweight use.
+    private ObjectResult UnauthorizedResponse()
+    {
+        var response = ApiResponse<object?>.FailureResponse("Unauthorized.", "المستخدم غير مصرح له.");
+        response.StatusCode = 401;
+        return StatusCode(401, response);
+    }
+
     [HttpGet(Name = "Get Users")]
-    public async Task<ActionResult<PagedUsersDto>> GetUsers(
+    public async Task<ActionResult> GetUsers(
         [FromQuery] string? search,
         [FromQuery] bool? isActive,
         [FromQuery] int page,
@@ -35,16 +36,14 @@ public class UsersController : ApiControllerBase
         [FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader,
         CancellationToken cancellationToken)
     {
-        if (!TryGetCurrentUserId(out var currentUserId))
-        {
-            return Unauthorized(new { message = "Current user id is required." });
-        }
+        if (!TryGetCurrentUserId(out var currentUserId)) return UnauthorizedResponse();
 
         try
         {
-            return Ok(await _userManagementService.GetUsersPagedAsync(
+            var response = await _userManagementService.GetUsersPagedAsync(
                 currentUserId, search, isActive, page == 0 ? 1 : page, pageSize == 0 ? 10 : pageSize,
-                entityType, entityId, cancellationToken));
+                entityType, entityId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -53,16 +52,14 @@ public class UsersController : ApiControllerBase
     }
 
     [HttpGet("current-entity", Name = "Get Current Entity Users")]
-    public async Task<ActionResult<List<UserSummaryDto>>> GetCurrentEntityUsers([FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader, CancellationToken cancellationToken)
+    public async Task<ActionResult> GetCurrentEntityUsers([FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader, CancellationToken cancellationToken)
     {
-        if (!TryGetCurrentUserId(out var currentUserId))
-        {
-            return Unauthorized(new { message = "Current user id is required." });
-        }
+        if (!TryGetCurrentUserId(out var currentUserId)) return UnauthorizedResponse();
 
         try
         {
-            return Ok(await _userManagementService.GetUsersAsync(currentUserId, null, cancellationToken));
+            var response = await _userManagementService.GetUsersAsync(currentUserId, null, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -71,16 +68,14 @@ public class UsersController : ApiControllerBase
     }
 
     [HttpGet("search", Name = "Search Current Entity Users")]
-    public async Task<ActionResult<List<UserSummaryDto>>> SearchCurrentEntityUsers([FromQuery] string? search, [FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader, CancellationToken cancellationToken)
+    public async Task<ActionResult> SearchCurrentEntityUsers([FromQuery] string? search, [FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader, CancellationToken cancellationToken)
     {
-        if (!TryGetCurrentUserId(out var currentUserId))
-        {
-            return Unauthorized(new { message = "Current user id is required." });
-        }
+        if (!TryGetCurrentUserId(out var currentUserId)) return UnauthorizedResponse();
 
         try
         {
-            return Ok(await _userManagementService.GetUsersAsync(currentUserId, search, cancellationToken));
+            var response = await _userManagementService.GetUsersAsync(currentUserId, search, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -89,16 +84,14 @@ public class UsersController : ApiControllerBase
     }
 
     [HttpGet("{userId:int}/details", Name = "Get User Details")]
-    public async Task<ActionResult<UserDetailsDto>> GetUserDetails(int userId, [FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader, CancellationToken cancellationToken)
+    public async Task<ActionResult> GetUserDetails(int userId, [FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader, CancellationToken cancellationToken)
     {
-        if (!TryGetCurrentUserId(out var currentUserId))
-        {
-            return Unauthorized(new { message = "Current user id is required." });
-        }
+        if (!TryGetCurrentUserId(out var currentUserId)) return UnauthorizedResponse();
 
         try
         {
-            return Ok(await _userManagementService.GetUserDetailsAsync(currentUserId, userId, cancellationToken));
+            var response = await _userManagementService.GetUserDetailsAsync(currentUserId, userId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -107,17 +100,18 @@ public class UsersController : ApiControllerBase
     }
 
     [HttpPost("register", Name = "Register User")]
-    public async Task<ActionResult<UserDetailsDto>> RegisterUser([FromBody] CreateEntityUserDto dto, [FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader, CancellationToken cancellationToken)
+    public async Task<ActionResult> RegisterUser([FromBody] CreateEntityUserDto dto, [FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader, CancellationToken cancellationToken)
     {
-        if (!TryGetCurrentUserId(out var currentUserId))
-        {
-            return Unauthorized(new { message = "Current user id is required." });
-        }
+        if (!TryGetCurrentUserId(out var currentUserId)) return UnauthorizedResponse();
 
         try
         {
-            var user = await _userManagementService.CreateUserAsync(currentUserId, dto, cancellationToken);
-            return Created($"/api/users/{user.UserId}/details", user);
+            var response = await _userManagementService.CreateUserAsync(currentUserId, dto, cancellationToken);
+            if (response.Success && response.Data != null)
+            {
+                return Created($"/api/users/{response.Data.UserId}/details", response);
+            }
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -126,16 +120,14 @@ public class UsersController : ApiControllerBase
     }
 
     [HttpPut("{userId:int}/direct-permissions/update", Name = "Update User Direct Permissions")]
-    public async Task<ActionResult<UserDetailsDto>> UpdateUserDirectPermissions(int userId, [FromBody] UpdateUserPermissionsDto dto, [FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader, CancellationToken cancellationToken)
+    public async Task<ActionResult> UpdateUserDirectPermissions(int userId, [FromBody] UpdateUserPermissionsDto dto, [FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader, CancellationToken cancellationToken)
     {
-        if (!TryGetCurrentUserId(out var currentUserId))
-        {
-            return Unauthorized(new { message = "Current user id is required." });
-        }
+        if (!TryGetCurrentUserId(out var currentUserId)) return UnauthorizedResponse();
 
         try
         {
-            return Ok(await _userManagementService.UpdateDirectPermissionsAsync(currentUserId, userId, dto, cancellationToken));
+            var response = await _userManagementService.UpdateDirectPermissionsAsync(currentUserId, userId, dto, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -144,16 +136,14 @@ public class UsersController : ApiControllerBase
     }
 
     [HttpPut("{userId:int}/groups/update", Name = "Update User Groups")]
-    public async Task<ActionResult<UserDetailsDto>> UpdateUserGroups(int userId, [FromBody] UpdateUserGroupsDto dto, [FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader, CancellationToken cancellationToken)
+    public async Task<ActionResult> UpdateUserGroups(int userId, [FromBody] UpdateUserGroupsDto dto, [FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader, CancellationToken cancellationToken)
     {
-        if (!TryGetCurrentUserId(out var currentUserId))
-        {
-            return Unauthorized(new { message = "Current user id is required." });
-        }
+        if (!TryGetCurrentUserId(out var currentUserId)) return UnauthorizedResponse();
 
         try
         {
-            return Ok(await _userManagementService.UpdateGroupsAsync(currentUserId, userId, dto, cancellationToken));
+            var response = await _userManagementService.UpdateGroupsAsync(currentUserId, userId, dto, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -161,23 +151,15 @@ public class UsersController : ApiControllerBase
         }
     }
 
-    // Activate/Deactivate User (UserManagementModule.md Phase 4.3) — no MAYD subtask covers this
-    // directly, see UserManagementService.UpdateUserStatusAsync's own comment for the full rationale
-    // (self-check, entity-scoping, and the new Manage Users permission gate). PATCH, not PUT, since
-    // this only ever flips one field rather than replacing a whole collection the way
-    // direct-permissions/update and groups/update do — same "...update" naming shape kept anyway for
-    // consistency with those two siblings.
     [HttpPatch("{userId:int}/status/update", Name = "Update User Status")]
-    public async Task<ActionResult<UserDetailsDto>> UpdateUserStatus(int userId, [FromBody] UpdateUserStatusDto dto, [FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader, CancellationToken cancellationToken)
+    public async Task<ActionResult> UpdateUserStatus(int userId, [FromBody] UpdateUserStatusDto dto, [FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader, CancellationToken cancellationToken)
     {
-        if (!TryGetCurrentUserId(out var currentUserId))
-        {
-            return Unauthorized(new { message = "Current user id is required." });
-        }
+        if (!TryGetCurrentUserId(out var currentUserId)) return UnauthorizedResponse();
 
         try
         {
-            return Ok(await _userManagementService.UpdateUserStatusAsync(currentUserId, userId, dto, cancellationToken));
+            var response = await _userManagementService.UpdateUserStatusAsync(currentUserId, userId, dto, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -186,17 +168,15 @@ public class UsersController : ApiControllerBase
     }
 
     [HttpGet("{userId:int}/effective-permissions", Name = "Get User Effective Permissions")]
-    public async Task<ActionResult<List<PermissionDto>>> GetUserEffectivePermissions(int userId, [FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader, CancellationToken cancellationToken)
+    public async Task<ActionResult> GetUserEffectivePermissions(int userId, [FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader, CancellationToken cancellationToken)
     {
-        if (!TryGetCurrentUserId(out var currentUserId))
-        {
-            return Unauthorized(new { message = "Current user id is required." });
-        }
+        if (!TryGetCurrentUserId(out var currentUserId)) return UnauthorizedResponse();
 
         try
         {
-            return Ok(await _userManagementService.GetEffectivePermissionsAsync(currentUserId, userId, cancellationToken));
-        } 
+            var response = await _userManagementService.GetEffectivePermissionsAsync(currentUserId, userId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
+        }
         catch (Exception exception)
         {
             return HandleException(exception);
