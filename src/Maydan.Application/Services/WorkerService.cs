@@ -79,7 +79,7 @@ public class WorkerService : IWorkerService
 
         var response = await _unitOfWork.Workers.GetAllProjectedAsync(associationScope, search, serviceId, safePage, safePageSize, cancellationToken);
 
-        var (items, totalCount) = response.Data;
+        var (items, totalCount) = response;
 
 
 
@@ -119,7 +119,7 @@ public class WorkerService : IWorkerService
 
         var response = await _unitOfWork.Workers.GetByIdProjectedAsync(workerId, cancellationToken);
 
-        var worker = response.Data;
+        var worker = response;
 
         if (worker is null)
 
@@ -185,7 +185,7 @@ public class WorkerService : IWorkerService
 
         var workerEntityResponse = await _unitOfWork.Workers.GetByCivilIdHashAsync(civilIdHash, cancellationToken);
 
-        var workerEntity = workerEntityResponse.Data;
+        var workerEntity = workerEntityResponse;
 
         if (workerEntity is null)
 
@@ -211,7 +211,7 @@ public class WorkerService : IWorkerService
 
         var workerDtoResponse = await _unitOfWork.Workers.GetByIdProjectedAsync(workerEntity.Id, cancellationToken);
 
-        var workerDto = workerDtoResponse.Data;
+        var workerDto = workerDtoResponse;
 
         return ApiResponse<WorkerDto>.SuccessResponse(workerDto!, "تم جلب بيانات العامل بنجاح.", "Worker retrieved successfully.");
 
@@ -255,7 +255,7 @@ public class WorkerService : IWorkerService
 
         var workersResponse = await _unitOfWork.Workers.GetByAssociationIdAsync(targetAssociationId, cancellationToken);
 
-        var workers = workersResponse.Data ?? new List<WorkerSummaryDto>();
+        var workers = workersResponse ?? new List<WorkerSummaryDto>();
 
         return ApiResponse<List<WorkerSummaryDto>>.SuccessResponse(workers, "تم جلب عمال الجمعية بنجاح.", "Association workers retrieved successfully.");
 
@@ -299,7 +299,7 @@ public class WorkerService : IWorkerService
 
         var deletedWorkersResponse = await _unitOfWork.Workers.GetDeletedByAssociationIdAsync(targetAssociationId, cancellationToken);
 
-        var deletedWorkers = deletedWorkersResponse.Data ?? new List<Worker>();
+        var deletedWorkers = deletedWorkersResponse ?? new List<Worker>();
 
         var dtos = deletedWorkers.Select(w => new WorkerSummaryDto(
 
@@ -385,7 +385,7 @@ public class WorkerService : IWorkerService
 
 
 
-        var workers = workersResponse.Data ?? new List<Worker>();
+        var workers = workersResponse ?? new List<Worker>();
 
 
 
@@ -491,7 +491,7 @@ public class WorkerService : IWorkerService
 
         var existingWorker = await _unitOfWork.Workers.GetByCivilIdHashAsync(civilIdHash, cancellationToken);
 
-        if (existingWorker.Data is not null)
+        if (existingWorker is not null)
 
         {
 
@@ -585,7 +585,7 @@ public class WorkerService : IWorkerService
 
         var createdResponse = await _unitOfWork.Workers.GetByIdProjectedAsync(worker.Id, cancellationToken);
 
-        var created = createdResponse.Data;
+        var created = createdResponse;
 
         return ApiResponse<WorkerDto>.SuccessResponse(created!, "تم تسجيل العامل بنجاح.", "Worker registered successfully.", 201);
 
@@ -641,7 +641,7 @@ public class WorkerService : IWorkerService
 
         var workerResponse = await _unitOfWork.Workers.GetByIdWithServicesAsync(workerId, cancellationToken);
 
-        var worker = workerResponse.Data;
+        var worker = workerResponse;
 
         if (worker is null)
 
@@ -725,7 +725,7 @@ public class WorkerService : IWorkerService
 
         var updatedResponse = await _unitOfWork.Workers.GetByIdProjectedAsync(worker.Id, cancellationToken);
 
-        var updated = updatedResponse.Data;
+        var updated = updatedResponse;
 
         return ApiResponse<WorkerDto>.SuccessResponse(updated!, "تم تحديث بيانات العامل بنجاح.", "Worker updated successfully.");
 
@@ -757,7 +757,7 @@ public class WorkerService : IWorkerService
 
         var workerResponse = await _unitOfWork.Workers.GetByIdAsync(workerId, cancellationToken);
 
-        var worker = workerResponse.Data;
+        var worker = workerResponse;
 
         if (worker is null)
 
@@ -817,7 +817,7 @@ public class WorkerService : IWorkerService
 
         var workerResponse = await _unitOfWork.Workers.GetByIdIncludingDeletedAsync(workerId, cancellationToken);
 
-        var worker = workerResponse.Data;
+        var worker = workerResponse;
 
         if (worker is null)
 
@@ -863,7 +863,7 @@ public class WorkerService : IWorkerService
 
         var restoredResponse = await _unitOfWork.Workers.GetByIdProjectedAsync(worker.Id, cancellationToken);
 
-        var restored = restoredResponse.Data;
+        var restored = restoredResponse;
 
         return ApiResponse<WorkerDto>.SuccessResponse(restored!, "تم استرجاع العامل بنجاح.", "Worker restored successfully.");
 

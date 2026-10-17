@@ -94,7 +94,7 @@ public class AssociationService : IAssociationService
         var (association, workersCount) = result.Value;
         var users = await _unitOfWork.Users.GetByEntityAsync(EntityType.Association, associationId, search: null, cancellationToken);
         var workersResponse = await _unitOfWork.Workers.GetByAssociationIdAsync(associationId, cancellationToken);
-        var workersList = workersResponse.Data ?? new List<WorkerSummaryDto>();
+        var workersList = workersResponse ?? new List<WorkerSummaryDto>();
         var data = MapToDetailsDto(association, workersCount, users, workersList);
 
         return ApiResponse<AssociationDetailsDto>.SuccessResponse(data, "تم جلب تفاصيل الجمعية بنجاح", "Association details retrieved successfully");
@@ -427,7 +427,7 @@ public class AssociationService : IAssociationService
         var cascadeDeletedAt = association.DeletedAt;
         var deletedUsers = await _unitOfWork.Users.GetDeletedByEntityAsync(EntityType.Association, association.Id, cancellationToken);
         var workersResponse = await _unitOfWork.Workers.GetDeletedByAssociationIdAsync(association.Id, cancellationToken);
-        var deletedWorkers = workersResponse.Data ?? new List<Worker>();
+        var deletedWorkers = workersResponse ?? new List<Worker>();
 
         association.IsDeleted = false;
         association.DeletedAt = null;
