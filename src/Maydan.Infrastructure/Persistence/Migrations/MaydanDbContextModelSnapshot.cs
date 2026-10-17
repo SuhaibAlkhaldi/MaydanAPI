@@ -2074,6 +2074,12 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                             RoleId = 4,
                             PermissionId = 35,
                             IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 4,
+                            PermissionId = 16,
+                            IsActive = true
                         });
                 });
 
@@ -2132,6 +2138,145 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         .HasFilter("[IsDeleted] = 0");
 
                     b.ToTable("Services", (string)null);
+                });
+
+            modelBuilder.Entity("Maydan.Domain.Entities.ServiceRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AdditionalRequirements")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("AssociationId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("AttendanceFrequency")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("ExpectedTotalAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("IdempotencyKey")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ProductionCompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ProjectId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("ReminderSent")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("RequestedWorkersCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SelectedWorkersCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ServiceId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ShiftsCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("UnitPriceSnapshot")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssociationId");
+
+                    b.HasIndex("ProductionCompanyId");
+
+                    b.HasIndex("ProjectId");
+
+                    b.HasIndex("ServiceId");
+
+                    b.HasIndex("IdempotencyKey", "ProductionCompanyId")
+                        .IsUnique()
+                        .HasFilter("[IdempotencyKey] IS NOT NULL");
+
+                    b.ToTable("ServiceRequests", (string)null);
+                });
+
+            modelBuilder.Entity("Maydan.Domain.Entities.ServiceRequestWorker", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ServiceRequestId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("WorkerId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServiceRequestId");
+
+                    b.HasIndex("WorkerId");
+
+                    b.ToTable("ServiceRequestWorkers");
                 });
 
             modelBuilder.Entity("Maydan.Domain.Entities.SystemConfiguration", b =>
@@ -2757,6 +2902,60 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Navigation("Role");
                 });
 
+            modelBuilder.Entity("Maydan.Domain.Entities.ServiceRequest", b =>
+                {
+                    b.HasOne("Maydan.Domain.Entities.Association", "Association")
+                        .WithMany()
+                        .HasForeignKey("AssociationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Maydan.Domain.Entities.ProductionCompany", "ProductionCompany")
+                        .WithMany()
+                        .HasForeignKey("ProductionCompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Maydan.Domain.Entities.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Maydan.Domain.Entities.Service", "Service")
+                        .WithMany("ServiceRequests")
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Association");
+
+                    b.Navigation("ProductionCompany");
+
+                    b.Navigation("Project");
+
+                    b.Navigation("Service");
+                });
+
+            modelBuilder.Entity("Maydan.Domain.Entities.ServiceRequestWorker", b =>
+                {
+                    b.HasOne("Maydan.Domain.Entities.ServiceRequest", "ServiceRequest")
+                        .WithMany()
+                        .HasForeignKey("ServiceRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Maydan.Domain.Entities.Worker", "Worker")
+                        .WithMany("ServiceRequestWorkers")
+                        .HasForeignKey("WorkerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ServiceRequest");
+
+                    b.Navigation("Worker");
+                });
+
             modelBuilder.Entity("Maydan.Domain.Entities.User", b =>
                 {
                     b.HasOne("Maydan.Domain.Entities.Role", "Role")
@@ -2898,6 +3097,11 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Navigation("Users");
                 });
 
+            modelBuilder.Entity("Maydan.Domain.Entities.Service", b =>
+                {
+                    b.Navigation("ServiceRequests");
+                });
+
             modelBuilder.Entity("Maydan.Domain.Entities.User", b =>
                 {
                     b.Navigation("UserGroups");
@@ -2907,6 +3111,8 @@ namespace Maydan.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Maydan.Domain.Entities.Worker", b =>
                 {
+                    b.Navigation("ServiceRequestWorkers");
+
                     b.Navigation("WorkerServices");
                 });
 #pragma warning restore 612, 618
