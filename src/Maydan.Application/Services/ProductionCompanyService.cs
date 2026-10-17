@@ -29,7 +29,10 @@ public class ProductionCompanyService : IProductionCompanyService
         var companies = await _unitOfWork.ProductionCompanies.QueryAsync(isDeleted, search, cancellationToken);
         var dtos = companies.Select(MapToDto).ToList();
 
-        return Ok(dtos, "تم استرجاع قائمة شركات الإنتاج بنجاح.", "Production companies retrieved successfully.");
+        return ApiResponse<List<ProductionCompanyDto>>.SuccessResponse(
+            dtos,
+            "Production companies retrieved successfully.",
+            "تم استرجاع قائمة شركات الإنتاج بنجاح.");
     }
 
     public async Task<ApiResponse<ProductionCompanyDto>> GetByIdAsync(int currentUserId, int productionCompanyId, CancellationToken cancellationToken = default)
@@ -37,27 +40,30 @@ public class ProductionCompanyService : IProductionCompanyService
         var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken);
         if (currentUser is null)
         {
-            return Fail<ProductionCompanyDto>("المستخدم الحالي غير موجود.", "Current user was not found.");
+            return ApiResponse<ProductionCompanyDto>.FailureResponse("Current user was not found.", "المستخدم الحالي غير موجود.");
         }
 
         if (!currentUser.IsActive)
         {
-            return Fail<ProductionCompanyDto>("المستخدم الحالي غير فعّال.", "Current user is inactive.");
+            return ApiResponse<ProductionCompanyDto>.FailureResponse("Current user is inactive.", "المستخدم الحالي غير فعّال.");
         }
 
         var isOwnCompany = currentUser.EntityType == EntityType.ProductionCompany && currentUser.EntityId == productionCompanyId;
         if (!isOwnCompany && !GetEffectivePermissionIds(currentUser).Overlaps(new[] { ViewProductionCompaniesPermissionId, ManageProductionCompaniesPermissionId }))
         {
-            return Fail<ProductionCompanyDto>("لا تملك الصلاحية المطلوبة لعرض شركة الإنتاج.", "Caller does not hold the required Production Companies permission.");
+            return ApiResponse<ProductionCompanyDto>.FailureResponse("Caller does not hold the required Production Companies permission.", "لا تملك الصلاحية المطلوبة لعرض شركة الإنتاج.");
         }
 
         var company = await _unitOfWork.ProductionCompanies.GetByIdAsync(productionCompanyId, cancellationToken);
         if (company is null)
         {
-            return Fail<ProductionCompanyDto>("شركة الإنتاج غير موجودة.", "Production company was not found.");
+            return ApiResponse<ProductionCompanyDto>.FailureResponse("Production company was not found.", "شركة الإنتاج غير موجودة.");
         }
 
-        return Ok(MapToDto(company), "تم استرجاع تفاصيل شركة الإنتاج بنجاح.", "Production company details retrieved successfully.");
+        return ApiResponse<ProductionCompanyDto>.SuccessResponse(
+            MapToDto(company),
+            "Production company details retrieved successfully.",
+            "تم استرجاع تفاصيل شركة الإنتاج بنجاح.");
     }
 
     public async Task<ApiResponse<ProductionCompanyDto>> UpdateStatusAsync(int currentUserId, int productionCompanyId, UpdateProductionCompanyStatusDto dto, CancellationToken cancellationToken = default)
@@ -71,7 +77,7 @@ public class ProductionCompanyService : IProductionCompanyService
         var company = await _unitOfWork.ProductionCompanies.GetByIdAsync(productionCompanyId, cancellationToken);
         if (company is null)
         {
-            return Fail<ProductionCompanyDto>("شركة الإنتاج غير موجودة.", "Production company was not found.");
+            return ApiResponse<ProductionCompanyDto>.FailureResponse("Production company was not found.", "شركة الإنتاج غير موجودة.");
         }
 
         company.IsActive = dto.IsActive;
@@ -87,7 +93,10 @@ public class ProductionCompanyService : IProductionCompanyService
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return Ok(MapToDto(company), "تم تحديث حالة شركة الإنتاج بنجاح.", "Production company status updated successfully.");
+        return ApiResponse<ProductionCompanyDto>.SuccessResponse(
+            MapToDto(company),
+            "Production company status updated successfully.",
+            "تم تحديث حالة شركة الإنتاج بنجاح.");
     }
 
     #region Helpers
@@ -97,17 +106,17 @@ public class ProductionCompanyService : IProductionCompanyService
         var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken);
         if (currentUser is null)
         {
-            return (null, Fail<T>("المستخدم الحالي غير موجود.", "Current user was not found."));
+            return (null, ApiResponse<T>.FailureResponse("Current user was not found.", "المستخدم الحالي غير موجود."));
         }
 
         if (!currentUser.IsActive)
         {
-            return (null, Fail<T>("المستخدم الحالي غير فعّال.", "Current user is inactive."));
+            return (null, ApiResponse<T>.FailureResponse("Current user is inactive.", "المستخدم الحالي غير فعّال."));
         }
 
         if (!GetEffectivePermissionIds(currentUser).Overlaps(new[] { requiredPermissionId, ManageProductionCompaniesPermissionId }))
         {
-            return (null, Fail<T>("لا تملك الصلاحية المطلوبة لشركات الإنتاج.", "Caller does not hold the required Production Companies permission."));
+            return (null, ApiResponse<T>.FailureResponse("Caller does not hold the required Production Companies permission.", "لا تملك الصلاحية المطلوبة لشركات الإنتاج."));
         }
 
         return (currentUser, null);
@@ -148,12 +157,6 @@ public class ProductionCompanyService : IProductionCompanyService
         IsSelfRegistered = company.IsSelfRegistered,
         IsDeleted = company.IsDeleted
     };
-
-    private static ApiResponse<T> Fail<T>(string messageAr, string messageEn, int statusCode = 400) =>
-        new(false, messageAr, messageEn, default, statusCode);
-
-    private static ApiResponse<T> Ok<T>(T data, string messageAr, string messageEn, int statusCode = 200) =>
-        new(true, messageAr, messageEn, data, statusCode);
 
     #endregion
 }
