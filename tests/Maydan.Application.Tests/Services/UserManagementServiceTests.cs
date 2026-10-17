@@ -56,8 +56,8 @@ public class UserManagementServiceTests
 
         var result = await service.CreateUserAsync(currentUser.UserId, dto);
 
-        Assert.Equal(EntityType.Association, result.EntityType);
-        Assert.Equal(7, result.EntityId);
+        Assert.Equal(EntityType.Association, result.Data!.EntityType);
+        Assert.Equal(7, result.Data!.EntityId);
         Assert.NotNull(userRepository.AddedUser);
         Assert.Equal(EntityType.Association, userRepository.AddedUser!.EntityType);
         Assert.Equal(7, userRepository.AddedUser.EntityId);
@@ -139,9 +139,9 @@ public class UserManagementServiceTests
         var result = await service.CreateUserAsync(currentUser.UserId, dto);
 
         // Never the CALLER's own Bayt-AlUrdon entity — the resolved TARGET role's entity instead.
-        Assert.Equal(expectedEntityType, result.EntityType);
-        Assert.NotEqual(EntityType.BaytAlUrdon, result.EntityType);
-        Assert.Equal(1, result.EntityId); // the established single-placeholder-entity convention
+        Assert.Equal(expectedEntityType, result.Data!.EntityType);
+        Assert.NotEqual(EntityType.BaytAlUrdon, result.Data!.EntityType);
+        Assert.Equal(1, result.Data!.EntityId); // the established single-placeholder-entity convention
         Assert.NotNull(userRepository.AddedUser);
         Assert.Equal(expectedEntityType, userRepository.AddedUser!.EntityType);
     }
@@ -187,8 +187,8 @@ public class UserManagementServiceTests
 
         var result = await service.CreateUserAsync(currentUser.UserId, dto);
 
-        Assert.Equal(EntityType.Association, result.EntityType);
-        Assert.Equal(9004, result.EntityId); // the REAL association id, not the placeholder 1
+        Assert.Equal(EntityType.Association, result.Data!.EntityType);
+        Assert.Equal(9004, result.Data!.EntityId); // the REAL association id, not the placeholder 1
         Assert.NotNull(userRepository.AddedUser);
         Assert.Equal(9004, userRepository.AddedUser!.EntityId);
     }
