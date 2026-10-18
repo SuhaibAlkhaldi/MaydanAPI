@@ -2005,6 +2005,12 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
+                            RoleId = 3,
+                            PermissionId = 2,
+                            IsActive = true
+                        },
+                        new
+                        {
                             RoleId = 4,
                             PermissionId = 1,
                             IsActive = true
@@ -2073,6 +2079,12 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         {
                             RoleId = 4,
                             PermissionId = 35,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 4,
+                            PermissionId = 2,
                             IsActive = true
                         });
                 });

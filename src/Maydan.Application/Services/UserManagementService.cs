@@ -141,6 +141,57 @@ public class UserManagementService : IUserManagementService
         return ApiResponse<UserDetailsDto>.SuccessResponse(MapUserDetails(createdUser), "User created successfully.", "تم إنشاء المستخدم بنجاح.", 201);
     }
 
+    public async Task<ApiResponse<List<RoleDto>>> GetRolesForEntityAsync(int currentUserId, EntityType? targetEntityType, CancellationToken cancellationToken = default)
+    {
+        var (currentUser, error) = await GetCurrentUserAsync<List<RoleDto>>(currentUserId, cancellationToken);
+        if (error != null) return error;
+
+        var allRoles = await _unitOfWork.Roles.GetAllAsync(cancellationToken);
+
+       
+        var isCrossEntityAdmin = currentUser!.RoleId == BaytAlUrdonRoleId || currentUser.RoleId == AsezaRoleId;
+        var effectiveEntityType = (isCrossEntityAdmin && targetEntityType.HasValue)
+                                  ? targetEntityType.Value
+                                  : currentUser.EntityType;
+
+        List<Role> entityRoles;
+
+        if (effectiveEntityType == EntityType.BaytAlUrdon)
+        {
+            
+            entityRoles = allRoles.Where(r => r.TargetEntityType == null && r.RoleId == BaytAlUrdonRoleId).ToList();
+        }
+        else if (effectiveEntityType == EntityType.Aseza)
+        {
+           
+            entityRoles = allRoles.Where(r => r.TargetEntityType == null && r.RoleId == AsezaRoleId).ToList();
+        }
+        else
+        {
+           
+            entityRoles = allRoles.Where(r => r.TargetEntityType == effectiveEntityType).ToList();
+        }
+
+       
+        if (currentUser.RoleId == BaytAlUrdonRoleId && effectiveEntityType == EntityType.BaytAlUrdon)
+        {
+            var systemAdminRole = allRoles.FirstOrDefault(r => r.RoleId == 10);
+            if (systemAdminRole != null && !entityRoles.Any(r => r.RoleId == 10))
+            {
+                entityRoles.Add(systemAdminRole);
+            }
+        }
+
+        var result = entityRoles.Select(r => new RoleDto(
+            r.RoleId,
+            r.RoleNameEn,
+            r.RoleNameAr
+        )).ToList();
+
+        return ApiResponse<List<RoleDto>>.SuccessResponse(result, "Roles retrieved successfully.", "تم استرجاع الأدوار بنجاح.");
+    }
+
+    
     public async Task<ApiResponse<List<PermissionDto>>> GetAvailablePermissionsAsync(int currentUserId, int? roleId, CancellationToken cancellationToken = default)
     {
         var (caller, error) = await GetCurrentUserAsync<List<PermissionDto>>(currentUserId, cancellationToken);
@@ -500,7 +551,6 @@ public class UserManagementService : IUserManagementService
             SystemRoles.Producer => (EntityType.ProductionCompany, requestedEntityId ?? 1),
             SystemRoles.LocationManager => (EntityType.ProductionCompany, requestedEntityId ?? 1),
             SystemRoles.WorkerManager => (EntityType.Association, requestedEntityId ?? 1),
-            SystemRoles.Worker => (EntityType.Association, requestedEntityId ?? 1),
             SystemRoles.AttendanceOfficer => (EntityType.Association, requestedEntityId ?? 1),
             _ => ((EntityType, int)?)null
         };
@@ -652,9 +702,16 @@ public class UserManagementService : IUserManagementService
 
     private static ApiResponse<T>? EnsureEntityCreationAllowed<T>(User currentUser, Role role)
     {
-        if (currentUser.RoleId == BaytAlUrdonRoleId) return null;
-        if (role.RoleId == currentUser.RoleId) return null;
+        // السماح إذا كان الدور المراد إنشاءه ينتمي لنفس نوع كيان المستخدم الحالي
         if (role.TargetEntityType.HasValue && role.TargetEntityType == currentUser.EntityType) return null;
+
+        if (currentUser.EntityType == EntityType.BaytAlUrdon && role.RoleId == SystemRoles.BaytAlUrdon) return null;
+
+        
+        if (currentUser.EntityType == EntityType.Aseza && role.RoleId == SystemRoles.Aseza) return null;
+
+        // to allow create users with same entity
+        if (role.RoleId == currentUser.RoleId) return null;
 
         return ApiResponse<T>.FailureResponse("Cannot create a user with a role outside your entity type.", "لا يمكنك إنشاء مستخدم خارج نطاق كيانك.");
     }

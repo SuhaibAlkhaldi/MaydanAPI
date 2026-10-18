@@ -25,4 +25,27 @@ public class ApiResponse<T>
         Data = data;
         StatusCode = statusCode;
     }
+    public static ApiResponse<T> SuccessResponse(T data, string messageEn = "Success", string messageAr = "تمت العملية بنجاح", int statusCode = 200)
+    {
+        return new ApiResponse<T>
+        {
+            Success = true,
+            MessageEn = messageEn,
+            MessageAr = messageAr,
+            Data = data,
+            StatusCode = statusCode
+        };
+    }
+
+    public static ApiResponse<T> FailureResponse(string messageEn, string messageAr)
+    {
+        return new ApiResponse<T>
+        {
+            Success = false,
+            MessageEn = messageEn,
+            MessageAr = messageAr,
+            Data = default,
+            StatusCode = 400
+        };
+    }
 }
