@@ -347,7 +347,7 @@ namespace Maydan.Infrastructure.Persistence.Migrations
 
             migrationBuilder.AddColumn<bool>(
                 name: "IsActive",
-                table: "RolePermissions",
+                table: "",
                 type: "bit",
                 nullable: false,
                 defaultValue: false);

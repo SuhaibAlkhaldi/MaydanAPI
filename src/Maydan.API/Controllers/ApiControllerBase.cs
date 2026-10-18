@@ -2,7 +2,13 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Maydan.Application.DTOs.Common;
 
-// Backward-compatible helpers for new ApiResponse<T> envelope.
+// Backward-compatible helpers for new
+//
+//
+//
+//
+//
+// <T> envelope.
 
 namespace Maydan.API.Controllers;
 

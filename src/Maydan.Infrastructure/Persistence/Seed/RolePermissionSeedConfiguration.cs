@@ -129,7 +129,7 @@ namespace Maydan.Infrastructure.Persistence.Seed
                 SystemPermissions.ViewPayments,
                 SystemPermissions.CreateUsers
             };
-
+            
             var allPermissionIds = Enumerable.Range(1, 40);
 
             var grants = ForRole(BaytAlUrdon, allPermissionIds)
