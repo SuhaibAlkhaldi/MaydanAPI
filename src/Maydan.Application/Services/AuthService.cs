@@ -825,21 +825,37 @@ public class AuthService : IAuthService
 
     private static AuthUserDto MapAuthUser(User user)
     {
-        var permissions = user.Role.RolePermissions
-            .Where(rp => rp.IsActive && rp.Permission.IsActive)
-            .Select(rp => rp.Permission.PermissionNameEn)
-            .Concat(user.UserPermissions
-                .Where(up => up.IsActive && up.Permission.IsActive)
-                .Select(up => up.Permission.PermissionNameEn))
-            .Concat(user.UserGroups
-                .Where(ug => ug.Group.IsActive)
-                .SelectMany(ug => ug.Group.GroupPermissions)
-                .Where(gp => gp.IsActive && gp.Permission.IsActive)
-                .Select(gp => gp.Permission.PermissionNameEn))
-            .Where(permission => !string.IsNullOrWhiteSpace(permission))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(permission => permission)
-            .ToList();
+        var permissionIds = new HashSet<int>();
+
+        if (user.Role?.RolePermissions != null)
+        {
+            foreach (var rp in user.Role.RolePermissions)
+            {
+                permissionIds.Add(rp.PermissionId);
+            }
+        }
+
+        if (user.UserPermissions != null)
+        {
+            foreach (var up in user.UserPermissions)
+            {
+                permissionIds.Add(up.PermissionId);
+            }
+        }
+
+        if (user.UserGroups != null)
+        {
+            foreach (var ug in user.UserGroups)
+            {
+                if (ug.Group?.GroupPermissions != null)
+                {
+                    foreach (var gp in ug.Group.GroupPermissions)
+                    {
+                        permissionIds.Add(gp.PermissionId);
+                    }
+                }
+            }
+        }
 
         return new AuthUserDto(
             user.UserId,
@@ -849,11 +865,12 @@ public class AuthService : IAuthService
             user.FirstNameAr,
             user.LastNameAr,
             user.RoleId,
-            user.Role.RoleNameEn,
-            user.Role.RoleNameAr,
+            user.Role?.RoleNameEn ?? string.Empty,
+            user.Role?.RoleNameAr ?? string.Empty,
             user.EntityType,
             user.EntityId,
-            permissions);
+            permissionIds.OrderBy(id => id).ToList() 
+        );
     }
 
     #region Helpers
