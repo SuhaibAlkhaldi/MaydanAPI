@@ -37,4 +37,9 @@ public class Worker : SharedEntities
 
     public ICollection<WorkerServiceLink> WorkerServices { get; set; } = new List<WorkerServiceLink>();
     public ICollection<ServiceRequestWorker> ServiceRequestWorkers {  get; set; } = new HashSet<ServiceRequestWorker>();
+
+    // Required only when one of WorkerServices is flagged Service.RequiresDocuments; enforced
+    // in WorkerService, not here. Capped at 4, no minimum beyond "at least one" (see
+    // WorkerService's own comment on the exact rule).
+    public ICollection<WorkerDocument> Documents { get; set; } = new List<WorkerDocument>();
 }

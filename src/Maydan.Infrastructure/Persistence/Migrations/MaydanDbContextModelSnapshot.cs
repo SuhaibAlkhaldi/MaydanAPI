@@ -2024,6 +2024,11 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Property<decimal>("Price")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<bool>("RequiresDocuments")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -2608,6 +2613,47 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.ToTable("Workers", (string)null);
                 });
 
+            modelBuilder.Entity("Maydan.Domain.Entities.WorkerDocument", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("WorkerId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkerId");
+
+                    b.ToTable("WorkerDocuments", (string)null);
+                });
+
             modelBuilder.Entity("Maydan.Domain.Entities.WorkerServiceLink", b =>
                 {
                     b.Property<int>("Id")
@@ -2936,6 +2982,17 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Navigation("Country");
                 });
 
+            modelBuilder.Entity("Maydan.Domain.Entities.WorkerDocument", b =>
+                {
+                    b.HasOne("Maydan.Domain.Entities.Worker", "Worker")
+                        .WithMany("Documents")
+                        .HasForeignKey("WorkerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Worker");
+                });
+
             modelBuilder.Entity("Maydan.Domain.Entities.WorkerServiceLink", b =>
                 {
                     b.HasOne("Maydan.Domain.Entities.Service", "Service")
@@ -3017,6 +3074,8 @@ namespace Maydan.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Maydan.Domain.Entities.Worker", b =>
                 {
+                    b.Navigation("Documents");
+
                     b.Navigation("ServiceRequestWorkers");
 
                     b.Navigation("WorkerServices");

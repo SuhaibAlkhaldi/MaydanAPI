@@ -1,4 +1,4 @@
-using Maydan.API.Filters;
+using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.Services;
 using Maydan.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -21,14 +21,15 @@ public class SystemConfigurationServicesController : ApiControllerBase
     [HttpGet]
     public async Task<ActionResult> GetAll(CancellationToken cancellationToken)
     {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
+        }
+
         try
         {
-            if (!TryGetCurrentUserId(out var currentUserId))
-            {
-                return Unauthorized(new Maydan.Application.DTOs.Common.ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null));
-            }
-            var result = await _serviceConfigurationService.GetAllServicesAsync(currentUserId, cancellationToken);
-            return Success(result, "تم جلب الخدمات بنجاح", "Services retrieved successfully.");
+            var response = await _serviceConfigurationService.GetAllServicesAsync(currentUserId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception ex)
         {
@@ -41,8 +42,8 @@ public class SystemConfigurationServicesController : ApiControllerBase
     {
         try
         {
-            var result = await _serviceConfigurationService.GetActiveServicesAsync(cancellationToken);
-            return Success(result, "تم جلب الخدمات المتاحة بنجاح", "Active services retrieved successfully.");
+            var response = await _serviceConfigurationService.GetActiveServicesAsync(cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception ex)
         {
@@ -55,12 +56,13 @@ public class SystemConfigurationServicesController : ApiControllerBase
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new Maydan.Application.DTOs.Common.ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null));
+            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
         }
+
         try
         {
-            var result = await _serviceConfigurationService.GetServiceByIdAsync(currentUserId, id, cancellationToken);
-            return Success(result, "تم جلب الخدمة بنجاح", "Service retrieved successfully.");
+            var response = await _serviceConfigurationService.GetServiceByIdAsync(currentUserId, id, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception ex)
         {
@@ -73,12 +75,13 @@ public class SystemConfigurationServicesController : ApiControllerBase
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new Maydan.Application.DTOs.Common.ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null));
+            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
         }
+
         try
         {
-            var created = await _serviceConfigurationService.CreateServiceAsync(currentUserId, dto, cancellationToken);
-            return CreatedResponse($"/api/system-configuration/services/{created.Id}", created, "تم إنشاء الخدمة بنجاح", "Service created successfully.");
+            var response = await _serviceConfigurationService.CreateServiceAsync(currentUserId, dto, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception ex)
         {
@@ -91,12 +94,13 @@ public class SystemConfigurationServicesController : ApiControllerBase
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new Maydan.Application.DTOs.Common.ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null));
+            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
         }
+
         try
         {
-            var updated = await _serviceConfigurationService.UpdateServiceAsync(currentUserId, id, dto, cancellationToken);
-            return Success(updated, "تم تحديث الخدمة بنجاح", "Service updated successfully.");
+            var response = await _serviceConfigurationService.UpdateServiceAsync(currentUserId, id, dto, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception ex)
         {
@@ -105,16 +109,17 @@ public class SystemConfigurationServicesController : ApiControllerBase
     }
 
     [HttpDelete("{id:int}")]
-    public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
+    public async Task<ActionResult> Delete(int id, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new Maydan.Application.DTOs.Common.ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null));
+            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
         }
+
         try
         {
-            await _serviceConfigurationService.DeleteServiceAsync(currentUserId, id, cancellationToken);
-            return Success<object?>(null, "تم حذف الخدمة بنجاح", "Service deleted successfully.");
+            var response = await _serviceConfigurationService.DeleteServiceAsync(currentUserId, id, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception ex)
         {
