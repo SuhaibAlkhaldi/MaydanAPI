@@ -1,4 +1,4 @@
-﻿using Maydan.Domain.Common;
+using Maydan.Domain.Common;
 using Maydan.Domain.Enums;
 
 namespace Maydan.Domain.Entities;
@@ -58,11 +58,8 @@ public class ServiceRequest : SharedEntities
     // Status Related Properties
     public ServiceRequestStatus Status { get; set; } = ServiceRequestStatus.PendingWorkerSelection;
 
-    /// <summary>
-    /// Idempotency key to prevent duplicate submissions (check-then-insert).
-    /// Combined with ProductionCompanyId in unique database index.
-    /// </summary>
-    public string? IdempotencyKey { get; set; }
+
+
 
     /// <summary>
     /// Tracks whether 6-hour reminder notification has been sent.

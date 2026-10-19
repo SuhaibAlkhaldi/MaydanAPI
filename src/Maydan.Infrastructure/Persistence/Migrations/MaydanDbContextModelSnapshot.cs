@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace Maydan.Infrastructure.Persistence.Migrations
+namespace Maydan.Infrastructure.Migrations
 {
     [DbContext(typeof(MaydanDbContext))]
     partial class MaydanDbContextModelSnapshot : ModelSnapshot
@@ -2077,10 +2077,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<string>("IdempotencyKey")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
@@ -2130,10 +2126,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.HasIndex("ProjectId");
 
                     b.HasIndex("ServiceId");
-
-                    b.HasIndex("IdempotencyKey", "ProductionCompanyId")
-                        .IsUnique()
-                        .HasFilter("[IdempotencyKey] IS NOT NULL");
 
                     b.ToTable("ServiceRequests", (string)null);
                 });
