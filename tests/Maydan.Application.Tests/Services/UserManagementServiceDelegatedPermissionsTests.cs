@@ -6,15 +6,6 @@ using Maydan.Domain.Enums;
 
 namespace Maydan.Application.Tests.Services;
 
-// MAYD-37 (2026-09-24, product-owner-confirmed): "ASEZA Admin has all view permissions by default;
-// a regular ASEZA user gets a custom subset assigned by the Admin" only works if the admin can
-// actually hand a permission they hold individually (not via ASEZA's own RolePermissions — see
-// RolePermissionSeedConfiguration.cs's own comment on why it can't be role-level) to a fellow ASEZA
-// user through the existing, already-verified User Details "Edit Permissions" flow (MAYD-34). These
-// tests prove GetCallerDelegatablePermissionIds's real effect: EnsurePermissionsAllowedForRole and
-// GetAvailablePermissionsAsync both now additionally accept/offer a permission the CALLER personally
-// holds, but ONLY for a same-role target — confirming this can never leak into the unrelated MAYD-1
-// cross-role create path (Bayt-AlUrdon creating a different-role user).
 public class UserManagementServiceDelegatedPermissionsTests
 {
     private static Role BuildRole(int roleId, string nameEn) => new() { RoleId = roleId, RoleNameEn = nameEn, RoleNameAr = nameEn };
@@ -30,8 +21,12 @@ public class UserManagementServiceDelegatedPermissionsTests
         EntityType = entityType,
         EntityId = entityId,
         IsActive = true,
-        FirstNameEn = "Test", LastNameEn = "User", FirstNameAr = "اختبار", LastNameAr = "مستخدم",
-        Email = $"user{userId}@example.org", PhoneNumber = "+962700000000"
+        FirstNameEn = "Test",
+        LastNameEn = "User",
+        FirstNameAr = "اختبار",
+        LastNameAr = "مستخدم",
+        Email = $"user{userId}@example.org",
+        PhoneNumber = "+962700000000"
     };
 
     [Fact]
@@ -48,13 +43,46 @@ public class UserManagementServiceDelegatedPermissionsTests
         var repository = new FakeUserRepository(admin, regularUser);
         var service = BuildService(repository, new FakeRoleRepository(asezaRole));
 
-        // Not in ASEZA's own RolePermissions (empty here) — only assignable because the ADMIN
-        // personally holds it and both are the same role.
         var result = await service.UpdateDirectPermissionsAsync(1000, 1006, new UpdateUserPermissionsDto { PermissionIds = new List<int> { 9 } });
 
-        Assert.Contains(result.DirectPermissions, p => p.PermissionId == 9);
+        Assert.True(result.Success);
+        Assert.Contains(result.Data!.DirectPermissions, p => p.PermissionId == 9);
     }
+    [Fact]
+    public async Task BaytAlUrdon_Full_Workflow_Can_Fetch_All_Permissions_And_Assign_CrossEntity_Privileges()
+    {
+        // Arrange: تجهيز بيئة الاختبار لـ غيث (أدمن بيت الأردن) ومستخدم في جهة أخرى
+        var baytAlUrdonRole = BuildRole(1, "Bayt-AlUrdon");
+        var associationRole = BuildRole(4, "Association");
 
+        var ghaith = BuildUser(1, EntityType.BaytAlUrdon, 1, baytAlUrdonRole);
+        var targetUser = BuildUser(50, EntityType.Association, 5, associationRole);
+
+        var repository = new FakeUserRepository(ghaith, targetUser);
+        var roleRepository = new FakeRoleRepository(associationRole);
+
+        // تعريف صلاحيات النظام المختلفة
+        var service = BuildService(repository, roleRepository);
+
+        // Act & Assert الخطوة 1: أدمن بيت الأردن يطلب قائمة الصلاحيات المتاحة للنظام بالكامل
+        var availablePermissionsResult = await service.GetAvailablePermissionsAsync(1, 4);
+
+        Assert.True(availablePermissionsResult.Success);
+        // التأكد من أن غيث يمتلك صلاحية الوصول لكل الصلاحيات المتاحة في المستودع
+        Assert.NotEmpty(availablePermissionsResult.Data!);
+
+        // Act & Assert الخطوة 2: أدمن بيت الأردن يمنح المستخدم صلاحية خارجة عن نطاق دوره الأصلي
+        var outOfRolePermissionId = 38; // مثال على صلاحية متقدمة
+        var updateResult = await service.UpdateDirectPermissionsAsync(
+            1,
+            50,
+            new UpdateUserPermissionsDto { PermissionIds = new List<int> { outOfRolePermissionId } }
+        );
+
+        // التحقق من نجاح العملية وعدم وجود قيود تمنع أدمن بيت الأردن
+        Assert.True(updateResult.Success);
+        Assert.Contains(updateResult.Data!.DirectPermissions, p => p.PermissionId == outOfRolePermissionId);
+    }
     [Fact]
     public async Task UpdateDirectPermissionsAsync_still_rejects_a_permission_the_caller_does_not_personally_hold()
     {
@@ -65,10 +93,10 @@ public class UserManagementServiceDelegatedPermissionsTests
         var repository = new FakeUserRepository(admin, regularUser);
         var service = BuildService(repository, new FakeRoleRepository(asezaRole));
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            service.UpdateDirectPermissionsAsync(1000, 1006, new UpdateUserPermissionsDto { PermissionIds = new List<int> { 9 } }));
+        var result = await service.UpdateDirectPermissionsAsync(1000, 1006, new UpdateUserPermissionsDto { PermissionIds = new List<int> { 9 } });
 
-        Assert.Contains("not available for the selected role", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(result.Success);
+        Assert.Contains("not available for the selected role", result.MessageEn, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -86,28 +114,53 @@ public class UserManagementServiceDelegatedPermissionsTests
 
         var result = await service.GetAvailablePermissionsAsync(1000, 2);
 
-        Assert.Contains(result, p => p.PermissionId == 25);
+        Assert.True(result.Success);
+        Assert.Contains(result.Data!, p => p.PermissionId == 25);
     }
 
     [Fact]
-    public async Task GetAvailablePermissionsAsync_does_NOT_leak_the_callers_own_permissions_into_a_DIFFERENT_roles_catalog()
+    public async Task GetAvailablePermissionsAsync_does_NOT_leak_a_non_BaytAlUrdon_callers_own_permissions_into_a_DIFFERENT_roles_catalog()
     {
-        // MAYD-1's own cross-role create path (Bayt-AlUrdon creating an Association user) must stay
-        // completely unaffected — the delegation widening is same-role-only.
-        var baytAlUrdonRole = BuildRole(1, "Bayt-AlUrdon");
+        // Testing with ASEZA (RoleId 2) since Bayt-AlUrdon (RoleId 1) intentionally receives the full system catalog.
+        var asezaRole = BuildRole(2, "ASEZA");
         var associationRole = BuildRole(4, "Association");
-        var baytAlUrdonOnlyPermission = BuildPermission(38, "Manage System Configuration");
+        var asezaHeldPermission = BuildPermission(38, "Manage System Configuration");
 
-        var caller = BuildUser(1, EntityType.BaytAlUrdon, 1, baytAlUrdonRole);
-        caller.UserPermissions.Add(new UserPermission { UserId = 1, PermissionId = 38, Permission = baytAlUrdonOnlyPermission, IsActive = true });
+        var caller = BuildUser(1000, EntityType.Aseza, 1, asezaRole);
+        caller.UserPermissions.Add(new UserPermission { UserId = 1000, PermissionId = 38, Permission = asezaHeldPermission, IsActive = true });
 
         var repository = new FakeUserRepository(caller, caller);
-        var roleRepository = new FakeRoleRepository(associationRole); // target role: Association, NOT the caller's own
+        var roleRepository = new FakeRoleRepository(associationRole);
         var service = BuildService(repository, roleRepository);
 
-        var result = await service.GetAvailablePermissionsAsync(1, 4);
+        var result = await service.GetAvailablePermissionsAsync(1000, 4);
 
-        Assert.DoesNotContain(result, p => p.PermissionId == 38);
+        Assert.True(result.Success);
+        Assert.DoesNotContain(result.Data!, p => p.PermissionId == 38);
+    }
+
+    [Fact]
+    public async Task BaytAlUrdon_can_fetch_all_system_permissions_and_assign_out_of_role_permissions_to_any_entity_user()
+    {
+        var baytAlUrdonRole = BuildRole(1, "Bayt-AlUrdon");
+        var associationRole = BuildRole(4, "Association");
+
+        var ghaith = BuildUser(1, EntityType.BaytAlUrdon, 1, baytAlUrdonRole);
+        var associationUser = BuildUser(50, EntityType.Association, 5, associationRole);
+
+        var repository = new FakeUserRepository(ghaith, associationUser);
+        var roleRepository = new FakeRoleRepository(associationRole);
+        var service = BuildService(repository, roleRepository);
+
+        // 1. Bayt-AlUrdon sees all active system permissions even when passing target roleId = 4
+        var availableResult = await service.GetAvailablePermissionsAsync(1, 4);
+        Assert.True(availableResult.Success);
+        Assert.Equal(3, availableResult.Data!.Count);
+
+        // 2. Bayt-AlUrdon assigns Permission 38 (outside Association role catalog) to Association user
+        var updateResult = await service.UpdateDirectPermissionsAsync(1, 50, new UpdateUserPermissionsDto { PermissionIds = new List<int> { 38 } });
+        Assert.True(updateResult.Success);
+        Assert.Contains(updateResult.Data!.DirectPermissions, p => p.PermissionId == 38);
     }
 
     private static UserManagementService BuildService(FakeUserRepository repository, FakeRoleRepository? roleRepository = null) =>
@@ -124,7 +177,9 @@ public class UserManagementServiceDelegatedPermissionsTests
         public Task<List<Permission>> GetByIdsAsync(IEnumerable<int> permissionIds, CancellationToken cancellationToken = default) =>
             Task.FromResult(_permissions.Where(p => permissionIds.Contains(p.PermissionId)).ToList());
 
-        public Task<List<Permission>> GetAllAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<List<Permission>> GetAllAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(_permissions);
+
         public Task<Permission?> GetByIdAsync(int permissionId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<List<Permission>> GetByModuleAsync(string module, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task AddAsync(Permission permission, CancellationToken cancellationToken = default) => throw new NotSupportedException();
@@ -152,11 +207,6 @@ public class UserManagementServiceDelegatedPermissionsTests
             _usersById[target.UserId] = target;
         }
 
-        // Real EF Core performs Permission navigation fixup automatically once both entities are
-        // tracked in the same DbContext (SyncUserPermissions only ever sets UserPermission.PermissionId,
-        // not .Permission — see its own definition) — this plain in-memory fake has no change
-        // tracker, so it's done by hand here on every read, matching real runtime behavior, so
-        // MapUserDetails has a non-null Permission to read.
         private User? FixUp(User? user)
         {
             if (user is null)
