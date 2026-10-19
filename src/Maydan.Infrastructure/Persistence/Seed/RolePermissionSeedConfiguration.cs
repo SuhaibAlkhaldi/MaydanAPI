@@ -13,77 +13,11 @@ namespace Maydan.Infrastructure.Persistence.Seed
     // seeded by PermissionSeedConfiguration, per the approved permission-matrix proposal.
     public class RolePermissionSeedConfiguration : IEntityTypeConfiguration<RolePermission>
     {
+
         private const int BaytAlUrdon = 1;
         private const int Aseza = 2;
         private const int ProductionHouse = 3;
         private const int Association = 4;
-
-        // Permission ids, matching PermissionSeedConfiguration.
-        private const int ViewUsers = 1;
-        private const int CreateUsers = 2;
-        private const int ManageUsers = 3;
-        private const int ViewGroups = 4;
-        private const int CreateGroups = 5;
-        private const int EditGroups = 6;
-        private const int DeleteGroups = 7;
-        private const int ManageGroups = 8;
-        private const int ViewAssociations = 9;
-        private const int CreateAssociations = 10;
-        private const int EditAssociations = 11;
-        private const int DeleteAssociations = 12;
-        private const int ManageAssociations = 13;
-        private const int ViewAssociationUsers = 14;
-        private const int RequestService = 15;
-        private const int ViewServiceRequests = 16;
-        private const int ManageServiceRequests = 17;
-        private const int ManageServices = 18;
-        private const int ViewProductionCompanies = 19;
-        private const int ManageProductionCompanies = 20;
-        private const int ViewProductionHouses = 21;
-        private const int ManageProductionHouses = 22;
-        private const int ViewWorkers = 23;
-        private const int ManageWorkers = 24;
-        private const int ViewProjects = 25;
-        private const int CreateProjects = 26;
-        private const int EditProjects = 27;
-        private const int DeleteProjects = 28;
-        private const int ReviewProjects = 29;
-        private const int ManageProjects = 30;
-
-        // Locations/Attendance/Payments — added by the RBAC gaps ticket (2026-09-21), matching
-        // PermissionSeedConfiguration.cs ids 31-36.
-        private const int ViewLocations = 31;
-        private const int ManageLocations = 32;
-        private const int ViewAttendance = 33;
-        private const int ManageAttendance = 34;
-        private const int ViewPayments = 35;
-        private const int ManagePayments = 36;
-
-        // Entity onboarding Stage 2 (2026-09-22) — matching PermissionSeedConfiguration.cs id 37.
-        // Bayt-AlUrdon only: not added to asezaPermissions/productionHousePermissions/
-        // associationPermissions below. A dedicated permission rather than reusing
-        // ManageAssociations (which ASEZA also holds, for its own broader oversight, but ASEZA
-        // must NOT be able to create an Association's first admin) or ManageUsers (which doesn't
-        // exist as a real seeded grant for this action's cross-entity shape at all).
-        private const int OnboardEntities = 37;
-
-        // System Configuration gate (MAYD-133, 2026-09-24) — matching PermissionSeedConfiguration.cs
-        // id 38. Bayt-AlUrdon only, same as OnboardEntities above.
-        private const int ManageSystemConfiguration = 38;
-
-        // Closes the real activate/deactivate gap for Association's own users — matching
-        // PermissionSeedConfiguration.cs id 39. See that seed's own comment for why this is
-        // self-service (granted to Association below) rather than a Bayt-AlUrdon/ASEZA cross-entity
-        // override — GetScopedUserAsync's strict same-entity check is what makes that safe.
-        private const int ManageAssociationUsers = 39;
-
-        // Phase 1 of the ProductionHouse self-service user-management gap (same shape as
-        // ManageAssociationUsers above) — matching PermissionSeedConfiguration.cs id 40. Same
-        // self-service reasoning: granted to ProductionHouse below, not a Bayt-AlUrdon/ASEZA
-        // cross-entity override — GetScopedUserAsync's strict same-entity check is what makes that
-        // safe here too.
-        private const int ManageProductionCompanyUsers = 40;
-
         public void Configure(EntityTypeBuilder<RolePermission> builder)
         {
             // ManageServices added per the associations.routes.ts permission-review correction:
@@ -141,10 +75,16 @@ namespace Maydan.Infrastructure.Persistence.Seed
             // with only risk and no real behavior fix, unlike ManageAssociations.
             var asezaPermissions = new[]
             {
-                ViewUsers, CreateUsers, ViewAssociationUsers,
-                ManageProductionHouses,
-                ManageServices,
-                ViewGroups, ManageGroups
+                SystemPermissions.ViewUsers,
+                SystemPermissions.ViewAttendance,
+               SystemPermissions. ViewGroups,SystemPermissions.ViewPayments,
+               SystemPermissions. ManageGroups,SystemPermissions. ViewLocations,
+                SystemPermissions.ViewTotalAmountForServiceRequest,
+               SystemPermissions. ReviewProjects,
+              SystemPermissions.  ViewAssociationUsers,
+               SystemPermissions. ViewServiceRequests,
+                SystemPermissions.ViewProductionCompanies,
+                SystemPermissions.ViewAssociations
             };
 
             // MAYD-20 (2026-09-24): ViewUsers added to both arrays below — previously granted to
@@ -157,26 +97,39 @@ namespace Maydan.Infrastructure.Persistence.Seed
             // this one ticket's own stated requirement needs, not a broader permission redesign.
             var productionHousePermissions = new[]
             {
-                ViewUsers,
-                ViewProjects, CreateProjects, EditProjects,
-                RequestService, ViewServiceRequests,
-                ViewWorkers,
-                ViewGroups, ManageGroups,
-                ViewAttendance, ManageAttendance,
-                ViewPayments, ManagePayments,
-                ManageProductionCompanyUsers
+                SystemPermissions.ViewUsers,
+                SystemPermissions.ViewProjects,
+                SystemPermissions.CreateProjects,
+                SystemPermissions.EditProjects,
+               SystemPermissions. RequestService,
+                SystemPermissions.ViewServiceRequests,
+                SystemPermissions.ViewWorkers,
+               SystemPermissions. ViewGroups,
+                SystemPermissions.ManageGroups,
+                SystemPermissions.ViewAttendance,
+                SystemPermissions.ManageAttendance,
+                SystemPermissions.ManageProductionCompanyUsers,
+                SystemPermissions.ViewTotalAmountForServiceRequest,
+                SystemPermissions.CreateUsers
             };
 
             var associationPermissions = new[]
             {
-                ViewUsers,
-                ViewAssociations, EditAssociations, ManageWorkers, ManageServices, ViewAssociationUsers,
-                ManageAssociationUsers,
-                ViewGroups, ManageGroups,
-                ViewAttendance, ManageAttendance,
-                ViewPayments
+                SystemPermissions.ViewUsers,
+               SystemPermissions. EditAssociations,
+                SystemPermissions. ManageWorkers,
+                SystemPermissions.ManageServices,
+                SystemPermissions.ViewAssociationUsers,
+               SystemPermissions. ManageAssociationUsers,
+                SystemPermissions.ViewServiceRequests,
+               SystemPermissions. ViewGroups,
+                SystemPermissions.ManageGroups,
+               SystemPermissions. ViewAttendance,
+                SystemPermissions.ManageAttendance,
+                SystemPermissions.ViewPayments,
+                SystemPermissions.CreateUsers
             };
-
+            
             var allPermissionIds = Enumerable.Range(1, 40);
 
             var grants = ForRole(BaytAlUrdon, allPermissionIds)

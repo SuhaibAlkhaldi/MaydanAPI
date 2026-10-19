@@ -9,6 +9,7 @@ public interface IWorkerRepository
     Task<Worker?> GetByIdWithServicesAsync(int workerId, CancellationToken cancellationToken = default);
     Task<Worker?> GetByIdIncludingDeletedAsync(int workerId, CancellationToken cancellationToken = default);
     Task<Worker?> GetByCivilIdHashAsync(string civilIdHash, CancellationToken cancellationToken = default);
+    Task<Worker?> GetByPhoneNumberAsync(string phoneNumber, CancellationToken cancellationToken = default);
     Task<List<Worker>> GetByAssociationIdAsync(int associationId, CancellationToken cancellationToken = default);
     Task<List<Worker>> GetDeletedByAssociationIdAsync(int associationId, CancellationToken cancellationToken = default);
 
@@ -19,4 +20,13 @@ public interface IWorkerRepository
         int? associationId, string? search, int? serviceId, int page, int pageSize, CancellationToken cancellationToken = default);
 
     Task<WorkerDto?> GetByIdProjectedAsync(int workerId, CancellationToken cancellationToken = default);
+    Task<List<Worker>> GetAvailableWorkersForRequestAsync(
+    int associationId,
+    int serviceId,
+    DateTime startDate,
+    DateTime endDate,
+    CancellationToken cancellationToken = default);
+    //for assignment workers
+   
 }
+

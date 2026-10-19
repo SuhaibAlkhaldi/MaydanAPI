@@ -1,3 +1,4 @@
+using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.UserManagement;
 using Maydan.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -16,17 +17,22 @@ public class PermissionsController : ApiControllerBase
         _userManagementService = userManagementService;
     }
 
-    [HttpGet("available", Name = "Get Available Permissions")]
-    public async Task<ActionResult<List<PermissionDto>>> GetAvailablePermissions([FromQuery] int? roleId, [FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader, CancellationToken cancellationToken)
+    private ObjectResult UnauthorizedResponse()
     {
-        if (!TryGetCurrentUserId(out var currentUserId))
-        {
-            return Unauthorized(new { message = "Current user id is required." });
-        }
+        var response = ApiResponse<object?>.FailureResponse("Unauthorized.", "???????? ??? ???? ??.");
+        response.StatusCode = 401;
+        return StatusCode(401, response);
+    }
+
+    [HttpGet("available", Name = "Get Available Permissions")]
+    public async Task<ActionResult> GetAvailablePermissions([FromQuery] int? roleId, [FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader, CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId)) return UnauthorizedResponse();
 
         try
         {
-            return Ok(await _userManagementService.GetAvailablePermissionsAsync(currentUserId, roleId, cancellationToken));
+            var response = await _userManagementService.GetAvailablePermissionsAsync(currentUserId, roleId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -35,16 +41,14 @@ public class PermissionsController : ApiControllerBase
     }
 
     [HttpGet("matrix", Name = "Get Permission Matrix")]
-    public async Task<ActionResult<PermissionMatrixDto>> GetPermissionMatrix([FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader, CancellationToken cancellationToken)
+    public async Task<ActionResult> GetPermissionMatrix([FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader, CancellationToken cancellationToken)
     {
-        if (!TryGetCurrentUserId(out var currentUserId))
-        {
-            return Unauthorized(new { message = "Current user id is required." });
-        }
+        if (!TryGetCurrentUserId(out var currentUserId)) return UnauthorizedResponse();
 
         try
         {
-            return Ok(await _userManagementService.GetPermissionMatrixAsync(currentUserId, cancellationToken));
+            var response = await _userManagementService.GetPermissionMatrixAsync(currentUserId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {

@@ -34,9 +34,16 @@ public class MaydanDbContext : DbContext
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<Worker> Workers => Set<Worker>();
     public DbSet<WorkerServiceLink> WorkerServiceLinks => Set<WorkerServiceLink>();
+    public DbSet<WorkerDocument> WorkerDocuments => Set<WorkerDocument>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<SystemConfiguration> SystemConfigurations => Set<SystemConfiguration>();
+
+    public DbSet<Service> ServiceTypes => Set<Service>();
+    public DbSet<ServiceRequest> ServiceRequests => Set<ServiceRequest>();
+    public DbSet<ServiceRequestWorker> ServiceRequestWorkers { get; set; } = null!;
+
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

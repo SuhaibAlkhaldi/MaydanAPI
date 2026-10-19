@@ -626,9 +626,15 @@ public class AssociationServiceTests
         public Task<Worker?> GetByIdWithServicesAsync(int workerId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Worker?> GetByIdIncludingDeletedAsync(int workerId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Worker?> GetByCivilIdHashAsync(string civilIdHash, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Worker?> GetByPhoneNumberAsync(string phoneNumber, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task AddAsync(Worker worker, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<(List<Maydan.Application.DTOs.Workers.WorkerSummaryDto> Items, int TotalCount)> GetAllProjectedAsync(int? associationId, string? search, int? serviceId, int page, int pageSize, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Maydan.Application.DTOs.Workers.WorkerDto?> GetByIdProjectedAsync(int workerId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<List<Worker>> GetAvailableWorkersForRequestAsync(int associationId, int serviceId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     private sealed class FakeCityRepository : ICityRepository
@@ -705,6 +711,8 @@ public class AssociationServiceTests
         }
 
         public Task<List<Association>> GetAllAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<Association?> GetByCityIdAsync(int cityId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public Task AddAsync(Association association, CancellationToken cancellationToken = default)
         {

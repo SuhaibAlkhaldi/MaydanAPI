@@ -1,5 +1,7 @@
+using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.UserManagement;
 using Maydan.Application.Interfaces;
+using Maydan.Domain.Constants;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
 
@@ -16,86 +18,96 @@ public class UserManagementService : IUserManagementService
         _passwordHasher = passwordHasher;
     }
 
-    public async Task<List<UserSummaryDto>> GetUsersAsync(int currentUserId, string? search, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<List<UserSummaryDto>>> GetUsersAsync(int currentUserId, string? search, CancellationToken cancellationToken = default)
     {
-        var currentUser = await GetCurrentUserAsync(currentUserId, cancellationToken);
-        var users = await _unitOfWork.Users.GetByEntityAsync(currentUser.EntityType, currentUser.EntityId, search, cancellationToken);
+        var (currentUser, error) = await GetCurrentUserAsync<List<UserSummaryDto>>(currentUserId, cancellationToken);
+        if (error != null) return error;
 
-        return users.Select(MapUserSummary).ToList();
+        var users = await _unitOfWork.Users.GetByEntityAsync(currentUser!.EntityType, currentUser.EntityId, search, cancellationToken);
+
+        return ApiResponse<List<UserSummaryDto>>.SuccessResponse(
+            users.Select(MapUserSummary).ToList(),
+            "Users retrieved successfully.",
+            "تم استرجاع قائمة المستخدمين بنجاح.");
     }
 
-    // MAYD-20: real Users List page — search/status/pagination, entity-scoped per the real
-    // Business Rule (MAYD-1): Bayt-AlUrdon and ASEZA may pass entityType/entityId to view a
-    // DIFFERENT entity's users (ASEZA's is explicitly read-only by the BR — naturally true here
-    // since this method only ever reads, never mutates); every other role may only view its own
-    // entity and gets rejected for anything else. Matches PermissionSeedConfiguration.cs's real
-    // ViewUsers(1)/ManageUsers(3) — same permission pair users.routes.ts's own roleGuard already
-    // gates this page on — not a new ad hoc role check.
-    public async Task<PagedUsersDto> GetUsersPagedAsync(
+    public async Task<ApiResponse<PagedUsersDto>> GetUsersPagedAsync(
         int currentUserId, string? search, bool? isActive, int page, int pageSize,
         EntityType? entityType, int? entityId, CancellationToken cancellationToken = default)
     {
-        var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken)
-            ?? throw new UnauthorizedAccessException("Current user was not found.");
+        var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken);
+        if (currentUser == null)
+            return ApiResponse<PagedUsersDto>.FailureResponse("Current user was not found.", "المستخدم الحالي غير موجود.");
 
         if (!currentUser.IsActive)
-        {
-            throw new UnauthorizedAccessException("Current user is inactive.");
-        }
+            return ApiResponse<PagedUsersDto>.FailureResponse("Current user is inactive.", "المستخدم الحالي غير فعّال.");
 
         if (!GetEffectivePermissionIds(currentUser).Overlaps(new[] { ViewUsersPermissionId, ManageUsersPermissionId }))
-        {
-            throw new UnauthorizedAccessException("Caller does not hold the View Users permission.");
-        }
+            return ApiResponse<PagedUsersDto>.FailureResponse("Caller does not hold the View Users permission.", "لا تملك الصلاحية المطلوبة لعرض المستخدمين.");
 
-        var (targetEntityType, targetEntityId) = ResolveTargetEntity(currentUser, entityType, entityId);
+        var (targetEntityType, targetEntityId, targetError) = ResolveTargetEntity<PagedUsersDto>(currentUser, entityType, entityId);
+        if (targetError != null) return targetError;
 
         var safePage = page < 1 ? 1 : page;
         var safePageSize = pageSize is < 1 or > 100 ? 10 : pageSize;
 
         var (users, totalCount) = await _unitOfWork.Users.GetPagedByEntityAsync(
-            targetEntityType, targetEntityId, search, isActive, safePage, safePageSize, cancellationToken);
+            targetEntityType!.Value, targetEntityId!.Value, search, isActive, safePage, safePageSize, cancellationToken);
 
-        return new PagedUsersDto(users.Select(MapUserSummary).ToList(), totalCount, safePage, safePageSize);
+        return ApiResponse<PagedUsersDto>.SuccessResponse(
+            new PagedUsersDto(users.Select(MapUserSummary).ToList(), totalCount, safePage, safePageSize),
+            "Paged users retrieved successfully.",
+            "تم استرجاع المستخدمين بنجاح.");
     }
 
-    public async Task<UserDetailsDto> GetUserDetailsAsync(int currentUserId, int userId, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<UserDetailsDto>> GetUserDetailsAsync(int currentUserId, int userId, CancellationToken cancellationToken = default)
     {
-        var currentUser = await GetCurrentUserAsync(currentUserId, cancellationToken);
-        var user = await GetViewableUserAsync(userId, currentUser, cancellationToken);
+        var (currentUser, error) = await GetCurrentUserAsync<UserDetailsDto>(currentUserId, cancellationToken);
+        if (error != null) return error;
 
-        return MapUserDetails(user);
+        var (user, viewError) = await GetViewableUserAsync<UserDetailsDto>(userId, currentUser!, cancellationToken);
+        if (viewError != null) return viewError;
+
+        return ApiResponse<UserDetailsDto>.SuccessResponse(MapUserDetails(user!), "User details retrieved successfully.", "تم استرجاع تفاصيل المستخدم بنجاح.");
     }
 
-    public async Task<UserDetailsDto> CreateUserAsync(int currentUserId, CreateEntityUserDto dto, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<UserDetailsDto>> CreateUserAsync(int currentUserId, CreateEntityUserDto dto, CancellationToken cancellationToken = default)
     {
-        var currentUser = await GetCurrentUserAsync(currentUserId, cancellationToken);
-        ValidateUserPayload(dto);
-        EnsureSameEntityCreation(currentUser, dto.RoleId);
+        var (currentUser, error) = await GetCurrentUserAsync<UserDetailsDto>(currentUserId, cancellationToken);
+        if (error != null) return error;
+
+        var valError = ValidateUserPayload<UserDetailsDto>(dto);
+        if (valError != null) return valError;
 
         var email = dto.Email.Trim();
         if (await _unitOfWork.Users.EmailExistsAsync(email, cancellationToken))
-        {
-            throw new InvalidOperationException("User email already exists.");
-        }
+            return ApiResponse<UserDetailsDto>.FailureResponse("User email already exists.", "البريد الإلكتروني موجود مسبقاً.");
 
-        var role = await _unitOfWork.Roles.GetWithPermissionsAsync(dto.RoleId, cancellationToken)
-            ?? throw new KeyNotFoundException("Role was not found.");
+        var role = await _unitOfWork.Roles.GetWithPermissionsAsync(dto.RoleId, cancellationToken);
+        if (role == null)
+            return ApiResponse<UserDetailsDto>.FailureResponse("Role was not found.", "الدور غير موجود.");
+
+        var creationError = EnsureEntityCreationAllowed<UserDetailsDto>(currentUser!, role);
+        if (creationError != null) return creationError;
 
         var permissionIds = NormalizeIds(dto.PermissionIds);
-        await EnsurePermissionsExistAsync(permissionIds, cancellationToken);
-        EnsurePermissionsAllowedForRole(role, permissionIds, GetCallerDelegatablePermissionIds(currentUser, role));
+        var permError = await EnsurePermissionsExistAsync<UserDetailsDto>(permissionIds, cancellationToken);
+        if (permError != null) return permError;
 
-        // Same role as the creator (the only case every role but Bayt-AlUrdon can ever reach, per
-        // EnsureSameEntityCreation above) keeps the exact prior behavior: the new user belongs to the
-        // creator's own entity. Only Bayt-AlUrdon creating a DIFFERENT role reaches the resolved
-        // branch — see ResolveEntityForRoleAsync's own comment.
-        var (targetEntityType, targetEntityId) = role.RoleId == currentUser.RoleId
-            ? (currentUser.EntityType, currentUser.EntityId)
-            : await ResolveEntityForRoleAsync(role.RoleId, dto.EntityId, cancellationToken);
+        if (currentUser!.RoleId != BaytAlUrdonRoleId)
+        {
+            var roleAllowError = EnsurePermissionsAllowedForRole<UserDetailsDto>(role, permissionIds, GetCallerDelegatablePermissionIds(currentUser, role));
+            if (roleAllowError != null) return roleAllowError;
+        }
+
+        var (targetEntityType, targetEntityId, entityError) = role.RoleId == currentUser!.RoleId
+            ? (currentUser.EntityType, currentUser.EntityId, null)
+            : await ResolveEntityForRoleAsync<UserDetailsDto>(role.RoleId, dto.EntityId, cancellationToken);
+        if (entityError != null) return entityError;
 
         var groupIds = NormalizeIds(dto.GroupIds);
-        var groups = await EnsureGroupsInEntityAsync(groupIds, targetEntityType, targetEntityId, cancellationToken);
+        var (groups, groupError) = await EnsureGroupsInEntityAsync<UserDetailsDto>(groupIds, targetEntityType!.Value, targetEntityId!.Value, cancellationToken);
+        if (groupError != null) return groupError;
 
         var user = new User
         {
@@ -109,50 +121,102 @@ public class UserManagementService : IUserManagementService
             MustResetPassword = true,
             IsActive = true,
             RoleId = role.RoleId,
-            EntityType = targetEntityType,
-            EntityId = targetEntityId
+            EntityType = targetEntityType.Value,
+            EntityId = targetEntityId.Value
         };
 
         foreach (var permissionId in permissionIds)
-        {
             user.UserPermissions.Add(new UserPermission { PermissionId = permissionId, IsActive = true });
-        }
 
-        foreach (var group in groups)
-        {
+        foreach (var group in groups!)
             user.UserGroups.Add(new UserGroup { GroupId = group.GroupId });
-        }
 
         await _unitOfWork.Users.AddAsync(user, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var createdUser = await _unitOfWork.Users.GetDetailsReadOnlyAsync(user.UserId, cancellationToken)
-            ?? throw new KeyNotFoundException("Created user was not found.");
+        var createdUser = await _unitOfWork.Users.GetDetailsReadOnlyAsync(user.UserId, cancellationToken);
+        if (createdUser == null)
+            return ApiResponse<UserDetailsDto>.FailureResponse("Created user was not found.", "المستخدم المنشأ غير موجود.");
 
-        return MapUserDetails(createdUser);
+        return ApiResponse<UserDetailsDto>.SuccessResponse(MapUserDetails(createdUser), "User created successfully.", "تم إنشاء المستخدم بنجاح.", 201);
     }
 
-    public async Task<List<PermissionDto>> GetAvailablePermissionsAsync(int currentUserId, int? roleId, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<List<RoleDto>>> GetRolesForEntityAsync(int currentUserId, EntityType? targetEntityType, CancellationToken cancellationToken = default)
     {
-        var caller = await GetCurrentUserAsync(currentUserId, cancellationToken);
+        var (currentUser, error) = await GetCurrentUserAsync<List<RoleDto>>(currentUserId, cancellationToken);
+        if (error != null) return error;
 
-        if (!roleId.HasValue)
+        var allRoles = await _unitOfWork.Roles.GetAllAsync(cancellationToken);
+
+       
+        var isCrossEntityAdmin = currentUser!.RoleId == BaytAlUrdonRoleId || currentUser.RoleId == AsezaRoleId;
+        var effectiveEntityType = (isCrossEntityAdmin && targetEntityType.HasValue)
+                                  ? targetEntityType.Value
+                                  : currentUser.EntityType;
+
+        List<Role> entityRoles;
+
+        if (effectiveEntityType == EntityType.BaytAlUrdon)
         {
-            var allPermissions = await _unitOfWork.Permissions.GetAllAsync(cancellationToken);
-            return allPermissions.Select(MapPermission).ToList();
+            
+            entityRoles = allRoles.Where(r => r.TargetEntityType == null && r.RoleId == BaytAlUrdonRoleId).ToList();
+        }
+        else if (effectiveEntityType == EntityType.Aseza)
+        {
+           
+            entityRoles = allRoles.Where(r => r.TargetEntityType == null && r.RoleId == AsezaRoleId).ToList();
+        }
+        else
+        {
+           
+            entityRoles = allRoles.Where(r => r.TargetEntityType == effectiveEntityType).ToList();
         }
 
-        var role = await _unitOfWork.Roles.GetWithPermissionsAsync(roleId.Value, cancellationToken)
-            ?? throw new KeyNotFoundException("Role was not found.");
+       
+        if (currentUser.RoleId == BaytAlUrdonRoleId && effectiveEntityType == EntityType.BaytAlUrdon)
+        {
+            var systemAdminRole = allRoles.FirstOrDefault(r => r.RoleId == 10);
+            if (systemAdminRole != null && !entityRoles.Any(r => r.RoleId == 10))
+            {
+                entityRoles.Add(systemAdminRole);
+            }
+        }
 
-        // MAYD-37: the Permission Picker's own catalog must offer exactly what
-        // EnsurePermissionsAllowedForRole will actually accept on save — role's own catalog PLUS
-        // whatever the caller can personally delegate (see GetCallerDelegatablePermissionIds's own
-        // comment; empty unless caller and target share the same role, e.g. the ASEZA admin editing
-        // a fellow ASEZA user). Sourced directly from the caller's already-loaded UserPermissions/
-        // GroupPermissions navigation rather than a second DB round-trip.
-        var delegatableIds = GetCallerDelegatablePermissionIds(caller, role);
-        var delegatablePermissions = caller.UserPermissions
+        var result = entityRoles.Select(r => new RoleDto(
+            r.RoleId,
+            r.RoleNameEn,
+            r.RoleNameAr
+        )).ToList();
+
+        return ApiResponse<List<RoleDto>>.SuccessResponse(result, "Roles retrieved successfully.", "تم استرجاع الأدوار بنجاح.");
+    }
+
+    
+    public async Task<ApiResponse<List<PermissionDto>>> GetAvailablePermissionsAsync(int currentUserId, int? roleId, CancellationToken cancellationToken = default)
+    {
+        var (caller, error) = await GetCurrentUserAsync<List<PermissionDto>>(currentUserId, cancellationToken);
+        if (error != null) return error;
+
+        // التعديل هون: إذا ما انبعت roleId أو كان اليوزر هو أدمن بيت الأردن، رجع كل صلاحيات النظام الفعالة مرتبة
+        if (!roleId.HasValue || caller!.RoleId == BaytAlUrdonRoleId)
+        {
+            var allPermissions = await _unitOfWork.Permissions.GetAllAsync(cancellationToken);
+            var activePermissions = allPermissions
+                .Where(p => p.IsActive)
+                .Select(MapPermission)
+                .OrderBy(p => p.Module)
+                .ThenBy(p => p.PermissionNameEn)
+                .ToList();
+
+            return ApiResponse<List<PermissionDto>>.SuccessResponse(activePermissions, "Permissions retrieved successfully.", "تم استرجاع الصلاحيات بنجاح.");
+        }
+
+        var role = await _unitOfWork.Roles.GetWithPermissionsAsync(roleId.Value, cancellationToken);
+        if (role == null)
+            return ApiResponse<List<PermissionDto>>.FailureResponse("Role was not found.", "الدور غير موجود.");
+
+        var delegatableIds = GetCallerDelegatablePermissionIds(caller!, role);
+        var delegatablePermissions = caller!.UserPermissions
             .Where(up => up.IsActive && up.Permission.IsActive && delegatableIds.Contains(up.PermissionId))
             .Select(up => up.Permission)
             .Concat(caller.UserGroups
@@ -161,7 +225,7 @@ public class UserManagementService : IUserManagementService
                 .Where(gp => gp.IsActive && gp.Permission.IsActive && delegatableIds.Contains(gp.PermissionId))
                 .Select(gp => gp.Permission));
 
-        return role.RolePermissions
+        var result = role.RolePermissions
             .Where(rp => rp.IsActive && rp.Permission.IsActive)
             .Select(rp => rp.Permission)
             .Concat(delegatablePermissions)
@@ -170,16 +234,28 @@ public class UserManagementService : IUserManagementService
             .OrderBy(p => p.Module)
             .ThenBy(p => p.PermissionNameEn)
             .ToList();
+
+        return ApiResponse<List<PermissionDto>>.SuccessResponse(result, "Available permissions retrieved successfully.", "تم استرجاع الصلاحيات المتاحة بنجاح.");
     }
 
-    public async Task<PermissionMatrixDto> GetPermissionMatrixAsync(int currentUserId, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<PermissionMatrixDto>> GetPermissionMatrixAsync(int currentUserId, CancellationToken cancellationToken = default)
     {
-        await GetCurrentUserAsync(currentUserId, cancellationToken);
+        var (currentUser, error) = await GetCurrentUserAsync<PermissionMatrixDto>(currentUserId, cancellationToken);
+        if (error != null) return error;
 
         var permissions = await _unitOfWork.Permissions.GetAllAsync(cancellationToken);
         var roles = await _unitOfWork.Roles.GetAllWithPermissionsAsync(cancellationToken);
 
-        return new PermissionMatrixDto(
+        if (currentUser!.EntityType is EntityType.ProductionCompany or EntityType.Association)
+        {
+            roles = roles.Where(role =>
+                role.TargetEntityType == currentUser.EntityType ||
+                (currentUser.EntityType == EntityType.ProductionCompany && role.RoleId == ProductionHouseRoleId) ||
+                (currentUser.EntityType == EntityType.Association && role.RoleId == AssociationRoleId)
+            ).ToList();
+        }
+
+        var matrix = new PermissionMatrixDto(
             permissions.Select(MapPermission).ToList(),
             roles.Select(role => new PermissionMatrixRoleDto(
                 role.RoleId,
@@ -192,39 +268,49 @@ public class UserManagementService : IUserManagementService
                     .OrderBy(id => id)
                     .ToList()))
                 .ToList());
+
+        return ApiResponse<PermissionMatrixDto>.SuccessResponse(matrix, "Permission matrix retrieved successfully.", "تم استرجاع مصفوفة الصلاحيات بنجاح.");
     }
 
-    public async Task<List<GroupSummaryDto>> GetGroupsAsync(int currentUserId, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<List<GroupSummaryDto>>> GetGroupsAsync(int currentUserId, CancellationToken cancellationToken = default)
     {
-        var currentUser = await GetCurrentUserAsync(currentUserId, cancellationToken);
-        var groups = await _unitOfWork.Groups.GetByEntityAsync(currentUser.EntityType, currentUser.EntityId, cancellationToken);
+        var (currentUser, error) = await GetCurrentUserAsync<List<GroupSummaryDto>>(currentUserId, cancellationToken);
+        if (error != null) return error;
 
-        return groups.Select(MapGroupSummary).ToList();
+        var groups = await _unitOfWork.Groups.GetByEntityAsync(currentUser!.EntityType, currentUser.EntityId, cancellationToken);
+
+        return ApiResponse<List<GroupSummaryDto>>.SuccessResponse(groups.Select(MapGroupSummary).ToList(), "Groups retrieved successfully.", "تم استرجاع المجموعات بنجاح.");
     }
 
-    public async Task<GroupDetailsDto> GetGroupAsync(int currentUserId, int groupId, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<GroupDetailsDto>> GetGroupAsync(int currentUserId, int groupId, CancellationToken cancellationToken = default)
     {
-        var currentUser = await GetCurrentUserAsync(currentUserId, cancellationToken);
-        var group = await GetScopedGroupAsync(groupId, currentUser, cancellationToken);
+        var (currentUser, error) = await GetCurrentUserAsync<GroupDetailsDto>(currentUserId, cancellationToken);
+        if (error != null) return error;
 
-        return MapGroupDetails(group);
+        var (group, groupError) = await GetScopedGroupAsync<GroupDetailsDto>(groupId, currentUser!, cancellationToken);
+        if (groupError != null) return groupError;
+
+        return ApiResponse<GroupDetailsDto>.SuccessResponse(MapGroupDetails(group!), "Group retrieved successfully.", "تم استرجاع المجموعة بنجاح.");
     }
 
-    public async Task<GroupDetailsDto> CreateGroupAsync(int currentUserId, CreateGroupDto dto, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<GroupDetailsDto>> CreateGroupAsync(int currentUserId, CreateGroupDto dto, CancellationToken cancellationToken = default)
     {
-        var currentUser = await GetCurrentUserAsync(currentUserId, cancellationToken);
-        ValidateGroupPayload(dto.GroupNameEn, dto.GroupNameAr);
+        var (currentUser, error) = await GetCurrentUserAsync<GroupDetailsDto>(currentUserId, cancellationToken);
+        if (error != null) return error;
 
-        if (await _unitOfWork.Groups.NameExistsInEntityAsync(currentUser.EntityType, currentUser.EntityId, dto.GroupNameEn, dto.GroupNameAr, null, cancellationToken))
-        {
-            throw new InvalidOperationException("Group English or Arabic name already exists in this entity.");
-        }
+        var valError = ValidateGroupPayload<GroupDetailsDto>(dto.GroupNameEn, dto.GroupNameAr);
+        if (valError != null) return valError;
+
+        if (await _unitOfWork.Groups.NameExistsInEntityAsync(currentUser!.EntityType, currentUser.EntityId, dto.GroupNameEn, dto.GroupNameAr, null, cancellationToken))
+            return ApiResponse<GroupDetailsDto>.FailureResponse("Group English or Arabic name already exists in this entity.", "اسم المجموعة مكرر في هذا الكيان.");
 
         var permissionIds = NormalizeIds(dto.PermissionIds);
-        await EnsurePermissionsExistAsync(permissionIds, cancellationToken);
+        var permError = await EnsurePermissionsExistAsync<GroupDetailsDto>(permissionIds, cancellationToken);
+        if (permError != null) return permError;
 
         var userIds = NormalizeIds(dto.UserIds);
-        var users = await EnsureUsersInEntityAsync(userIds, currentUser, cancellationToken);
+        var (users, userError) = await EnsureUsersInEntityAsync<GroupDetailsDto>(userIds, currentUser, cancellationToken);
+        if (userError != null) return userError;
 
         var group = new Group
         {
@@ -236,14 +322,10 @@ public class UserManagementService : IUserManagementService
         };
 
         foreach (var permissionId in permissionIds)
-        {
             group.GroupPermissions.Add(new GroupPermission { PermissionId = permissionId, IsActive = true });
-        }
 
-        foreach (var user in users)
-        {
+        foreach (var user in users!)
             group.UserGroups.Add(new UserGroup { UserId = user.UserId });
-        }
 
         await _unitOfWork.Groups.AddAsync(group, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -251,90 +333,102 @@ public class UserManagementService : IUserManagementService
         return await GetGroupAsync(currentUserId, group.GroupId, cancellationToken);
     }
 
-    public async Task<GroupDetailsDto> UpdateGroupAsync(int currentUserId, int groupId, UpdateGroupDto dto, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<GroupDetailsDto>> UpdateGroupAsync(int currentUserId, int groupId, UpdateGroupDto dto, CancellationToken cancellationToken = default)
     {
-        var currentUser = await GetCurrentUserAsync(currentUserId, cancellationToken);
-        var group = await GetScopedGroupAsync(groupId, currentUser, cancellationToken);
-        ValidateGroupPayload(dto.GroupNameEn, dto.GroupNameAr);
+        var (currentUser, error) = await GetCurrentUserAsync<GroupDetailsDto>(currentUserId, cancellationToken);
+        if (error != null) return error;
 
-        if (await _unitOfWork.Groups.NameExistsInEntityAsync(currentUser.EntityType, currentUser.EntityId, dto.GroupNameEn, dto.GroupNameAr, groupId, cancellationToken))
-        {
-            throw new InvalidOperationException("Group English or Arabic name already exists in this entity.");
-        }
+        var (group, groupError) = await GetScopedGroupAsync<GroupDetailsDto>(groupId, currentUser!, cancellationToken);
+        if (groupError != null) return groupError;
+
+        var valError = ValidateGroupPayload<GroupDetailsDto>(dto.GroupNameEn, dto.GroupNameAr);
+        if (valError != null) return valError;
+
+        if (await _unitOfWork.Groups.NameExistsInEntityAsync(currentUser!.EntityType, currentUser.EntityId, dto.GroupNameEn, dto.GroupNameAr, groupId, cancellationToken))
+            return ApiResponse<GroupDetailsDto>.FailureResponse("Group English or Arabic name already exists in this entity.", "اسم المجموعة مكرر في هذا الكيان.");
 
         var permissionIds = NormalizeIds(dto.PermissionIds);
-        await EnsurePermissionsExistAsync(permissionIds, cancellationToken);
+        var permError = await EnsurePermissionsExistAsync<GroupDetailsDto>(permissionIds, cancellationToken);
+        if (permError != null) return permError;
 
         var userIds = NormalizeIds(dto.UserIds);
-        var users = await EnsureUsersInEntityAsync(userIds, currentUser, cancellationToken);
+        var (users, userError) = await EnsureUsersInEntityAsync<GroupDetailsDto>(userIds, currentUser, cancellationToken);
+        if (userError != null) return userError;
 
-        group.GroupNameEn = dto.GroupNameEn.Trim();
+        group!.GroupNameEn = dto.GroupNameEn.Trim();
         group.GroupNameAr = dto.GroupNameAr.Trim();
         SyncGroupPermissions(group, permissionIds);
-        SyncGroupUsers(group, users.Select(u => u.UserId).ToList());
+        SyncGroupUsers(group, users!.Select(u => u.UserId).ToList());
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await GetGroupAsync(currentUserId, groupId, cancellationToken);
     }
 
-    public async Task DeleteGroupAsync(int currentUserId, int groupId, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<object?>> DeleteGroupAsync(int currentUserId, int groupId, CancellationToken cancellationToken = default)
     {
-        var currentUser = await GetCurrentUserAsync(currentUserId, cancellationToken);
-        var group = await GetScopedGroupAsync(groupId, currentUser, cancellationToken);
+        var (currentUser, error) = await GetCurrentUserAsync<object?>(currentUserId, cancellationToken);
+        if (error != null) return error;
 
-        var permissionIds = group.GroupPermissions
-            .Where(gp => gp.IsActive && gp.Permission.IsActive)
+        var (group, groupError) = await GetScopedGroupAsync<object?>(groupId, currentUser!, cancellationToken);
+        if (groupError != null) return groupError;
+
+        var permissionIds = group!.GroupPermissions
+            .Where(gp => gp.IsActive && (gp.Permission == null || gp.Permission.IsActive))
             .Select(gp => gp.PermissionId)
             .Distinct()
             .ToList();
 
-        foreach (var userGroup in group.UserGroups)
+        if (permissionIds.Any() && group.UserGroups != null)
         {
-            var existingDirectPermissionIds = userGroup.User.UserPermissions
-                .Where(up => up.IsActive)
-                .Select(up => up.PermissionId)
-                .ToHashSet();
-
-            foreach (var permissionId in permissionIds)
+            foreach (var userGroup in group.UserGroups)
             {
-                if (!existingDirectPermissionIds.Contains(permissionId))
+                var user = userGroup.User;
+                if (user == null) continue;
+
+                var existingDirectPermissionIds = user.UserPermissions
+                    .Where(up => up.IsActive)
+                    .Select(up => up.PermissionId)
+                    .ToHashSet();
+
+                foreach (var permissionId in permissionIds)
                 {
-                    userGroup.User.UserPermissions.Add(new UserPermission
+                    if (existingDirectPermissionIds.Add(permissionId))
                     {
-                        UserId = userGroup.UserId,
-                        PermissionId = permissionId,
-                        IsActive = true
-                    });
+                        user.UserPermissions.Add(new UserPermission
+                        {
+                            UserId = user.UserId,
+                            PermissionId = permissionId,
+                            IsActive = true
+                        });
+                    }
                 }
             }
         }
 
         _unitOfWork.Groups.Remove(group);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return ApiResponse<object?>.SuccessResponse(null, "Group deleted successfully.", "تم حذف المجموعة بنجاح.");
     }
 
-    public async Task<UserDetailsDto> UpdateDirectPermissionsAsync(int currentUserId, int userId, UpdateUserPermissionsDto dto, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<UserDetailsDto>> UpdateDirectPermissionsAsync(int currentUserId, int userId, UpdateUserPermissionsDto dto, CancellationToken cancellationToken = default)
     {
-        // MAYD-34 verification gap fix (2026-09-24): UserManagementModule.md Phase 5.4 ("Prevent
-        // Self Permission Modification") is a real, documented business rule — a User cannot modify
-        // their own permissions even while holding AssignPermissions/Manage Users, and this must be
-        // rejected here, not just hidden behind a disabled button (same "check the service layer,
-        // not just the route guard" precedent as GetScopedUserAsync's entity check below). No
-        // equivalent rule exists for groups (Phase 5.4 is titled "Self PERMISSION Modification" and
-        // Part 10's own test checklist only lists it for permissions) — UpdateGroupsAsync is
-        // deliberately left untouched.
         if (currentUserId == userId)
-        {
-            throw new UnauthorizedAccessException("You cannot modify your own permissions.");
-        }
+            return ApiResponse<UserDetailsDto>.FailureResponse("You cannot modify your own permissions.", "لا يمكنك تعديل صلاحياتك الخاصة.");
 
-        var currentUser = await GetCurrentUserAsync(currentUserId, cancellationToken);
-        var user = await GetScopedUserAsync(userId, currentUser, cancellationToken);
+        var (currentUser, error) = await GetCurrentUserAsync<UserDetailsDto>(currentUserId, cancellationToken);
+        if (error != null) return error;
+
+        var (user, scopeError) = await GetScopedUserAsync<UserDetailsDto>(userId, currentUser!, cancellationToken);
+        if (scopeError != null) return scopeError;
 
         var permissionIds = NormalizeIds(dto.PermissionIds);
-        await EnsurePermissionsExistAsync(permissionIds, cancellationToken);
-        await EnsurePermissionsAllowedForRoleAsync(currentUser, user.RoleId, permissionIds, cancellationToken);
+        var permError = await EnsurePermissionsExistAsync<UserDetailsDto>(permissionIds, cancellationToken);
+        if (permError != null) return permError;
+
+        var authError = await EnsurePermissionsAllowedForRoleAsync<UserDetailsDto>(currentUser!, user!.RoleId, permissionIds, cancellationToken);
+        if (authError != null) return authError;
 
         SyncUserPermissions(user, permissionIds);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -342,135 +436,74 @@ public class UserManagementService : IUserManagementService
         return await GetUserDetailsAsync(currentUserId, userId, cancellationToken);
     }
 
-    public async Task<UserDetailsDto> UpdateGroupsAsync(int currentUserId, int userId, UpdateUserGroupsDto dto, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<UserDetailsDto>> UpdateGroupsAsync(int currentUserId, int userId, UpdateUserGroupsDto dto, CancellationToken cancellationToken = default)
     {
-        var currentUser = await GetCurrentUserAsync(currentUserId, cancellationToken);
-        var user = await GetScopedUserAsync(userId, currentUser, cancellationToken);
+        var (currentUser, error) = await GetCurrentUserAsync<UserDetailsDto>(currentUserId, cancellationToken);
+        if (error != null) return error;
+
+        var (user, scopeError) = await GetScopedUserAsync<UserDetailsDto>(userId, currentUser!, cancellationToken);
+        if (scopeError != null) return scopeError;
 
         var groupIds = NormalizeIds(dto.GroupIds);
-        await EnsureGroupsInEntityAsync(groupIds, currentUser.EntityType, currentUser.EntityId, cancellationToken);
+        var (_, groupError) = await EnsureGroupsInEntityAsync<UserDetailsDto>(groupIds, currentUser!.EntityType, currentUser.EntityId, cancellationToken);
+        if (groupError != null) return groupError;
 
-        SyncUserGroups(user, groupIds);
+        SyncUserGroups(user!, groupIds);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await GetUserDetailsAsync(currentUserId, userId, cancellationToken);
     }
 
-    public async Task<List<PermissionDto>> GetEffectivePermissionsAsync(int currentUserId, int userId, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<List<PermissionDto>>> GetEffectivePermissionsAsync(int currentUserId, int userId, CancellationToken cancellationToken = default)
     {
-        var user = await GetUserDetailsAsync(currentUserId, userId, cancellationToken);
+        var response = await GetUserDetailsAsync(currentUserId, userId, cancellationToken);
+        if (!response.Success)
+            return ApiResponse<List<PermissionDto>>.FailureResponse(response.MessageEn, response.MessageAr);
 
-        return user.EffectivePermissions;
+        return ApiResponse<List<PermissionDto>>.SuccessResponse(response.Data!.EffectivePermissions, "Permissions retrieved successfully.", "تم استرجاع الصلاحيات بنجاح.");
     }
 
-    // Activate/Deactivate User (UserManagementModule.md Phase 4.3): "Avoid hard delete unless
-    // explicitly required by the business" — this only ever flips IsActive, never touches
-    // IsDeleted/DeletedAt. No MAYD subtask covers this; built from that doc plus the two closest
-    // real precedents already in this class:
-    //   - Self-check FIRST, before any repository round trip, mirroring
-    //     UpdateDirectPermissionsAsync's own "cannot modify your own permissions" rule (Phase 5.4) —
-    //     a user cannot deactivate (or reactivate) their own account through this endpoint either,
-    //     rejected here regardless of dto.IsActive's direction, not just for the downgrade case,
-    //     since a deactivated caller could never reach this endpoint to reactivate themselves anyway.
-    //   - Strict same-entity scoping via GetScopedUserAsync — the exact same write-path rule
-    //     UpdateDirectPermissionsAsync/UpdateGroupsAsync already use, deliberately NOT given the
-    //     Bayt-AlUrdon/ASEZA cross-entity VIEW override (see that method's own comment on why writes
-    //     stay strict).
-    // New here: an explicit Manage Users (PermissionId 3) gate. Every other write path in this class
-    // only relies on [Authorize] + entity-scoping with no permission-bit check of its own — but this
-    // ticket asked specifically for one, and ManageUsersPermissionId's one existing real usage
-    // (GetUsersPagedAsync's read gate) is the only established pattern for checking it, so that's
-    // what this reuses rather than inventing a different shape. GetWithPermissionsAsync (not
-    // GetCurrentUserAsync's GetDetailsAsync) is required here for the same reason
-    // GetUsersPagedAsync/RefreshTokenAsync already use it: GetEffectivePermissionIds reads
-    // user.Role.RolePermissions, which GetDetailsAsync never loads.
-    public async Task<UserDetailsDto> UpdateUserStatusAsync(int currentUserId, int userId, UpdateUserStatusDto dto, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<UserDetailsDto>> UpdateUserStatusAsync(int currentUserId, int userId, UpdateUserStatusDto dto, CancellationToken cancellationToken = default)
     {
         if (currentUserId == userId)
-        {
-            throw new UnauthorizedAccessException("You cannot change your own account status.");
-        }
+            return ApiResponse<UserDetailsDto>.FailureResponse("You cannot change your own account status.", "لا يمكنك تغيير حالة حسابك الخاص.");
 
-        var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken)
-            ?? throw new UnauthorizedAccessException("Current user was not found.");
+        var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken);
+        if (currentUser == null)
+            return ApiResponse<UserDetailsDto>.FailureResponse("Current user was not found.", "المستخدم الحالي غير موجود.");
 
         if (!currentUser.IsActive)
-        {
-            throw new UnauthorizedAccessException("Current user is inactive.");
-        }
+            return ApiResponse<UserDetailsDto>.FailureResponse("Current user is inactive.", "المستخدم الحالي غير فعّال.");
 
-        // ManageUsersPermissionId (Bayt-AlUrdon/ASEZA today, though GetScopedUserAsync below still
-        // confines them to their OWN entity — neither holds an Association's or ProductionCompany's
-        // EntityType) OR the narrower ManageAssociationUsersPermissionId (the Association role's own
-        // self-service grant) OR ManageProductionCompanyUsersPermissionId (the ProductionHouse role's
-        // own self-service grant, same shape). Deliberately NOT extended on
-        // UpdateDirectPermissionsAsync/UpdateGroupsAsync — this permission only ever covers
-        // activate/deactivate.
         if (!GetEffectivePermissionIds(currentUser).Overlaps(new[] { ManageUsersPermissionId, ManageAssociationUsersPermissionId, ManageProductionCompanyUsersPermissionId }))
-        {
-            throw new UnauthorizedAccessException("Caller does not hold the Manage Users permission.");
-        }
+            return ApiResponse<UserDetailsDto>.FailureResponse("Caller does not hold the Manage Users permission.", "لا تملك صلاحية إدارة المستخدمين.");
 
-        var user = await GetScopedUserAsync(userId, currentUser, cancellationToken);
+        var (user, scopeError) = await GetScopedUserAsync<UserDetailsDto>(userId, currentUser, cancellationToken);
+        if (scopeError != null) return scopeError;
 
-        user.IsActive = dto.IsActive;
+        user!.IsActive = dto.IsActive;
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return await GetUserDetailsAsync(currentUserId, userId, cancellationToken);
     }
 
-    // MAYD-37 (2026-09-24): now fetches via GetDetailsAsync instead of the bare GetByIdAsync, so
-    // UserPermissions/UserGroups(.Group.GroupPermissions) are loaded for every caller of this
-    // method — needed by GetCallerDelegatablePermissionIds below (CreateUserAsync,
-    // UpdateDirectPermissionsAsync, GetAvailablePermissionsAsync all call this for the CALLER, not
-    // just the target). Confirmed safe for every existing caller: every one of them only ever reads
-    // currentUser's scalar fields (EntityType/EntityId/RoleId) or passes it to
-    // GetEffectivePermissionIds — never relies on Role.RolePermissions being loaded from this
-    // specific fetch (GetDetailsAsync doesn't include that; GetUsersPagedAsync's own
-    // GetEffectivePermissionIds(currentUser) call uses a separate GetWithPermissionsAsync fetch that
-    // does), and none of them mutate-and-save currentUser (always read-only here), so loading extra
-    // navigation properties changes nothing about existing behavior.
-    private async Task<User> GetCurrentUserAsync(int currentUserId, CancellationToken cancellationToken)
+    #region Helpers (Refactored to No-Exceptions)
+
+    private async Task<(User? User, ApiResponse<T>? Error)> GetCurrentUserAsync<T>(int currentUserId, CancellationToken cancellationToken)
     {
-        var user = await _unitOfWork.Users.GetDetailsAsync(currentUserId, cancellationToken)
-            ?? throw new UnauthorizedAccessException("Current user was not found.");
+        var user = await _unitOfWork.Users.GetDetailsAsync(currentUserId, cancellationToken);
+        if (user == null)
+            return (null, ApiResponse<T>.FailureResponse("Current user was not found.", "المستخدم الحالي غير موجود."));
 
         if (!user.IsActive)
-        {
-            throw new UnauthorizedAccessException("Current user is inactive.");
-        }
+            return (null, ApiResponse<T>.FailureResponse("Current user is inactive.", "المستخدم الحالي غير فعّال."));
 
-        return user;
+        return (user, null);
     }
 
-    // MAYD-37 (2026-09-24, product-owner-confirmed): the necessary completion of "ASEZA Admin has
-    // all view permissions by default; a regular ASEZA user gets a custom subset assigned by the
-    // Admin, reusing the same Groups and Permissions pattern as MAYD-2" — confirmed against the real
-    // code (not assumed) that this doesn't work without it. The ASEZA admin's new page-view
-    // permissions are granted as individual UserPermissions, NOT via ASEZA's own RolePermissions
-    // (see RolePermissionSeedConfiguration.cs's own comment on why a role-level grant would defeat
-    // "custom subset" entirely). But EnsurePermissionsAllowedForRole below only ever allowed
-    // assigning a permission that's in the TARGET user's OWN ROLE's RolePermissions catalog (Phase
-    // 5.5, "Prevent Permission Escalation" — UserManagementModule.md) — meaning, unmodified, the
-    // admin could never actually hand these permissions to a fellow ASEZA user via the existing,
-    // already-verified User Details "Edit Permissions" flow (MAYD-34): every attempt would 400 with
-    // "not available for the selected role", and the Permission Picker wouldn't even offer them
-    // (GetAvailablePermissionsAsync's roleId branch has the exact same role-catalog-only shape).
-    //
-    // Resolution: a caller may additionally delegate any permission they PERSONALLY hold (direct or
-    // via their own group), but ONLY when assigning to a user of their OWN SAME role — this is
-    // strictly a widening, never a narrowing (nothing granted that the caller doesn't already
-    // themselves hold), and the same-role restriction means it can never fire for a cross-role case
-    // like Bayt-AlUrdon creating an Association user (MAYD-1) — that path is completely unaffected,
-    // confirmed by this method returning an empty set whenever roles differ. Applied to
-    // CreateUserAsync, UpdateDirectPermissionsAsync, and GetAvailablePermissionsAsync alike, so the
-    // Permission Picker's displayed catalog and the actual backend validation never disagree.
     private static HashSet<int> GetCallerDelegatablePermissionIds(User caller, Role targetRole)
     {
-        if (caller.RoleId != targetRole.RoleId)
-        {
-            return new HashSet<int>();
-        }
+        if (caller.RoleId != targetRole.RoleId) return new HashSet<int>();
 
         var directIds = caller.UserPermissions
             .Where(up => up.IsActive && up.Permission.IsActive)
@@ -485,224 +518,153 @@ public class UserManagementService : IUserManagementService
         return directIds.Concat(groupIds).ToHashSet();
     }
 
-    // Matches PermissionSeedConfiguration.cs ids 1/3.
     private const int ViewUsersPermissionId = 1;
     private const int ManageUsersPermissionId = 3;
-
-    // Matches PermissionSeedConfiguration.cs id 39 — the narrow, self-service activate/deactivate
-    // grant for the Association role (see that seed's own comment). Only ever OR'd alongside
-    // ManageUsersPermissionId in UpdateUserStatusAsync below, same "specific permission OR the
-    // broader one" shape AssociationService.GetAuthorizedUserAsync already uses — this does NOT
-    // widen UpdateDirectPermissionsAsync/UpdateGroupsAsync, which stay ManageUsersPermissionId-only.
     private const int ManageAssociationUsersPermissionId = 39;
-
-    // Matches PermissionSeedConfiguration.cs id 40 — the ProductionHouse role's own self-service
-    // activate/deactivate grant, same shape and same reasoning as ManageAssociationUsersPermissionId
-    // above (Phase 1 of the ProductionHouse self-service user-management gap).
     private const int ManageProductionCompanyUsersPermissionId = 40;
-
-    // Matches RoleSeedConfiguration.cs / RolePermissionSeedConfiguration.cs's own RoleId constants.
     private const int BaytAlUrdonRoleId = 1;
     private const int AsezaRoleId = 2;
     private const int ProductionHouseRoleId = 3;
     private const int AssociationRoleId = 4;
 
-    // MAYD-1 real fix (2026-09-24): RoleId and EntityType are two separate enumerations in this
-    // codebase (RoleSeedConfiguration's ids don't line up with EntityType's own numeric values), and
-    // until now nothing needed to convert one into the other — every created user's EntityType/
-    // EntityId simply came from the caller's own session. Bayt-AlUrdon creating a user under a role
-    // that ISN'T its own now needs this mapping for real. EntityId is always 1 for the three
-    // single-instance-so-far entity types (Aseza/ProductionCompany/Association) — the same
-    // placeholder convention every seeded test account for those entities already uses in this Dev
-    // DB (see UserSeedConfiguration.cs's own comments: zero real Association/ProductionCompany rows
-    // exist yet, a separate already-flagged gap), since there is no real entity-instance picker (or
-    // data to pick from) for this ticket to build.
-    // Association Management, Phase 2b (2026-09-26): the real gap this closes wasn't "AssociationUsers
-    // linking" (that screen — workforcment's AssociationUsersComponent — was already deprecated by
-    // its own author, MAYD-21 scope explicitly excludes it) but this: every Association-role user
-    // ever created — every seed row, and every cross-entity create through this exact method — has
-    // landed on EntityId = 1, a placeholder, because until Phase 2a there were no real Association
-    // rows to reference (see UserSeedConfiguration.cs's own comments). The one path that already did
-    // this right, EntityOnboardingService's admin-creation flow, sets EntityId = association.Id
-    // because it always has a real, already-resolved Association in hand — this brings the SAME
-    // real-id behavior to this method's own cross-entity Association-role branch, opt-in via
-    // requestedEntityId so every other caller (every non-Association role, and any Association-role
-    // create that doesn't pass it) is completely unaffected.
-    //
-    // requestedEntityId is validated against a real, non-deleted Association (GetByIdAsync is
-    // already soft-delete-filtered — same pattern AssociationService.EnsureCityExistsAsync uses for
-    // its own City FK) rather than trusted blindly. BaytAlUrdon/Aseza/ProductionHouse ignore it
-    // entirely and keep the exact placeholder-1 convention — there's no real multi-instance data for
-    // those entity types yet to make an override meaningful, and building one now would be guessing
-    // ahead of an actual need (see this phase's own completion report).
-    private async Task<(EntityType EntityType, int EntityId)> ResolveEntityForRoleAsync(int roleId, int? requestedEntityId, CancellationToken cancellationToken)
+    private async Task<(EntityType? EntityType, int? EntityId, ApiResponse<T>? Error)> ResolveEntityForRoleAsync<T>(
+      int roleId, int? requestedEntityId, CancellationToken cancellationToken)
     {
-        if (roleId == AssociationRoleId && requestedEntityId.HasValue)
-        {
-            var association = await _unitOfWork.Associations.GetByIdAsync(requestedEntityId.Value, cancellationToken)
-                ?? throw new KeyNotFoundException("Association was not found.");
 
-            return (EntityType.Association, association.Id);
+        if (roleId == SystemRoles.BaytAlUrdon) return (EntityType.BaytAlUrdon, 1, null);
+        if (roleId == SystemRoles.Aseza) return (EntityType.Aseza, 1, null);
+
+        var associationRoles = new[] { SystemRoles.Association, SystemRoles.WorkerManager, SystemRoles.Worker, SystemRoles.AttendanceOfficer };
+        if (associationRoles.Contains(roleId))
+        {
+            if (!requestedEntityId.HasValue || requestedEntityId.Value <= 0)
+                return (null, null, ApiResponse<T>.FailureResponse("EntityId is required for this role.", "يجب إرسال رقم الجهة (الجمعية) لهذا الدور."));
+
+            var association = await _unitOfWork.Associations.GetByIdAsync(requestedEntityId.Value, cancellationToken);
+            if (association == null)
+                return (null, null, ApiResponse<T>.FailureResponse("Association was not found.", "الجمعية غير موجودة."));
+
+            return (EntityType.Association, association.Id, null);
         }
 
-        return roleId switch
+        var productionRoles = new[] { SystemRoles.ProductionHouse, SystemRoles.Producer, SystemRoles.LocationManager };
+        if (productionRoles.Contains(roleId))
         {
-            BaytAlUrdonRoleId => (EntityType.BaytAlUrdon, 1),
-            AsezaRoleId => (EntityType.Aseza, 1),
-            ProductionHouseRoleId => (EntityType.ProductionCompany, 1),
-            AssociationRoleId => (EntityType.Association, 1),
-            _ => throw new KeyNotFoundException("Role was not found.")
-        };
+            if (!requestedEntityId.HasValue || requestedEntityId.Value <= 0)
+                return (null, null, ApiResponse<T>.FailureResponse("EntityId is required for this role.", "يجب إرسال رقم الجهة (شركة الإنتاج) لهذا الدور."));
+
+            var productionCompany = await _unitOfWork.ProductionCompanies.GetByIdAsync(requestedEntityId.Value, cancellationToken);
+            if (productionCompany == null)
+                return (null, null, ApiResponse<T>.FailureResponse("Production Company was not found.", "شركة الإنتاج غير موجودة."));
+
+            return (EntityType.ProductionCompany, productionCompany.Id, null);
+        }
+
+        return (null, null, ApiResponse<T>.FailureResponse("Role was not found or is unsupported.", "الدور غير موجود أو غير مدعوم."));
     }
 
-    // MAYD-20: Business Rule (MAYD-1) — only Bayt-AlUrdon and ASEZA may view an entity other than
-    // their own; every other role is rejected for anything but its own entity. Requesting no
-    // override (both null) always resolves to the caller's own entity, so existing callers of the
-    // paginated endpoint that never pass these params keep the exact same "current entity" behavior
-    // GetUsersAsync above already has.
-    private static (EntityType EntityType, int EntityId) ResolveTargetEntity(User currentUser, EntityType? entityType, int? entityId)
+    private static (EntityType? EntityType, int? EntityId, ApiResponse<T>? Error) ResolveTargetEntity<T>(User currentUser, EntityType? entityType, int? entityId)
     {
         if (entityType is null && entityId is null)
-        {
-            return (currentUser.EntityType, currentUser.EntityId);
-        }
+            return (currentUser.EntityType, currentUser.EntityId, null);
 
         if (entityType is null || entityId is null)
-        {
-            throw new InvalidOperationException("entityType and entityId must both be provided together.");
-        }
+            return (null, null, ApiResponse<T>.FailureResponse("entityType and entityId must both be provided together.", "يجب إرسال نوع الكيان ورقمه معاً."));
 
         var isOwnEntity = entityType == currentUser.EntityType && entityId == currentUser.EntityId;
-
         if (!isOwnEntity && !CanViewOtherEntities(currentUser))
-        {
-            throw new UnauthorizedAccessException("Cannot view users outside your own entity.");
-        }
+            return (null, null, ApiResponse<T>.FailureResponse("Cannot view users outside your own entity.", "لا يمكنك عرض مستخدمين خارج كيانك."));
 
-        return (entityType.Value, entityId.Value);
+        return (entityType.Value, entityId.Value, null);
     }
 
-    // Same shape as EntityOnboardingService.GetEffectivePermissionIds — deliberately duplicated
-    // rather than shared, matching this codebase's established per-service convention (see that
-    // method's own history/comment on why).
     private static HashSet<int> GetEffectivePermissionIds(User user)
     {
-        var rolePermissionIds = user.Role.RolePermissions
-            .Where(rp => rp.IsActive && rp.Permission.IsActive)
-            .Select(rp => rp.PermissionId);
+        var rolePermissionIds = user.Role?.RolePermissions?
+        .Where(rp => rp.IsActive && (rp.Permission == null || rp.Permission.IsActive))
+        .Select(rp => rp.PermissionId) ?? Enumerable.Empty<int>();
 
-        var directPermissionIds = user.UserPermissions
-            .Where(up => up.IsActive && up.Permission.IsActive)
-            .Select(up => up.PermissionId);
+        var directPermissionIds = user.UserPermissions?
+            .Where(up => up.IsActive && (up.Permission == null || up.Permission.IsActive))
+            .Select(up => up.PermissionId) ?? Enumerable.Empty<int>();
 
-        var groupPermissionIds = user.UserGroups
-            .Where(ug => ug.Group.IsActive)
-            .SelectMany(ug => ug.Group.GroupPermissions)
-            .Where(gp => gp.IsActive && gp.Permission.IsActive)
-            .Select(gp => gp.PermissionId);
+        var groupPermissionIds = user.UserGroups?
+            .Where(ug => ug.Group != null && ug.Group.IsActive)
+            .SelectMany(ug => ug.Group.GroupPermissions ?? new List<GroupPermission>())
+            .Where(gp => gp.IsActive && (gp.Permission == null || gp.Permission.IsActive))
+            .Select(gp => gp.PermissionId) ?? Enumerable.Empty<int>();
 
         return rolePermissionIds.Concat(directPermissionIds).Concat(groupPermissionIds).ToHashSet();
     }
 
-    // MAYD-36 verification gap fix (2026-09-24): strictly same-entity, no override, for the two
-    // WRITE paths (UpdateDirectPermissionsAsync/UpdateGroupsAsync) — deliberately NOT given the
-    // Bayt-AlUrdon/ASEZA cross-entity override GetViewableUserAsync below has. Every real comment on
-    // this Business Rule (MAYD-1) found in this codebase — GetUsersPagedAsync's own header comment,
-    // ResolveTargetEntity below — only ever describes the override as a VIEW capability ("ASEZA's is
-    // explicitly read-only by the BR"); nothing documents a cross-entity MANAGE/edit capability for
-    // any role. Keeping writes strict-same-entity for everyone is the minimal, safest reading of the
-    // actual documented rule — it doesn't invent a broader "edit anywhere" capability nobody asked for.
-    private async Task<User> GetScopedUserAsync(int userId, User currentUser, CancellationToken cancellationToken)
+    private async Task<(User? User, ApiResponse<T>? Error)> GetScopedUserAsync<T>(int userId, User currentUser, CancellationToken cancellationToken)
     {
-        var user = await _unitOfWork.Users.GetDetailsAsync(userId, cancellationToken)
-            ?? throw new KeyNotFoundException("User was not found.");
+        var user = await _unitOfWork.Users.GetDetailsAsync(userId, cancellationToken);
+        if (user == null)
+            return (null, ApiResponse<T>.FailureResponse("User was not found.", "المستخدم غير موجود."));
 
-        if (user.EntityType != currentUser.EntityType || user.EntityId != currentUser.EntityId)
-        {
-            throw new UnauthorizedAccessException("Cannot manage users outside the current entity.");
-        }
+        if (currentUser.RoleId != 1 && (user.EntityType != currentUser.EntityType || user.EntityId != currentUser.EntityId))
+            return (null, ApiResponse<T>.FailureResponse("Cannot manage users outside the current entity.", "لا يمكنك إدارة مستخدمين خارج كيانك."));
 
-        return user;
+        return (user, null);
     }
 
-    // MAYD-36 verification gap fix (2026-09-24): a real scoping inconsistency this systematic sweep
-    // caught that the piecemeal per-ticket passes (MAYD-20, MAYD-25) each missed by only testing
-    // their own endpoint — GetUsersPagedAsync (the Users List) already lets Bayt-AlUrdon/ASEZA view a
-    // DIFFERENT entity's users via entityType/entityId (see ResolveTargetEntity below), but
-    // GetUserDetailsAsync (a single user's own Details page — the page that list's own rows link to)
-    // used to go through the strict same-entity-only GetScopedUserAsync above, with no such override
-    // at all. Confirmed live: as Ghaith, GET /api/users?entityType=ProductionCompany&entityId=1
-    // returned 200 with the real Production House user, but GET /api/users/{thatUserId}/details on
-    // that exact user 403'd — the List page could show a row you then couldn't click into. This is
-    // the read counterpart of ResolveTargetEntity, used ONLY by GetUserDetailsAsync (and, through it,
-    // GetEffectivePermissionsAsync) — never by the two write methods above, which keep the strict
-    // check on purpose (see GetScopedUserAsync's own comment on why).
-    private async Task<User> GetViewableUserAsync(int userId, User currentUser, CancellationToken cancellationToken)
+    private async Task<(User? User, ApiResponse<T>? Error)> GetViewableUserAsync<T>(int userId, User currentUser, CancellationToken cancellationToken)
     {
-        var user = await _unitOfWork.Users.GetDetailsAsync(userId, cancellationToken)
-            ?? throw new KeyNotFoundException("User was not found.");
+        var user = await _unitOfWork.Users.GetDetailsAsync(userId, cancellationToken);
+        if (user == null)
+            return (null, ApiResponse<T>.FailureResponse("User was not found.", "المستخدم غير موجود."));
 
         var isOwnEntity = user.EntityType == currentUser.EntityType && user.EntityId == currentUser.EntityId;
         if (!isOwnEntity && !CanViewOtherEntities(currentUser))
-        {
-            throw new UnauthorizedAccessException("Cannot view users outside your own entity.");
-        }
+            return (null, ApiResponse<T>.FailureResponse("Cannot view users outside your own entity.", "لا يمكنك عرض مستخدمين خارج كيانك."));
 
-        return user;
+        return (user, null);
     }
 
-    // Shared by GetViewableUserAsync above and ResolveTargetEntity below — extracted so both real
-    // cross-entity VIEW paths (single-user Details and the paginated List) apply the exact same
-    // Business Rule (MAYD-1) check rather than two copies that could silently drift apart.
     private static bool CanViewOtherEntities(User currentUser) =>
         currentUser.EntityType is EntityType.BaytAlUrdon or EntityType.Aseza;
 
-    private async Task<Group> GetScopedGroupAsync(int groupId, User currentUser, CancellationToken cancellationToken)
+    private async Task<(Group? Group, ApiResponse<T>? Error)> GetScopedGroupAsync<T>(int groupId, User currentUser, CancellationToken cancellationToken)
     {
-        var group = await _unitOfWork.Groups.GetDetailsAsync(groupId, cancellationToken)
-            ?? throw new KeyNotFoundException("Group was not found.");
+        var group = await _unitOfWork.Groups.GetDetailsAsync(groupId, cancellationToken);
+        if (group == null)
+            return (null, ApiResponse<T>.FailureResponse("Group was not found.", "المجموعة غير موجودة."));
 
         if (group.EntityType != currentUser.EntityType || group.EntityId != currentUser.EntityId)
-        {
-            throw new UnauthorizedAccessException("Cannot manage groups outside the current entity.");
-        }
+            return (null, ApiResponse<T>.FailureResponse("Cannot manage groups outside the current entity.", "لا يمكنك إدارة مجموعات خارج كيانك."));
 
-        return group;
+        return (group, null);
     }
 
-    private async Task EnsurePermissionsExistAsync(List<int> permissionIds, CancellationToken cancellationToken)
+    private async Task<ApiResponse<T>?> EnsurePermissionsExistAsync<T>(List<int> permissionIds, CancellationToken cancellationToken)
     {
-        if (permissionIds.Count == 0)
-        {
-            return;
-        }
+        if (permissionIds.Count == 0) return null;
 
         var permissions = await _unitOfWork.Permissions.GetByIdsAsync(permissionIds, cancellationToken);
         if (permissions.Count != permissionIds.Count)
-        {
-            throw new InvalidOperationException("One or more permissions were not found.");
-        }
+            return ApiResponse<T>.FailureResponse("One or more permissions were not found.", "إحدى الصلاحيات غير موجودة.");
+
+        return null;
     }
 
-    private async Task EnsurePermissionsAllowedForRoleAsync(User caller, int roleId, List<int> permissionIds, CancellationToken cancellationToken)
+    private async Task<ApiResponse<T>?> EnsurePermissionsAllowedForRoleAsync<T>(User caller, int roleId, List<int> permissionIds, CancellationToken cancellationToken)
     {
-        if (permissionIds.Count == 0)
-        {
-            return;
-        }
+        if (permissionIds.Count == 0) return null;
 
-        var role = await _unitOfWork.Roles.GetWithPermissionsAsync(roleId, cancellationToken)
-            ?? throw new KeyNotFoundException("Role was not found.");
+        // التعديل هون: أدمن بيت الأردن مسموح له يعطي أي صلاحية لأي يوزر حتى لو خارج نطاق دوره
+        if (caller.RoleId == BaytAlUrdonRoleId) return null;
 
-        EnsurePermissionsAllowedForRole(role, permissionIds, GetCallerDelegatablePermissionIds(caller, role));
+        var role = await _unitOfWork.Roles.GetWithPermissionsAsync(roleId, cancellationToken);
+        if (role == null)
+            return ApiResponse<T>.FailureResponse("Role was not found.", "الدور غير موجود.");
+
+        return EnsurePermissionsAllowedForRole<T>(role, permissionIds, GetCallerDelegatablePermissionIds(caller, role));
     }
 
-    private static void EnsurePermissionsAllowedForRole(Role role, List<int> permissionIds, HashSet<int>? callerDelegatableIds = null)
+    private static ApiResponse<T>? EnsurePermissionsAllowedForRole<T>(Role role, List<int> permissionIds, HashSet<int>? callerDelegatableIds = null)
     {
-        if (permissionIds.Count == 0)
-        {
-            return;
-        }
+        if (permissionIds.Count == 0) return null;
 
         var allowedPermissionIds = role.RolePermissions
             .Where(rp => rp.IsActive && rp.Permission.IsActive)
@@ -710,103 +672,69 @@ public class UserManagementService : IUserManagementService
             .ToHashSet();
 
         if (callerDelegatableIds is not null)
-        {
             allowedPermissionIds.UnionWith(callerDelegatableIds);
-        }
 
         if (permissionIds.Any(permissionId => !allowedPermissionIds.Contains(permissionId)))
-        {
-            throw new InvalidOperationException("One or more permissions are not available for the selected role.");
-        }
+            return ApiResponse<T>.FailureResponse("One or more permissions are not available for the selected role.", "بعض الصلاحيات غير متاحة لهذا الدور.");
+
+        return null;
     }
 
-    // MAYD-1 real fix (2026-09-24): now takes an explicit target entity rather than a User, so
-    // CreateUserAsync can scope group assignment to the NEW user's own target entity (which, for a
-    // Bayt-AlUrdon cross-entity create, differs from the caller's) while UpdateGroupsAsync keeps
-    // passing its own currentUser.EntityType/EntityId — same values, same behavior as before this
-    // refactor, unchanged.
-    private async Task<List<Group>> EnsureGroupsInEntityAsync(List<int> groupIds, EntityType entityType, int entityId, CancellationToken cancellationToken)
+    private async Task<(List<Group>? Groups, ApiResponse<T>? Error)> EnsureGroupsInEntityAsync<T>(List<int> groupIds, EntityType entityType, int entityId, CancellationToken cancellationToken)
     {
-        if (groupIds.Count == 0)
-        {
-            return new List<Group>();
-        }
+        if (groupIds.Count == 0) return (new List<Group>(), null);
 
         var groups = await _unitOfWork.Groups.GetByIdsInEntityAsync(groupIds, entityType, entityId, cancellationToken);
         if (groups.Count != groupIds.Count)
-        {
-            throw new UnauthorizedAccessException("One or more groups were not found in the current entity.");
-        }
+            return (null, ApiResponse<T>.FailureResponse("One or more groups were not found in the current entity.", "إحدى المجموعات غير موجودة في كيانك."));
 
-        return groups;
+        return (groups, null);
     }
 
-    private async Task<List<User>> EnsureUsersInEntityAsync(List<int> userIds, User currentUser, CancellationToken cancellationToken)
+    private async Task<(List<User>? Users, ApiResponse<T>? Error)> EnsureUsersInEntityAsync<T>(List<int> userIds, User currentUser, CancellationToken cancellationToken)
     {
-        if (userIds.Count == 0)
-        {
-            return new List<User>();
-        }
+        if (userIds.Count == 0) return (new List<User>(), null);
 
         var users = await _unitOfWork.Users.GetByIdsInEntityAsync(userIds, currentUser.EntityType, currentUser.EntityId, cancellationToken);
         if (users.Count != userIds.Count)
-        {
-            throw new UnauthorizedAccessException("One or more users were not found in the current entity.");
-        }
+            return (null, ApiResponse<T>.FailureResponse("One or more users were not found in the current entity.", "أحد المستخدمين غير موجود في كيانك."));
 
-        return users;
+        return (users, null);
     }
 
-    // MAYD-1 real fix (2026-09-24, product-owner-confirmed): Bayt-AlUrdon (Super Admin, RoleId 1) is
-    // the one deliberate exception to the "same role as creator" rule below — its confirmed authority
-    // is view + CREATE across every entity, not edit (UpdateDirectPermissionsAsync/UpdateGroupsAsync
-    // are untouched by this fix and stay strict same-entity for every role, Bayt-AlUrdon included —
-    // see those methods' own code, unchanged). ASEZA is NOT given this exception: its role is
-    // oversight/view-only over Associations and ProductionHouse (already real, see
-    // GetViewableUserAsync/ResolveTargetEntity), plus the ability to create users within its OWN
-    // entity only once granted the real CreateUsers permission (RolePermissionSeedConfiguration.cs) —
-    // it still creates same-role-as-itself like everyone but Bayt-AlUrdon.
-    //
-    // Superseded, no longer applies as of this fix: the "audit follow-up" comment this replaced
-    // (5bc0ad0) rejected EVERY cross-role create outright specifically because CreateUserAsync's
-    // EntityType/EntityId assignment always came from the caller, which would have silently
-    // mis-scoped a Bayt-AlUrdon-created Association user as EntityType.BaytAlUrdon. That assignment
-    // is fixed alongside this check (see CreateUserAsync's own comment) — the two changes are a pair.
-    private static void EnsureSameEntityCreation(User currentUser, int requestedRoleId)
+    private static ApiResponse<T>? EnsureEntityCreationAllowed<T>(User currentUser, Role role)
     {
-        if (requestedRoleId == currentUser.RoleId)
-        {
-            return;
-        }
+        if (currentUser.RoleId == BaytAlUrdonRoleId) return null;
 
-        if (currentUser.RoleId == BaytAlUrdonRoleId)
-        {
-            return;
-        }
 
-        throw new InvalidOperationException("Cannot create a user with a different role than the current user's own role.");
+        if (role.TargetEntityType.HasValue && role.TargetEntityType == currentUser.EntityType) return null;
+
+
+        if (currentUser.EntityType == EntityType.BaytAlUrdon && role.RoleId == SystemRoles.BaytAlUrdon) return null;
+        if (currentUser.EntityType == EntityType.Aseza && role.RoleId == SystemRoles.Aseza) return null;
+
+        if (role.RoleId == currentUser.RoleId) return null;
+
+        return ApiResponse<T>.FailureResponse("Cannot create a user with a role outside your entity type.", "لا يمكنك إنشاء مستخدم خارج نطاق كيانك.");
     }
 
-    private static void ValidateUserPayload(CreateEntityUserDto dto)
+    private static ApiResponse<T>? ValidateUserPayload<T>(CreateEntityUserDto dto)
     {
-        if (string.IsNullOrWhiteSpace(dto.FirstNameEn) ||
-            string.IsNullOrWhiteSpace(dto.LastNameEn) ||
-            string.IsNullOrWhiteSpace(dto.FirstNameAr) ||
-            string.IsNullOrWhiteSpace(dto.LastNameAr) ||
-            string.IsNullOrWhiteSpace(dto.Email) ||
-            string.IsNullOrWhiteSpace(dto.PhoneNumber) ||
+        if (string.IsNullOrWhiteSpace(dto.FirstNameEn) || string.IsNullOrWhiteSpace(dto.LastNameEn) ||
+            string.IsNullOrWhiteSpace(dto.FirstNameAr) || string.IsNullOrWhiteSpace(dto.LastNameAr) ||
+            string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.PhoneNumber) ||
             string.IsNullOrWhiteSpace(dto.InitialPassword))
         {
-            throw new InvalidOperationException("User mandatory fields are required.");
+            return ApiResponse<T>.FailureResponse("User mandatory fields are required.", "جميع الحقول الأساسية مطلوبة.");
         }
+        return null;
     }
 
-    private static void ValidateGroupPayload(string groupNameEn, string groupNameAr)
+    private static ApiResponse<T>? ValidateGroupPayload<T>(string groupNameEn, string groupNameAr)
     {
         if (string.IsNullOrWhiteSpace(groupNameEn) || string.IsNullOrWhiteSpace(groupNameAr))
-        {
-            throw new InvalidOperationException("Group English and Arabic names are required.");
-        }
+            return ApiResponse<T>.FailureResponse("Group English and Arabic names are required.", "الاسم الإنجليزي والعربي للمجموعة مطلوبان.");
+        return null;
     }
 
     private static List<int> NormalizeIds(IEnumerable<int> ids) =>
@@ -818,18 +746,11 @@ public class UserManagementService : IUserManagementService
         var existingIds = user.UserPermissions.Select(up => up.PermissionId).ToHashSet();
 
         foreach (var userPermission in user.UserPermissions.Where(up => !requestedIds.Contains(up.PermissionId)).ToList())
-        {
             user.UserPermissions.Remove(userPermission);
-        }
 
         foreach (var permissionId in requestedIds.Except(existingIds))
         {
-            user.UserPermissions.Add(new UserPermission
-            {
-                UserId = user.UserId,
-                PermissionId = permissionId,
-                IsActive = true
-            });
+            user.UserPermissions.Add(new UserPermission { UserId = user.UserId, PermissionId = permissionId, IsActive = true });
         }
     }
 
@@ -839,18 +760,10 @@ public class UserManagementService : IUserManagementService
         var existingIds = user.UserGroups.Select(ug => ug.GroupId).ToHashSet();
 
         foreach (var userGroup in user.UserGroups.Where(ug => !requestedIds.Contains(ug.GroupId)).ToList())
-        {
             user.UserGroups.Remove(userGroup);
-        }
 
         foreach (var groupId in requestedIds.Except(existingIds))
-        {
-            user.UserGroups.Add(new UserGroup
-            {
-                UserId = user.UserId,
-                GroupId = groupId
-            });
-        }
+            user.UserGroups.Add(new UserGroup { UserId = user.UserId, GroupId = groupId });
     }
 
     private static void SyncGroupPermissions(Group group, List<int> permissionIds)
@@ -859,19 +772,10 @@ public class UserManagementService : IUserManagementService
         var existingIds = group.GroupPermissions.Select(gp => gp.PermissionId).ToHashSet();
 
         foreach (var groupPermission in group.GroupPermissions.Where(gp => !requestedIds.Contains(gp.PermissionId)).ToList())
-        {
             group.GroupPermissions.Remove(groupPermission);
-        }
 
         foreach (var permissionId in requestedIds.Except(existingIds))
-        {
-            group.GroupPermissions.Add(new GroupPermission
-            {
-                GroupId = group.GroupId,
-                PermissionId = permissionId,
-                IsActive = true
-            });
-        }
+            group.GroupPermissions.Add(new GroupPermission { GroupId = group.GroupId, PermissionId = permissionId, IsActive = true });
     }
 
     private static void SyncGroupUsers(Group group, List<int> userIds)
@@ -880,132 +784,49 @@ public class UserManagementService : IUserManagementService
         var existingIds = group.UserGroups.Select(ug => ug.UserId).ToHashSet();
 
         foreach (var userGroup in group.UserGroups.Where(ug => !requestedIds.Contains(ug.UserId)).ToList())
-        {
             group.UserGroups.Remove(userGroup);
-        }
 
         foreach (var userId in requestedIds.Except(existingIds))
-        {
-            group.UserGroups.Add(new UserGroup
-            {
-                UserId = userId,
-                GroupId = group.GroupId
-            });
-        }
+            group.UserGroups.Add(new UserGroup { UserId = userId, GroupId = group.GroupId });
     }
 
-    // Internal rather than private (2026-09-29, Association details/users gap): AssociationService.
-    // GetDetailsAsync reuses this exact mapping for the same real User rows (GetByEntityAsync) rather
-    // than duplicating it — same assembly, so internal is enough, no interface needed for one method.
     internal static UserSummaryDto MapUserSummary(User user) =>
-        new(
-            user.UserId,
-            user.FirstNameEn,
-            user.LastNameEn,
-            user.FirstNameAr,
-            user.LastNameAr,
-            user.Email,
-            user.PhoneNumber,
-            user.RoleId,
-            user.Role.RoleNameEn,
-            user.Role.RoleNameAr,
-            user.MustResetPassword,
-            user.IsActive);
+        new(user.UserId, user.FirstNameEn, user.LastNameEn, user.FirstNameAr, user.LastNameAr, user.Email, user.PhoneNumber, user.RoleId, user.Role.RoleNameEn, user.Role.RoleNameAr, user.MustResetPassword, user.IsActive);
 
     private static UserDetailsDto MapUserDetails(User user)
     {
-        var directPermissions = user.UserPermissions
-            .Where(up => up.IsActive && up.Permission.IsActive)
-            .Select(up => up.Permission)
-            .DistinctBy(p => p.PermissionId)
-            .Select(MapPermission)
-            .OrderBy(p => p.Module)
-            .ThenBy(p => p.PermissionNameEn)
-            .ToList();
+        var directPermissions = user.UserPermissions.Where(up => up.IsActive && up.Permission.IsActive)
+            .Select(up => up.Permission).DistinctBy(p => p.PermissionId).Select(MapPermission).OrderBy(p => p.Module).ThenBy(p => p.PermissionNameEn).ToList();
 
-        var groupPermissions = user.UserGroups
-            .Select(ug => ug.Group)
-            .Where(g => g.IsActive)
-            .SelectMany(g => g.GroupPermissions)
-            .Where(gp => gp.IsActive && gp.Permission.IsActive)
-            .Select(gp => gp.Permission);
+        var groupPermissions = user.UserGroups.Select(ug => ug.Group).Where(g => g.IsActive)
+            .SelectMany(g => g.GroupPermissions).Where(gp => gp.IsActive && gp.Permission.IsActive).Select(gp => gp.Permission);
 
-        var effectivePermissions = user.UserPermissions
-            .Where(up => up.IsActive && up.Permission.IsActive)
-            .Select(up => up.Permission)
-            .Concat(groupPermissions)
-            .DistinctBy(p => p.PermissionId)
-            .Select(MapPermission)
-            .OrderBy(p => p.Module)
-            .ThenBy(p => p.PermissionNameEn)
-            .ToList();
+        var effectivePermissions = user.UserPermissions.Where(up => up.IsActive && up.Permission.IsActive).Select(up => up.Permission)
+            .Concat(groupPermissions).DistinctBy(p => p.PermissionId).Select(MapPermission).OrderBy(p => p.Module).ThenBy(p => p.PermissionNameEn).ToList();
 
-        return new UserDetailsDto(
-            user.UserId,
-            user.FirstNameEn,
-            user.LastNameEn,
-            user.FirstNameAr,
-            user.LastNameAr,
-            user.Email,
-            user.PhoneNumber,
-            user.RoleId,
-            user.Role.RoleNameEn,
-            user.Role.RoleNameAr,
-            user.EntityType,
-            user.EntityId,
-            user.MustResetPassword,
-            user.IsActive,
-            directPermissions,
-            user.UserGroups.Select(ug => MapGroupSummary(ug.Group)).ToList(),
-            effectivePermissions);
+        return new UserDetailsDto(user.UserId, user.FirstNameEn, user.LastNameEn, user.FirstNameAr, user.LastNameAr, user.Email, user.PhoneNumber,
+            user.RoleId, user.Role.RoleNameEn, user.Role.RoleNameAr, user.EntityType, user.EntityId, user.MustResetPassword, user.IsActive,
+            directPermissions, user.UserGroups.Select(ug => MapGroupSummary(ug.Group)).ToList(), effectivePermissions);
     }
 
-    // MAYD-31: matches GetAvailablePermissionsAsync's own Module-then-name ordering, so the same
-    // permission always appears first in both this preview and the full catalog page — a
-    // deterministic, real ordering rather than whatever order EF happened to materialize rows in.
     private const int GroupPermissionPreviewSize = 4;
 
     private static GroupSummaryDto MapGroupSummary(Group group)
     {
-        var activePermissions = group.GroupPermissions
-            .Where(gp => gp.IsActive && gp.Permission.IsActive)
-            .Select(gp => gp.Permission)
-            .OrderBy(p => p.Module)
-            .ThenBy(p => p.PermissionNameEn)
-            .ToList();
+        var activePermissions = group.GroupPermissions.Where(gp => gp.IsActive && gp.Permission.IsActive)
+            .Select(gp => gp.Permission).OrderBy(p => p.Module).ThenBy(p => p.PermissionNameEn).ToList();
 
-        return new(
-            group.GroupId,
-            group.GroupNameEn,
-            group.GroupNameAr,
-            activePermissions.Count,
-            group.UserGroups.Count,
+        return new(group.GroupId, group.GroupNameEn, group.GroupNameAr, activePermissions.Count, group.UserGroups.Count,
             activePermissions.Take(GroupPermissionPreviewSize).Select(MapPermission).ToList());
     }
 
     private static GroupDetailsDto MapGroupDetails(Group group) =>
-        new(
-            group.GroupId,
-            group.GroupNameEn,
-            group.GroupNameAr,
-            group.EntityType,
-            group.EntityId,
-            group.GroupPermissions
-                .Where(gp => gp.IsActive && gp.Permission.IsActive)
-                .Select(gp => MapPermission(gp.Permission))
-                .OrderBy(p => p.Module)
-                .ThenBy(p => p.PermissionNameEn)
-                .ToList(),
-            group.UserGroups
-                .Select(ug => MapUserSummary(ug.User))
-                .OrderBy(u => u.FirstNameEn)
-                .ThenBy(u => u.LastNameEn)
-                .ToList());
+        new(group.GroupId, group.GroupNameEn, group.GroupNameAr, group.EntityType, group.EntityId,
+            group.GroupPermissions.Where(gp => gp.IsActive && gp.Permission.IsActive).Select(gp => MapPermission(gp.Permission)).OrderBy(p => p.Module).ThenBy(p => p.PermissionNameEn).ToList(),
+            group.UserGroups.Select(ug => MapUserSummary(ug.User)).OrderBy(u => u.FirstNameEn).ThenBy(u => u.LastNameEn).ToList());
 
     private static PermissionDto MapPermission(Permission permission) =>
-        new(
-            permission.PermissionId,
-            permission.PermissionNameEn,
-            permission.PermissionNameAr,
-            permission.Module);
+        new(permission.PermissionId, permission.PermissionNameEn, permission.PermissionNameAr, permission.Module);
+
+    #endregion
 }
