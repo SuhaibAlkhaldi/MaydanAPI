@@ -109,13 +109,16 @@ namespace Maydan.Infrastructure.Persistence.Seed
                 SystemPermissions.ViewAttendance,
                 SystemPermissions.ManageAttendance,
                 SystemPermissions.ManageProductionCompanyUsers,
-                SystemPermissions.ViewTotalAmountForServiceRequest
+                SystemPermissions.ViewTotalAmountForServiceRequest,
+                SystemPermissions.CreateUsers
             };
 
             var associationPermissions = new[]
             {
                 SystemPermissions.ViewUsers,
-               SystemPermissions. EditAssociations,SystemPermissions. ManageWorkers, SystemPermissions.ManageServices,
+               SystemPermissions. EditAssociations,
+                SystemPermissions. ManageWorkers,
+                SystemPermissions.ManageServices,
                 SystemPermissions.ViewAssociationUsers,
                SystemPermissions. ManageAssociationUsers,
                 SystemPermissions.ViewServiceRequests,
@@ -123,7 +126,8 @@ namespace Maydan.Infrastructure.Persistence.Seed
                 SystemPermissions.ManageGroups,
                SystemPermissions. ViewAttendance,
                 SystemPermissions.ManageAttendance,
-                SystemPermissions.ViewPayments
+                SystemPermissions.ViewPayments,
+                SystemPermissions.CreateUsers
             };
             
             var allPermissionIds = Enumerable.Range(1, 40);

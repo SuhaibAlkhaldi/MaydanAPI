@@ -1,10 +1,11 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
 using Maydan.Application.DTOs.Auth;
 using Maydan.Application.Interfaces;
 using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Maydan.API.Security;
 
@@ -43,7 +44,7 @@ public class JwtTokenGenerator : IJwtTokenGenerator
             new("entityId", user.EntityId.ToString())
         };
 
-        claims.AddRange(user.Permissions.Select(permission => new Claim("permission", permission)));
+        claims.AddRange(user.Permissions.Select(permissionIds => new Claim("permission", permissionIds.ToString())));
 
         var signingCredentials = new SigningCredentials(
             new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),

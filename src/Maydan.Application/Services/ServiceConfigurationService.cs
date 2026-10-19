@@ -153,9 +153,16 @@ public class ServiceConfigurationService : IServiceConfigurationService
 
     private static HashSet<int> GetEffectivePermissionIds(User user)
     {
-        var rolePermissionIds = user.Role.RolePermissions?.Select(rp => rp.PermissionId) ?? Enumerable.Empty<int>();
+        var rolePermissionIds = user.Role?.RolePermissions?.Select(rp => rp.PermissionId) ?? Enumerable.Empty<int>();
+
         var userPermissionIds = user.UserPermissions?.Select(up => up.PermissionId) ?? Enumerable.Empty<int>();
-        var groupPermissionIds = user.UserGroups?.SelectMany(ug => ug.Group.GroupPermissions.Select(gp => gp.PermissionId)) ?? Enumerable.Empty<int>();
+
+        var groupPermissionIds = user.UserGroups?
+            .Where(ug => ug.Group?.GroupPermissions != null)
+                  .SelectMany(ug => ug.Group.GroupPermissions.
+                        Select(gp => gp.PermissionId))
+                          ?? Enumerable.Empty<int>();
+
         return new HashSet<int>(rolePermissionIds.Concat(userPermissionIds).Concat(groupPermissionIds));
     }
 }

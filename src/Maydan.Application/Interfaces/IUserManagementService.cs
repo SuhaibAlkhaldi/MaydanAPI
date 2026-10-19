@@ -28,4 +28,5 @@ public interface IUserManagementService
     Task<ApiResponse<UserDetailsDto>> UpdateGroupsAsync(int currentUserId, int userId, UpdateUserGroupsDto dto, CancellationToken cancellationToken = default);
     Task<ApiResponse<List<PermissionDto>>> GetEffectivePermissionsAsync(int currentUserId, int userId, CancellationToken cancellationToken = default);
     Task<ApiResponse<UserDetailsDto>> UpdateUserStatusAsync(int currentUserId, int userId, UpdateUserStatusDto dto, CancellationToken cancellationToken = default);
+    Task<ApiResponse<List<RoleDto>>> GetRolesForEntityAsync(int currentUserId, EntityType? targetEntityType, CancellationToken cancellationToken = default);
 }

@@ -141,6 +141,57 @@ public class UserManagementService : IUserManagementService
         return ApiResponse<UserDetailsDto>.SuccessResponse(MapUserDetails(createdUser), "User created successfully.", "تم إنشاء المستخدم بنجاح.", 201);
     }
 
+    public async Task<ApiResponse<List<RoleDto>>> GetRolesForEntityAsync(int currentUserId, EntityType? targetEntityType, CancellationToken cancellationToken = default)
+    {
+        var (currentUser, error) = await GetCurrentUserAsync<List<RoleDto>>(currentUserId, cancellationToken);
+        if (error != null) return error;
+
+        var allRoles = await _unitOfWork.Roles.GetAllAsync(cancellationToken);
+
+       
+        var isCrossEntityAdmin = currentUser!.RoleId == BaytAlUrdonRoleId || currentUser.RoleId == AsezaRoleId;
+        var effectiveEntityType = (isCrossEntityAdmin && targetEntityType.HasValue)
+                                  ? targetEntityType.Value
+                                  : currentUser.EntityType;
+
+        List<Role> entityRoles;
+
+        if (effectiveEntityType == EntityType.BaytAlUrdon)
+        {
+            
+            entityRoles = allRoles.Where(r => r.TargetEntityType == null && r.RoleId == BaytAlUrdonRoleId).ToList();
+        }
+        else if (effectiveEntityType == EntityType.Aseza)
+        {
+           
+            entityRoles = allRoles.Where(r => r.TargetEntityType == null && r.RoleId == AsezaRoleId).ToList();
+        }
+        else
+        {
+           
+            entityRoles = allRoles.Where(r => r.TargetEntityType == effectiveEntityType).ToList();
+        }
+
+       
+        if (currentUser.RoleId == BaytAlUrdonRoleId && effectiveEntityType == EntityType.BaytAlUrdon)
+        {
+            var systemAdminRole = allRoles.FirstOrDefault(r => r.RoleId == 10);
+            if (systemAdminRole != null && !entityRoles.Any(r => r.RoleId == 10))
+            {
+                entityRoles.Add(systemAdminRole);
+            }
+        }
+
+        var result = entityRoles.Select(r => new RoleDto(
+            r.RoleId,
+            r.RoleNameEn,
+            r.RoleNameAr
+        )).ToList();
+
+        return ApiResponse<List<RoleDto>>.SuccessResponse(result, "Roles retrieved successfully.", "تم استرجاع الأدوار بنجاح.");
+    }
+
+    
     public async Task<ApiResponse<List<PermissionDto>>> GetAvailablePermissionsAsync(int currentUserId, int? roleId, CancellationToken cancellationToken = default)
     {
         var (caller, error) = await GetCurrentUserAsync<List<PermissionDto>>(currentUserId, cancellationToken);
@@ -479,8 +530,16 @@ public class UserManagementService : IUserManagementService
     private async Task<(EntityType? EntityType, int? EntityId, ApiResponse<T>? Error)> ResolveEntityForRoleAsync<T>(
       int roleId, int? requestedEntityId, CancellationToken cancellationToken)
     {
-        if (roleId == SystemRoles.Association && requestedEntityId.HasValue)
+
+        if (roleId == SystemRoles.BaytAlUrdon) return (EntityType.BaytAlUrdon, 1, null);
+        if (roleId == SystemRoles.Aseza) return (EntityType.Aseza, 1, null);
+
+        var associationRoles = new[] { SystemRoles.Association, SystemRoles.WorkerManager, SystemRoles.Worker, SystemRoles.AttendanceOfficer };
+        if (associationRoles.Contains(roleId))
         {
+            if (!requestedEntityId.HasValue || requestedEntityId.Value <= 0)
+                return (null, null, ApiResponse<T>.FailureResponse("EntityId is required for this role.", "يجب إرسال رقم الجهة (الجمعية) لهذا الدور."));
+
             var association = await _unitOfWork.Associations.GetByIdAsync(requestedEntityId.Value, cancellationToken);
             if (association == null)
                 return (null, null, ApiResponse<T>.FailureResponse("Association was not found.", "الجمعية غير موجودة."));
@@ -488,27 +547,20 @@ public class UserManagementService : IUserManagementService
             return (EntityType.Association, association.Id, null);
         }
 
-        if (roleId == SystemRoles.Producer && requestedEntityId.HasValue)
-            return (EntityType.ProductionCompany, requestedEntityId.Value, null);
-
-        var result = roleId switch
+        var productionRoles = new[] { SystemRoles.ProductionHouse, SystemRoles.Producer, SystemRoles.LocationManager };
+        if (productionRoles.Contains(roleId))
         {
-            SystemRoles.BaytAlUrdon => (EntityType.BaytAlUrdon, 1),
-            SystemRoles.Aseza => (EntityType.Aseza, 1),
-            SystemRoles.ProductionHouse => (EntityType.ProductionCompany, 1),
-            SystemRoles.Association => (EntityType.Association, 1),
-            SystemRoles.Producer => (EntityType.ProductionCompany, requestedEntityId ?? 1),
-            SystemRoles.LocationManager => (EntityType.ProductionCompany, requestedEntityId ?? 1),
-            SystemRoles.WorkerManager => (EntityType.Association, requestedEntityId ?? 1),
-            SystemRoles.Worker => (EntityType.Association, requestedEntityId ?? 1),
-            SystemRoles.AttendanceOfficer => (EntityType.Association, requestedEntityId ?? 1),
-            _ => ((EntityType, int)?)null
-        };
+            if (!requestedEntityId.HasValue || requestedEntityId.Value <= 0)
+                return (null, null, ApiResponse<T>.FailureResponse("EntityId is required for this role.", "يجب إرسال رقم الجهة (شركة الإنتاج) لهذا الدور."));
 
-        if (result == null)
-            return (null, null, ApiResponse<T>.FailureResponse("Role was not found.", "الدور غير موجود."));
+            var productionCompany = await _unitOfWork.ProductionCompanies.GetByIdAsync(requestedEntityId.Value, cancellationToken);
+            if (productionCompany == null)
+                return (null, null, ApiResponse<T>.FailureResponse("Production Company was not found.", "شركة الإنتاج غير موجودة."));
 
-        return (result.Value.Item1, result.Value.Item2, null);
+            return (EntityType.ProductionCompany, productionCompany.Id, null);
+        }
+
+        return (null, null, ApiResponse<T>.FailureResponse("Role was not found or is unsupported.", "الدور غير موجود أو غير مدعوم."));
     }
 
     private static (EntityType? EntityType, int? EntityId, ApiResponse<T>? Error) ResolveTargetEntity<T>(User currentUser, EntityType? entityType, int? entityId)
@@ -528,19 +580,19 @@ public class UserManagementService : IUserManagementService
 
     private static HashSet<int> GetEffectivePermissionIds(User user)
     {
-        var rolePermissionIds = user.Role.RolePermissions
-            .Where(rp => rp.IsActive && rp.Permission.IsActive)
-            .Select(rp => rp.PermissionId);
+        var rolePermissionIds = user.Role?.RolePermissions?
+        .Where(rp => rp.IsActive && (rp.Permission == null || rp.Permission.IsActive))
+        .Select(rp => rp.PermissionId) ?? Enumerable.Empty<int>();
 
-        var directPermissionIds = user.UserPermissions
-            .Where(up => up.IsActive && up.Permission.IsActive)
-            .Select(up => up.PermissionId);
+        var directPermissionIds = user.UserPermissions?
+            .Where(up => up.IsActive && (up.Permission == null || up.Permission.IsActive))
+            .Select(up => up.PermissionId) ?? Enumerable.Empty<int>();
 
-        var groupPermissionIds = user.UserGroups
-            .Where(ug => ug.Group.IsActive)
-            .SelectMany(ug => ug.Group.GroupPermissions)
-            .Where(gp => gp.IsActive && gp.Permission.IsActive)
-            .Select(gp => gp.PermissionId);
+        var groupPermissionIds = user.UserGroups?
+            .Where(ug => ug.Group != null && ug.Group.IsActive)
+            .SelectMany(ug => ug.Group.GroupPermissions ?? new List<GroupPermission>())
+            .Where(gp => gp.IsActive && (gp.Permission == null || gp.Permission.IsActive))
+            .Select(gp => gp.PermissionId) ?? Enumerable.Empty<int>();
 
         return rolePermissionIds.Concat(directPermissionIds).Concat(groupPermissionIds).ToHashSet();
     }
@@ -653,8 +705,15 @@ public class UserManagementService : IUserManagementService
     private static ApiResponse<T>? EnsureEntityCreationAllowed<T>(User currentUser, Role role)
     {
         if (currentUser.RoleId == BaytAlUrdonRoleId) return null;
-        if (role.RoleId == currentUser.RoleId) return null;
+
+
         if (role.TargetEntityType.HasValue && role.TargetEntityType == currentUser.EntityType) return null;
+
+
+        if (currentUser.EntityType == EntityType.BaytAlUrdon && role.RoleId == SystemRoles.BaytAlUrdon) return null;
+        if (currentUser.EntityType == EntityType.Aseza && role.RoleId == SystemRoles.Aseza) return null;
+
+        if (role.RoleId == currentUser.RoleId) return null;
 
         return ApiResponse<T>.FailureResponse("Cannot create a user with a role outside your entity type.", "لا يمكنك إنشاء مستخدم خارج نطاق كيانك.");
     }

@@ -99,18 +99,47 @@ public class UsersController : ApiControllerBase
         }
     }
 
-    [HttpPost("register", Name = "Register User")]
-    public async Task<ActionResult> RegisterUser([FromBody] CreateEntityUserDto dto, [FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader, CancellationToken cancellationToken)
+    [HttpPost("create", Name = "Create User")]
+        public async Task<ActionResult> CreateUser(
+             [FromBody] CreateEntityUserDto dto,
+                [FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader,
+                     [FromHeader(Name = "X-Entity-Id")] int? entityIdHeader, 
+                           CancellationToken cancellationToken)
+
     {
         if (!TryGetCurrentUserId(out var currentUserId)) return UnauthorizedResponse();
 
         try
         {
+         
+            if (entityIdHeader.HasValue && dto.EntityId <= 0)
+            {
+                dto.EntityId = entityIdHeader.Value;
+            }
+
             var response = await _userManagementService.CreateUserAsync(currentUserId, dto, cancellationToken);
             if (response.Success && response.Data != null)
             {
                 return Created($"/api/users/{response.Data.UserId}/details", response);
             }
+            return StatusCode(response.StatusCode, response);
+        }
+        catch (Exception exception)
+        {
+            return HandleException(exception);
+        }
+    }
+    [HttpGet("roles/available", Name = "Get Roles For Entity")]
+    public async Task<ActionResult> GetRolesForEntity(
+    [FromHeader(Name = "X-Target-Entity-Type")] EntityType? targetEntityTypeHeader,
+      [FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader,
+      CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId)) return UnauthorizedResponse();
+
+        try
+        {
+            var response = await _userManagementService.GetRolesForEntityAsync(currentUserId, targetEntityTypeHeader, cancellationToken);
             return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
