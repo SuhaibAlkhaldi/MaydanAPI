@@ -2011,6 +2011,12 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
+                            RoleId = 3,
+                            PermissionId = 17,
+                            IsActive = true
+                        },
+                        new
+                        {
                             RoleId = 4,
                             PermissionId = 1,
                             IsActive = true
