@@ -143,11 +143,14 @@ public class UserRepository : IUserRepository
         .AsSplitQuery()
         .Include(u => u.Role)
             .ThenInclude(r => r.RolePermissions.Where(rp => rp.IsActive && rp.Permission.IsActive))
+                .ThenInclude(rp => rp.Permission) 
         .Include(u => u.UserGroups.Where(ug => ug.Group.IsActive))
             .ThenInclude(ug => ug.Group)
                 .ThenInclude(g => g.GroupPermissions.Where(gp => gp.IsActive && gp.Permission.IsActive))
+                    .ThenInclude(gp => gp.Permission) 
         .Include(u => u.UserPermissions.Where(up => up.IsActive && up.Permission.IsActive))
-            .FirstOrDefaultAsync(u => u.UserId == userId, cancellationToken);
+            .ThenInclude(up => up.Permission) 
+        .FirstOrDefaultAsync(u => u.UserId == userId, cancellationToken);
 
     public Task<List<User>> GetByIdsInEntityAsync(IEnumerable<int> userIds, EntityType entityType, int entityId, CancellationToken cancellationToken = default)
     {
