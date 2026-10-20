@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace Maydan.Infrastructure.Migrations
+namespace Maydan.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(MaydanDbContext))]
     partial class MaydanDbContextModelSnapshot : ModelSnapshot
@@ -2045,7 +2045,12 @@ namespace Maydan.Infrastructure.Migrations
                             PermissionId = 39,
                             IsActive = true
                         },
-                      
+                        new
+                        {
+                            RoleId = 4,
+                            PermissionId = 16,
+                            IsActive = true
+                        },
                         new
                         {
                             RoleId = 4,

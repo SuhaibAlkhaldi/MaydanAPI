@@ -2,10 +2,10 @@
 
 #nullable disable
 
-namespace Maydan.Infrastructure.Migrations
+namespace Maydan.Infrastructure.Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class NEWMIGI : Migration
+    public partial class DeleteIdempotencykey : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -17,11 +17,15 @@ namespace Maydan.Infrastructure.Migrations
             migrationBuilder.DropColumn(
                 name: "IdempotencyKey",
                 table: "ServiceRequests");
+
+           
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+          
+
             migrationBuilder.AddColumn<string>(
                 name: "IdempotencyKey",
                 table: "ServiceRequests",
