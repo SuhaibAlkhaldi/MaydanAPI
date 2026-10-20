@@ -809,30 +809,6 @@ namespace Maydan.Infrastructure.Migrations
                         },
                         new
                         {
-                            PermissionId = 21,
-                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Id = 0,
-                            IsActive = true,
-                            IsDeleted = false,
-                            Module = "ProductionHouses",
-                            PermissionNameAr = "عرض بيوت الإنتاج",
-                            PermissionNameEn = "View Production Houses",
-                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            PermissionId = 22,
-                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Id = 0,
-                            IsActive = true,
-                            IsDeleted = false,
-                            Module = "ProductionHouses",
-                            PermissionNameAr = "إدارة بيوت الإنتاج",
-                            PermissionNameEn = "Manage Production Houses",
-                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
                             PermissionId = 23,
                             CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
                             Id = 0,
@@ -1045,6 +1021,30 @@ namespace Maydan.Infrastructure.Migrations
                             Module = "ProductionCompanies",
                             PermissionNameAr = "إدارة مستخدمي شركة الإنتاج",
                             PermissionNameEn = "Manage Production Company Users",
+                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            PermissionId = 41,
+                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Id = 0,
+                            IsActive = true,
+                            IsDeleted = false,
+                            Module = "ProductionCompanies",
+                            PermissionNameAr = "عرض إجمالي تكلفة طلب الخدمة",
+                            PermissionNameEn = "View Total Amount for Service Request",
+                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            PermissionId = 42,
+                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Id = 0,
+                            IsActive = true,
+                            IsDeleted = false,
+                            Module = "Aseza,BaytAlUrdon",
+                            PermissionNameAr = "تسجيل العمليات اين ومتى تمت",
+                            PermissionNameEn = "View Audit Trail",
                             UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
                         });
                 });
@@ -1459,6 +1459,9 @@ namespace Maydan.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<int?>("TargetEntityType")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -1478,7 +1481,7 @@ namespace Maydan.Infrastructure.Migrations
                             RoleId = 1,
                             CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
                             Id = 0,
-                            IsActive = false,
+                            IsActive = true,
                             IsDeleted = false,
                             RoleNameAr = "بيت الأردن",
                             RoleNameEn = "Bayt-AlUrdon",
@@ -1489,7 +1492,7 @@ namespace Maydan.Infrastructure.Migrations
                             RoleId = 2,
                             CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
                             Id = 0,
-                            IsActive = false,
+                            IsActive = true,
                             IsDeleted = false,
                             RoleNameAr = "سلطة منطقة العقبة الاقتصادية الخاصة",
                             RoleNameEn = "ASEZA",
@@ -1500,10 +1503,11 @@ namespace Maydan.Infrastructure.Migrations
                             RoleId = 3,
                             CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
                             Id = 0,
-                            IsActive = false,
+                            IsActive = true,
                             IsDeleted = false,
                             RoleNameAr = "شركة الإنتاج",
                             RoleNameEn = "ProductionHouse",
+                            TargetEntityType = 2,
                             UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
                         },
                         new
@@ -1511,10 +1515,82 @@ namespace Maydan.Infrastructure.Migrations
                             RoleId = 4,
                             CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
                             Id = 0,
-                            IsActive = false,
+                            IsActive = true,
                             IsDeleted = false,
                             RoleNameAr = "الجمعية",
                             RoleNameEn = "Association",
+                            TargetEntityType = 3,
+                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            RoleId = 5,
+                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Id = 0,
+                            IsActive = true,
+                            IsDeleted = false,
+                            RoleNameAr = "منتج",
+                            RoleNameEn = "Producer",
+                            TargetEntityType = 2,
+                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            RoleId = 6,
+                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Id = 0,
+                            IsActive = true,
+                            IsDeleted = false,
+                            RoleNameAr = "مدير الموقع",
+                            RoleNameEn = "LocationManager",
+                            TargetEntityType = 2,
+                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            RoleId = 7,
+                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Id = 0,
+                            IsActive = true,
+                            IsDeleted = false,
+                            RoleNameAr = "مدير العمال",
+                            RoleNameEn = "WorkerManager",
+                            TargetEntityType = 3,
+                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            RoleId = 8,
+                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Id = 0,
+                            IsActive = true,
+                            IsDeleted = false,
+                            RoleNameAr = "عامل",
+                            RoleNameEn = "Worker",
+                            TargetEntityType = 3,
+                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            RoleId = 9,
+                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Id = 0,
+                            IsActive = true,
+                            IsDeleted = false,
+                            RoleNameAr = "مسؤول الحضور",
+                            RoleNameEn = "AttendanceOfficer",
+                            TargetEntityType = 3,
+                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            RoleId = 10,
+                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Id = 0,
+                            IsActive = true,
+                            IsDeleted = false,
+                            RoleNameAr = "مشرف نظام",
+                            RoleNameEn = "Admin",
                             UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
                         });
                 });
@@ -1786,25 +1862,7 @@ namespace Maydan.Infrastructure.Migrations
                         new
                         {
                             RoleId = 2,
-                            PermissionId = 2,
-                            IsActive = true
-                        },
-                        new
-                        {
-                            RoleId = 2,
-                            PermissionId = 14,
-                            IsActive = true
-                        },
-                        new
-                        {
-                            RoleId = 2,
-                            PermissionId = 22,
-                            IsActive = true
-                        },
-                        new
-                        {
-                            RoleId = 2,
-                            PermissionId = 18,
+                            PermissionId = 33,
                             IsActive = true
                         },
                         new
@@ -1816,7 +1874,55 @@ namespace Maydan.Infrastructure.Migrations
                         new
                         {
                             RoleId = 2,
+                            PermissionId = 35,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 2,
                             PermissionId = 8,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 2,
+                            PermissionId = 31,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 2,
+                            PermissionId = 41,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 2,
+                            PermissionId = 29,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 2,
+                            PermissionId = 14,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 2,
+                            PermissionId = 16,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 2,
+                            PermissionId = 19,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 2,
+                            PermissionId = 9,
                             IsActive = true
                         },
                         new
@@ -1888,31 +1994,25 @@ namespace Maydan.Infrastructure.Migrations
                         new
                         {
                             RoleId = 3,
-                            PermissionId = 35,
-                            IsActive = true
-                        },
-                        new
-                        {
-                            RoleId = 3,
-                            PermissionId = 36,
-                            IsActive = true
-                        },
-                        new
-                        {
-                            RoleId = 3,
                             PermissionId = 40,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 3,
+                            PermissionId = 41,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 3,
+                            PermissionId = 2,
                             IsActive = true
                         },
                         new
                         {
                             RoleId = 4,
                             PermissionId = 1,
-                            IsActive = true
-                        },
-                        new
-                        {
-                            RoleId = 4,
-                            PermissionId = 9,
                             IsActive = true
                         },
                         new
@@ -1945,6 +2045,7 @@ namespace Maydan.Infrastructure.Migrations
                             PermissionId = 39,
                             IsActive = true
                         },
+                      
                         new
                         {
                             RoleId = 4,
@@ -1978,7 +2079,7 @@ namespace Maydan.Infrastructure.Migrations
                         new
                         {
                             RoleId = 4,
-                            PermissionId = 16,
+                            PermissionId = 2,
                             IsActive = true
                         });
                 });
@@ -2023,6 +2124,11 @@ namespace Maydan.Infrastructure.Migrations
 
                     b.Property<decimal>("Price")
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("RequiresDocuments")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -2468,12 +2574,6 @@ namespace Maydan.Infrastructure.Migrations
                         new
                         {
                             UserId = 1000,
-                            PermissionId = 21,
-                            IsActive = true
-                        },
-                        new
-                        {
-                            UserId = 1000,
                             PermissionId = 23,
                             IsActive = true
                         },
@@ -2598,6 +2698,47 @@ namespace Maydan.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Workers", (string)null);
+                });
+
+            modelBuilder.Entity("Maydan.Domain.Entities.WorkerDocument", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("WorkerId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkerId");
+
+                    b.ToTable("WorkerDocuments", (string)null);
                 });
 
             modelBuilder.Entity("Maydan.Domain.Entities.WorkerServiceLink", b =>
@@ -2928,6 +3069,17 @@ namespace Maydan.Infrastructure.Migrations
                     b.Navigation("Country");
                 });
 
+            modelBuilder.Entity("Maydan.Domain.Entities.WorkerDocument", b =>
+                {
+                    b.HasOne("Maydan.Domain.Entities.Worker", "Worker")
+                        .WithMany("Documents")
+                        .HasForeignKey("WorkerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Worker");
+                });
+
             modelBuilder.Entity("Maydan.Domain.Entities.WorkerServiceLink", b =>
                 {
                     b.HasOne("Maydan.Domain.Entities.Service", "Service")
@@ -3009,6 +3161,8 @@ namespace Maydan.Infrastructure.Migrations
 
             modelBuilder.Entity("Maydan.Domain.Entities.Worker", b =>
                 {
+                    b.Navigation("Documents");
+
                     b.Navigation("ServiceRequestWorkers");
 
                     b.Navigation("WorkerServices");

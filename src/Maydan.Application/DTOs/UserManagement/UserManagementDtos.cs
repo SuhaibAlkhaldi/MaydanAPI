@@ -132,3 +132,7 @@ public class UpdateUserStatusDto
 {
     public bool IsActive { get; set; }
 }
+public record RoleDto(
+    int RoleId=0,
+    string RoleNameEn="",
+    string RoleNameAr = "");

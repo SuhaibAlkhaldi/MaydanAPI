@@ -106,6 +106,12 @@ public class WorkerService : IWorkerService
             return ApiResponse<WorkerDto>.FailureResponse("Worker already exists.", "العامل مسجل مسبقًا بنفس الرقم الوطني.");
         }
 
+        var phoneNumber = dto.PhoneNumber.Trim();
+        if (await _unitOfWork.Workers.GetByPhoneNumberAsync(phoneNumber, cancellationToken) is not null)
+        {
+            return ApiResponse<WorkerDto>.FailureResponse("Phone number is already registered to another worker.", "رقم الهاتف مستخدم مسبقًا لعامل آخر.");
+        }
+
         var countryCityError = await EnsureCountryAndCityExistAsync<WorkerDto>(dto.CountryId, dto.CityId, cancellationToken);
         if (countryCityError is not null)
         {
@@ -113,10 +119,22 @@ public class WorkerService : IWorkerService
         }
 
         var serviceIds = dto.ServiceIds.Distinct().ToList();
-        var servicesError = await EnsureServicesExistAsync<WorkerDto>(serviceIds, cancellationToken);
+        var (requiresDocuments, servicesError) = await EnsureServicesExistAsync<WorkerDto>(serviceIds, cancellationToken);
         if (servicesError is not null)
         {
             return servicesError;
+        }
+
+        if (!requiresDocuments && dto.DocumentPaths.Count > 0)
+        {
+            return ApiResponse<WorkerDto>.FailureResponse("The selected services do not require document uploads.", "الخدمات المختارة لا تتطلب رفع وثائق.");
+        }
+
+        var documentPaths = requiresDocuments ? dto.DocumentPaths : new List<string>();
+        var documentsError = EnsureDocumentCountValid<WorkerDto>(requiresDocuments, documentPaths.Count);
+        if (documentsError is not null)
+        {
+            return documentsError;
         }
 
         var worker = new Worker
@@ -132,7 +150,7 @@ public class WorkerService : IWorkerService
             Nationality = dto.Nationality.Trim(),
             CountryId = dto.CountryId,
             CityId = dto.CityId,
-            PhoneNumber = dto.PhoneNumber.Trim(),
+            PhoneNumber = phoneNumber,
             YearsOfExperience = dto.YearsOfExperience,
             AssociationId = associationId,
             QrCode = Guid.NewGuid().ToString("N"),
@@ -142,6 +160,11 @@ public class WorkerService : IWorkerService
         foreach (var serviceId in serviceIds)
         {
             worker.WorkerServices.Add(new WorkerServiceLink { ServiceId = serviceId });
+        }
+
+        foreach (var path in documentPaths)
+        {
+            worker.Documents.Add(new WorkerDocument { FilePath = path });
         }
 
         await _unitOfWork.Workers.AddAsync(worker, cancellationToken);
@@ -159,15 +182,19 @@ public class WorkerService : IWorkerService
             return authError;
         }
 
-        if (string.IsNullOrWhiteSpace(dto.FirstName) || string.IsNullOrWhiteSpace(dto.LastName))
+        if (dto.FirstName is not null && string.IsNullOrWhiteSpace(dto.FirstName))
         {
-            return ApiResponse<WorkerDto>.FailureResponse("First and last name are required.", "الاسم الأول والأخير مطلوبان.");
+            return ApiResponse<WorkerDto>.FailureResponse("First name is required.", "الاسم الأول مطلوب.");
         }
 
-        var phoneServiceError = ValidatePhoneAndServices<WorkerDto>(dto.PhoneNumber, dto.ServiceIds);
-        if (phoneServiceError is not null)
+        if (dto.LastName is not null && string.IsNullOrWhiteSpace(dto.LastName))
         {
-            return phoneServiceError;
+            return ApiResponse<WorkerDto>.FailureResponse("Last name is required.", "الاسم الأخير مطلوب.");
+        }
+
+        if (dto.ServiceIds is not null && dto.ServiceIds.Count == 0)
+        {
+            return ApiResponse<WorkerDto>.FailureResponse("At least one service must be selected.", "يجب اختيار خدمة واحدة على الأقل.");
         }
 
         var worker = await _unitOfWork.Workers.GetByIdWithServicesAsync(workerId, cancellationToken);
@@ -182,32 +209,109 @@ public class WorkerService : IWorkerService
             return scopeError;
         }
 
-        var countryCityError = await EnsureCountryAndCityExistAsync<WorkerDto>(dto.CountryId, dto.CityId, cancellationToken);
-        if (countryCityError is not null)
+        string? phoneNumber = null;
+        if (dto.PhoneNumber is not null)
         {
-            return countryCityError;
+            if (!JordanMobileRegex.IsMatch(dto.PhoneNumber.Trim()))
+            {
+                return ApiResponse<WorkerDto>.FailureResponse("Phone number must be a valid Jordanian mobile number.", "رقم الهاتف غير صالح، يجب أن يكون رقم أردني.");
+            }
+
+            phoneNumber = dto.PhoneNumber.Trim();
+            var phoneOwner = await _unitOfWork.Workers.GetByPhoneNumberAsync(phoneNumber, cancellationToken);
+            if (phoneOwner is not null && phoneOwner.Id != workerId)
+            {
+                return ApiResponse<WorkerDto>.FailureResponse("Phone number is already registered to another worker.", "رقم الهاتف مستخدم مسبقًا لعامل آخر.");
+            }
         }
 
-        var serviceIds = dto.ServiceIds.Distinct().ToList();
-        var servicesError = await EnsureServicesExistAsync<WorkerDto>(serviceIds, cancellationToken);
+        var countryId = dto.CountryId ?? worker.CountryId ?? 0;
+        var cityId = dto.CityId ?? worker.CityId ?? 0;
+        if (dto.CountryId is not null || dto.CityId is not null)
+        {
+            var countryCityError = await EnsureCountryAndCityExistAsync<WorkerDto>(countryId, cityId, cancellationToken);
+            if (countryCityError is not null)
+            {
+                return countryCityError;
+            }
+        }
+
+        var serviceIds = dto.ServiceIds?.Distinct().ToList() ?? worker.WorkerServices.Select(ws => ws.ServiceId).ToList();
+        var (requiresDocuments, servicesError) = await EnsureServicesExistAsync<WorkerDto>(serviceIds, cancellationToken);
         if (servicesError is not null)
         {
             return servicesError;
         }
 
-        worker.FirstName = dto.FirstName.Trim();
-        worker.MiddleName = string.IsNullOrWhiteSpace(dto.MiddleName) ? null : dto.MiddleName.Trim();
-        worker.LastName = dto.LastName.Trim();
-        worker.DateOfBirth = dto.DateOfBirth;
-        worker.Gender = dto.Gender;
-        worker.MaritalStatus = dto.MaritalStatus;
-        worker.Nationality = dto.Nationality.Trim();
-        worker.CountryId = dto.CountryId;
-        worker.CityId = dto.CityId;
-        worker.PhoneNumber = dto.PhoneNumber.Trim();
-        worker.YearsOfExperience = dto.YearsOfExperience;
+        if (!requiresDocuments && dto.DocumentPaths.Count > 0)
+        {
+            return ApiResponse<WorkerDto>.FailureResponse("The selected services do not require document uploads.", "الخدمات المختارة لا تتطلب رفع وثائق.");
+        }
 
-        SyncWorkerServices(worker, serviceIds);
+        var newDocumentPaths = requiresDocuments ? dto.DocumentPaths : new List<string>();
+        var documentsError = EnsureDocumentCountValid<WorkerDto>(requiresDocuments, worker.Documents.Count + newDocumentPaths.Count);
+        if (documentsError is not null)
+        {
+            return documentsError;
+        }
+
+        if (dto.FirstName is not null)
+        {
+            worker.FirstName = dto.FirstName.Trim();
+        }
+
+        if (dto.MiddleName is not null)
+        {
+            worker.MiddleName = string.IsNullOrWhiteSpace(dto.MiddleName) ? null : dto.MiddleName.Trim();
+        }
+
+        if (dto.LastName is not null)
+        {
+            worker.LastName = dto.LastName.Trim();
+        }
+
+        if (dto.DateOfBirth is not null)
+        {
+            worker.DateOfBirth = dto.DateOfBirth.Value;
+        }
+
+        if (dto.Gender is not null)
+        {
+            worker.Gender = dto.Gender.Value;
+        }
+
+        if (dto.MaritalStatus is not null)
+        {
+            worker.MaritalStatus = dto.MaritalStatus.Value;
+        }
+
+        if (dto.Nationality is not null)
+        {
+            worker.Nationality = dto.Nationality.Trim();
+        }
+
+        worker.CountryId = countryId;
+        worker.CityId = cityId;
+
+        if (phoneNumber is not null)
+        {
+            worker.PhoneNumber = phoneNumber;
+        }
+
+        if (dto.YearsOfExperience is not null)
+        {
+            worker.YearsOfExperience = dto.YearsOfExperience.Value;
+        }
+
+        if (dto.ServiceIds is not null)
+        {
+            SyncWorkerServices(worker, serviceIds);
+        }
+
+        foreach (var path in newDocumentPaths)
+        {
+            worker.Documents.Add(new WorkerDocument { WorkerId = worker.Id, FilePath = path });
+        }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -223,7 +327,7 @@ public class WorkerService : IWorkerService
             return authError;
         }
 
-        var worker = await _unitOfWork.Workers.GetByIdAsync(workerId, cancellationToken);
+        var worker = await _unitOfWork.Workers.GetByIdWithServicesAsync(workerId, cancellationToken);
         if (worker is null)
         {
             return ApiResponse<object?>.FailureResponse("Worker not found.", "العامل غير موجود.");
@@ -235,6 +339,9 @@ public class WorkerService : IWorkerService
             return scopeError;
         }
 
+        // Cascading the soft-delete to Documents/WorkerServices happens inside
+        // WorkerRepository.Remove (needs direct DbContext access to avoid EF's "severed required
+        // relationship" error — see its own comment for why).
         _unitOfWork.Workers.Remove(worker);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -268,6 +375,18 @@ public class WorkerService : IWorkerService
 
         worker.IsDeleted = false;
         worker.DeletedAt = null;
+
+        foreach (var document in worker.Documents)
+        {
+            document.IsDeleted = false;
+            document.DeletedAt = null;
+        }
+
+        foreach (var link in worker.WorkerServices)
+        {
+            link.IsDeleted = false;
+            link.DeletedAt = null;
+        }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -329,19 +448,23 @@ public class WorkerService : IWorkerService
 
     private static HashSet<int> GetEffectivePermissionIds(User user)
     {
-        var rolePermissionIds = user.Role.RolePermissions
-            .Where(rp => rp.IsActive && rp.Permission.IsActive)
-            .Select(rp => rp.PermissionId);
+        // modify cause i modified a get with permission async in user repository to get the permission to users that is active in system
 
-        var directPermissionIds = user.UserPermissions
-            .Where(up => up.IsActive && up.Permission.IsActive)
-            .Select(up => up.PermissionId);
 
-        var groupPermissionIds = user.UserGroups
-            .Where(ug => ug.Group.IsActive)
-            .SelectMany(ug => ug.Group.GroupPermissions)
-            .Where(gp => gp.IsActive && gp.Permission.IsActive)
-            .Select(gp => gp.PermissionId);
+        var rolePermissionIds = user.Role?.RolePermissions?
+        .Where(rp => rp.IsActive && (rp.Permission == null || rp.Permission.IsActive))
+        .Select(rp => rp.PermissionId) ?? Enumerable.Empty<int>();
+
+        var directPermissionIds = user.UserPermissions?
+        .Where(up => up.IsActive && (up.Permission == null || up.Permission.IsActive))
+        .Select(up => up.PermissionId) ?? Enumerable.Empty<int>();
+
+        var groupPermissionIds = user.UserGroups?
+        .Where(ug => ug.Group != null && ug.Group.IsActive)
+        .SelectMany(ug => ug.Group.GroupPermissions ?? new List<GroupPermission>())
+        .Where(gp => gp.IsActive && (gp.Permission == null || gp.Permission.IsActive))
+        .Select(gp => gp.PermissionId) ?? Enumerable.Empty<int>();
+        // why Enumerable not queryable cause in this momment data in memory not in the database
 
         return rolePermissionIds.Concat(directPermissionIds).Concat(groupPermissionIds).ToHashSet();
     }
@@ -361,14 +484,39 @@ public class WorkerService : IWorkerService
         return null;
     }
 
-    private async Task<ApiResponse<T>?> EnsureServicesExistAsync<T>(List<int> serviceIds, CancellationToken cancellationToken)
+    private async Task<(bool RequiresDocuments, ApiResponse<T>? Error)> EnsureServicesExistAsync<T>(List<int> serviceIds, CancellationToken cancellationToken)
     {
+        var requiresDocuments = false;
+
         foreach (var serviceId in serviceIds)
         {
-            if (await _unitOfWork.Services.GetByIdAsync(serviceId, cancellationToken) is null)
+            var service = await _unitOfWork.Services.GetByIdAsync(serviceId, cancellationToken);
+            if (service is null)
             {
-                return ApiResponse<T>.FailureResponse("One or more selected services were not found.", "إحدى الخدمات المحددة غير موجودة.");
+                return (false, ApiResponse<T>.FailureResponse("One or more selected services were not found.", "إحدى الخدمات المحددة غير موجودة."));
             }
+
+            if (service.RequiresDocuments)
+            {
+                requiresDocuments = true;
+            }
+        }
+
+        return (requiresDocuments, null);
+    }
+
+    private const int MaxWorkerDocuments = 4;
+
+    private static ApiResponse<T>? EnsureDocumentCountValid<T>(bool requiresDocuments, int totalCount)
+    {
+        if (requiresDocuments && totalCount == 0)
+        {
+            return ApiResponse<T>.FailureResponse("At least one document must be uploaded for this service.", "يجب رفع صورة واحدة على الأقل لهذه الخدمة.");
+        }
+
+        if (totalCount > MaxWorkerDocuments)
+        {
+            return ApiResponse<T>.FailureResponse($"At most {MaxWorkerDocuments} documents may be uploaded.", $"الحد الأقصى {MaxWorkerDocuments} صور.");
         }
 
         return null;
@@ -482,6 +630,7 @@ public class WorkerService : IWorkerService
                 w.WorkerServices
                     .Select(ws => ws.Service.NameEn)
                     .ToList(),
+                new List<string>(), // Documents aren't loaded by GetAvailableWorkersForRequestAsync; out of scope for this endpoint.
                 w.IsActive
             ))
             .ToList();

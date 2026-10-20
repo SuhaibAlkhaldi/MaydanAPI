@@ -1,8 +1,8 @@
+using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.Services;
 using Maydan.Application.Interfaces;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
-using Maydan.Domain.Entities;
 using System.Globalization;
 
 namespace Maydan.Application.Services;
@@ -18,41 +18,63 @@ public class ServiceConfigurationService : IServiceConfigurationService
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<List<ServiceDto>> GetAllServicesAsync(int currentUserId, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<List<ServiceDto>>> GetAllServicesAsync(int currentUserId, CancellationToken cancellationToken = default)
     {
-        await EnsureCallerCanManageAsync(currentUserId, cancellationToken);
+        var authError = await EnsureCallerCanManageAsync<List<ServiceDto>>(currentUserId, cancellationToken);
+        if (authError is not null)
+        {
+            return authError;
+        }
+
         var services = await _unitOfWork.Services.GetAllAsync(cancellationToken);
-        return services.Select(MapToDto).ToList();
+        return ApiResponse<List<ServiceDto>>.SuccessResponse(services.Select(MapToDto).ToList(), "Services retrieved successfully.", "تم جلب الخدمات بنجاح.");
     }
 
-    public async Task<List<ServiceDto>> GetActiveServicesAsync(CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<List<ServiceDto>>> GetActiveServicesAsync(CancellationToken cancellationToken = default)
     {
         var services = await _unitOfWork.Services.GetActiveAsync(cancellationToken);
-        return services.Select(MapToDto).ToList();
+        return ApiResponse<List<ServiceDto>>.SuccessResponse(services.Select(MapToDto).ToList(), "Active services retrieved successfully.", "تم جلب الخدمات المتاحة بنجاح.");
     }
 
-    public async Task<ServiceDto> GetServiceByIdAsync(int currentUserId, int id, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<ServiceDto>> GetServiceByIdAsync(int currentUserId, int id, CancellationToken cancellationToken = default)
     {
-        await EnsureCallerCanManageAsync(currentUserId, cancellationToken);
-        var service = await _unitOfWork.Services.GetByIdAsync(id, cancellationToken)
-            ?? throw new Maydan.Application.Exceptions.BilingualNotFoundException("الخدمة غير موجودة.", "Service not found.");
-        return MapToDto(service);
+        var authError = await EnsureCallerCanManageAsync<ServiceDto>(currentUserId, cancellationToken);
+        if (authError is not null)
+        {
+            return authError;
+        }
+
+        var service = await _unitOfWork.Services.GetByIdAsync(id, cancellationToken);
+        if (service is null)
+        {
+            return ApiResponse<ServiceDto>.FailureResponse("Service not found.", "الخدمة غير موجودة.");
+        }
+
+        return ApiResponse<ServiceDto>.SuccessResponse(MapToDto(service), "Service retrieved successfully.", "تم جلب الخدمة بنجاح.");
     }
 
-    public async Task<ServiceDto> CreateServiceAsync(int currentUserId, CreateServiceDto dto, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<ServiceDto>> CreateServiceAsync(int currentUserId, CreateServiceDto dto, CancellationToken cancellationToken = default)
     {
-        await EnsureCallerCanManageAsync(currentUserId, cancellationToken);
-        ValidatePayload(dto);
+        var authError = await EnsureCallerCanManageAsync<ServiceDto>(currentUserId, cancellationToken);
+        if (authError is not null)
+        {
+            return authError;
+        }
 
-        // Duplicate checks exclude deleted rows via repository normal behavior (soft-delete filter)
+        var validationError = ValidatePayload<ServiceDto>(dto.NameEn, dto.NameAr, dto.Price, dto.CalculationType);
+        if (validationError is not null)
+        {
+            return validationError;
+        }
+
         if (await _unitOfWork.Services.FindByNameEnAsync(dto.NameEn.Trim(), cancellationToken) is not null)
         {
-            throw new Maydan.Application.Exceptions.BilingualException("اسم الخدمة الإنجليزي موجود بالفعل.", "English service name already exists.");
+            return ApiResponse<ServiceDto>.FailureResponse("English service name already exists.", "اسم الخدمة الإنجليزي موجود بالفعل.");
         }
 
         if (await _unitOfWork.Services.FindByNameArAsync(dto.NameAr.Trim(), cancellationToken) is not null)
         {
-            throw new Maydan.Application.Exceptions.BilingualException("اسم الخدمة العربي موجود بالفعل.", "Arabic service name already exists.");
+            return ApiResponse<ServiceDto>.FailureResponse("Arabic service name already exists.", "اسم الخدمة العربي موجود بالفعل.");
         }
 
         var service = new Service
@@ -61,102 +83,193 @@ public class ServiceConfigurationService : IServiceConfigurationService
             NameAr = dto.NameAr.Trim(),
             CalculationType = dto.CalculationType,
             Price = dto.Price,
+            RequiresDocuments = dto.RequiresDocuments,
             IsActive = true
         };
 
         await _unitOfWork.Services.AddAsync(service, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return MapToDto(service);
+        return ApiResponse<ServiceDto>.SuccessResponse(MapToDto(service), "Service created successfully.", "تم إنشاء الخدمة بنجاح.", 201);
     }
 
-    public async Task<ServiceDto> UpdateServiceAsync(int currentUserId, int id, UpdateServiceDto dto, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<ServiceDto>> UpdateServiceAsync(int currentUserId, int id, UpdateServiceDto dto, CancellationToken cancellationToken = default)
     {
-        await EnsureCallerCanManageAsync(currentUserId, cancellationToken);
-        ValidatePayload(dto);
-
-        var service = await _unitOfWork.Services.GetByIdAsync(id, cancellationToken)
-            ?? throw new Maydan.Application.Exceptions.BilingualNotFoundException("الخدمة غير موجودة.", "Service not found.");
-
-        var otherByEn = await _unitOfWork.Services.FindByNameEnAsync(dto.NameEn.Trim(), cancellationToken);
-        if (otherByEn is not null && otherByEn.Id != id)
+        var authError = await EnsureCallerCanManageAsync<ServiceDto>(currentUserId, cancellationToken);
+        if (authError is not null)
         {
-            throw new Maydan.Application.Exceptions.BilingualException("اسم الخدمة الإنجليزي موجود بالفعل.", "English service name already exists.");
+            return authError;
         }
 
-        var otherByAr = await _unitOfWork.Services.FindByNameArAsync(dto.NameAr.Trim(), cancellationToken);
-        if (otherByAr is not null && otherByAr.Id != id)
+        var service = await _unitOfWork.Services.GetByIdAsync(id, cancellationToken);
+        if (service is null)
         {
-            throw new Maydan.Application.Exceptions.BilingualException("اسم الخدمة العربي موجود بالفعل.", "Arabic service name already exists.");
+            return ApiResponse<ServiceDto>.FailureResponse("Service not found.", "الخدمة غير موجودة.");
         }
 
-        service.NameEn = dto.NameEn.Trim();
-        service.NameAr = dto.NameAr.Trim();
-        service.CalculationType = dto.CalculationType;
-        service.Price = dto.Price;
-        service.IsActive = dto.IsActive;
+        if (dto.NameEn is not null)
+        {
+            if (string.IsNullOrWhiteSpace(dto.NameEn))
+            {
+                return ApiResponse<ServiceDto>.FailureResponse("NameEn is required.", "اسم الخدمة بالإنجليزية مطلوب.");
+            }
+
+            var nameEn = dto.NameEn.Trim();
+            var otherByEn = await _unitOfWork.Services.FindByNameEnAsync(nameEn, cancellationToken);
+            if (otherByEn is not null && otherByEn.Id != id)
+            {
+                return ApiResponse<ServiceDto>.FailureResponse("English service name already exists.", "اسم الخدمة الإنجليزي موجود بالفعل.");
+            }
+
+            service.NameEn = nameEn;
+        }
+
+        if (dto.NameAr is not null)
+        {
+            if (string.IsNullOrWhiteSpace(dto.NameAr))
+            {
+                return ApiResponse<ServiceDto>.FailureResponse("NameAr is required.", "اسم الخدمة بالعربية مطلوب.");
+            }
+
+            var nameAr = dto.NameAr.Trim();
+            var otherByAr = await _unitOfWork.Services.FindByNameArAsync(nameAr, cancellationToken);
+            if (otherByAr is not null && otherByAr.Id != id)
+            {
+                return ApiResponse<ServiceDto>.FailureResponse("Arabic service name already exists.", "اسم الخدمة العربي موجود بالفعل.");
+            }
+
+            service.NameAr = nameAr;
+        }
+
+        if (dto.Price is not null)
+        {
+            if (dto.Price <= 0)
+            {
+                return ApiResponse<ServiceDto>.FailureResponse("Price must be greater than zero.", "يجب أن يكون السعر أكبر من صفر.");
+            }
+
+            service.Price = dto.Price.Value;
+        }
+
+        if (dto.CalculationType is not null)
+        {
+            if (!Enum.IsDefined(typeof(CalculationType), dto.CalculationType.Value))
+            {
+                return ApiResponse<ServiceDto>.FailureResponse("Invalid CalculationType.", "نوع الحساب غير صالح.");
+            }
+
+            service.CalculationType = dto.CalculationType.Value;
+        }
+
+        if (dto.RequiresDocuments is not null)
+        {
+            service.RequiresDocuments = dto.RequiresDocuments.Value;
+        }
+
+        if (dto.IsActive is not null)
+        {
+            service.IsActive = dto.IsActive.Value;
+        }
 
         _unitOfWork.Services.Update(service);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return MapToDto(service);
+        return ApiResponse<ServiceDto>.SuccessResponse(MapToDto(service), "Service updated successfully.", "تم تحديث الخدمة بنجاح.");
     }
 
-    public async Task DeleteServiceAsync(int currentUserId, int id, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<object?>> DeleteServiceAsync(int currentUserId, int id, CancellationToken cancellationToken = default)
     {
-        await EnsureCallerCanManageAsync(currentUserId, cancellationToken);
-        var service = await _unitOfWork.Services.GetByIdAsync(id, cancellationToken)
-            ?? throw new Maydan.Application.Exceptions.BilingualNotFoundException("الخدمة غير موجودة.", "Service not found.");
+        var authError = await EnsureCallerCanManageAsync<object?>(currentUserId, cancellationToken);
+        if (authError is not null)
+        {
+            return authError;
+        }
 
+        var service = await _unitOfWork.Services.GetByIdAsync(id, cancellationToken);
+        if (service is null)
+        {
+            return ApiResponse<object?>.FailureResponse("Service not found.", "الخدمة غير موجودة.");
+        }
+
+        service.IsActive = false;
         _unitOfWork.Services.Remove(service);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return ApiResponse<object?>.SuccessResponse(null, "Service deleted successfully.", "تم حذف الخدمة بنجاح.");
     }
 
-    private static ServiceDto MapToDto(Service s) => new(s.Id, s.NameEn, s.NameAr, s.CalculationType, s.Price, s.IsActive);
 
-    private static void ValidatePayload(CreateServiceDto dto)
+
+
+    #region Helpers
+    private static ServiceDto MapToDto(Service s) => new(s.Id, s.NameEn, s.NameAr, s.CalculationType, s.Price, s.RequiresDocuments, s.IsActive);
+
+    private static ApiResponse<T>? ValidatePayload<T>(string nameEn, string nameAr, decimal price, CalculationType calculationType)
     {
-        if (string.IsNullOrWhiteSpace(dto.NameEn)) throw new Maydan.Application.Exceptions.BilingualException("اسم الخدمة بالإنجليزية مطلوب.", "NameEn is required.");
-        if (string.IsNullOrWhiteSpace(dto.NameAr)) throw new Maydan.Application.Exceptions.BilingualException("اسم الخدمة بالعربية مطلوب.", "NameAr is required.");
-        if (dto.Price < 0) throw new Maydan.Application.Exceptions.BilingualException("يجب أن تكون السعر غير سالبة.", "Price must be non-negative.");
-        if (!Enum.IsDefined(typeof(CalculationType), dto.CalculationType)) throw new Maydan.Application.Exceptions.BilingualException("نوع الحساب غير صالح.", "Invalid CalculationType.");
+        if (string.IsNullOrWhiteSpace(nameEn))
+        {
+            return ApiResponse<T>.FailureResponse("NameEn is required.", "اسم الخدمة بالإنجليزية مطلوب.");
+        }
+
+        if (string.IsNullOrWhiteSpace(nameAr))
+        {
+            return ApiResponse<T>.FailureResponse("NameAr is required.", "اسم الخدمة بالعربية مطلوب.");
+        }
+
+        if (price <= 0)
+        {
+            return ApiResponse<T>.FailureResponse("Price must be greater than zero.", "يجب أن يكون السعر أكبر من صفر.");
+        }
+
+        if (!Enum.IsDefined(typeof(CalculationType), calculationType))
+        {
+            return ApiResponse<T>.FailureResponse("Invalid CalculationType.", "نوع الحساب غير صالح.");
+        }
+
+        return null;
     }
 
-    private static void ValidatePayload(UpdateServiceDto dto)
-    {
-        if (string.IsNullOrWhiteSpace(dto.NameEn)) throw new Maydan.Application.Exceptions.BilingualException("اسم الخدمة بالإنجليزية مطلوب.", "NameEn is required.");
-        if (string.IsNullOrWhiteSpace(dto.NameAr)) throw new Maydan.Application.Exceptions.BilingualException("اسم الخدمة بالعربية مطلوب.", "NameAr is required.");
-        if (dto.Price < 0) throw new Maydan.Application.Exceptions.BilingualException("يجب أن تكون السعر غير سالبة.", "Price must be non-negative.");
-        if (!Enum.IsDefined(typeof(CalculationType), dto.CalculationType)) throw new Maydan.Application.Exceptions.BilingualException("نوع الحساب غير صالح.", "Invalid CalculationType.");
-    }
 
-    // Reuse SystemConfigurationService's authorization shape: only BaytAlUrdon users with ManageSystemConfiguration
-    // may manage services. Replicate the same checks here since SystemConfigurationService.EnsureCallerCanManageAsync
-    // is private there.
-    private async Task EnsureCallerCanManageAsync(int currentUserId, CancellationToken cancellationToken)
+    private async Task<ApiResponse<T>?> EnsureCallerCanManageAsync<T>(int currentUserId, CancellationToken cancellationToken)
     {
-        var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken)
-            ?? throw new UnauthorizedAccessException("Current user was not found.");
+        var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken);
+        if (currentUser is null)
+        {
+            return ApiResponse<T>.FailureResponse("Current user was not found.", "المستخدم الحالي غير موجود.");
+        }
 
-        if (!currentUser.IsActive) throw new UnauthorizedAccessException("Current user is inactive.");
+        if (!currentUser.IsActive)
+        {
+            return ApiResponse<T>.FailureResponse("Current user is inactive.", "المستخدم الحالي غير فعّال.");
+        }
 
         if (currentUser.EntityType != EntityType.BaytAlUrdon)
         {
-            throw new UnauthorizedAccessException("Only Bayt-AlUrdon staff can manage the system configuration.");
+            return ApiResponse<T>.FailureResponse("Only Bayt-AlUrdon staff can manage the system configuration.", "فقط موظفو بيت الأردن يمكنهم إدارة إعدادات النظام.");
         }
 
         var effective = GetEffectivePermissionIds(currentUser);
         if (!effective.Contains(ManageSystemConfigurationPermissionId))
         {
-            throw new UnauthorizedAccessException("Caller does not hold the Manage System Configuration permission.");
+            return ApiResponse<T>.FailureResponse("Caller does not hold the Manage System Configuration permission.", "لا تملك صلاحية إدارة إعدادات النظام.");
         }
+
+        return null;
     }
 
     private static HashSet<int> GetEffectivePermissionIds(User user)
     {
-        var rolePermissionIds = user.Role.RolePermissions?.Select(rp => rp.PermissionId) ?? Enumerable.Empty<int>();
+        var rolePermissionIds = user.Role?.RolePermissions?.Select(rp => rp.PermissionId) ?? Enumerable.Empty<int>();
+
         var userPermissionIds = user.UserPermissions?.Select(up => up.PermissionId) ?? Enumerable.Empty<int>();
-        var groupPermissionIds = user.UserGroups?.SelectMany(ug => ug.Group.GroupPermissions.Select(gp => gp.PermissionId)) ?? Enumerable.Empty<int>();
+
+        var groupPermissionIds = user.UserGroups?
+            .Where(ug => ug.Group?.GroupPermissions != null)
+                  .SelectMany(ug => ug.Group.GroupPermissions.
+                        Select(gp => gp.PermissionId))
+                          ?? Enumerable.Empty<int>();
+
         return new HashSet<int>(rolePermissionIds.Concat(userPermissionIds).Concat(groupPermissionIds));
     }
+    #endregion
 }
