@@ -178,21 +178,21 @@ public class ServiceRequestService : IServiceRequestService
         }
 
         // Prevent duplicate requests
-        if (!string.IsNullOrWhiteSpace(dto.IdempotencyKey))
-        {
-            var existingRequest =
-                await _unitOfWork.ServiceRequests.GetByIdempotencyKeyAsync(
-                    dto.IdempotencyKey,
-                    project.ProductionCompanyId,
-                    cancellationToken);
+        //if (!string.IsNullOrWhiteSpace(dto.IdempotencyKey))
+        //{
+        //    var existingRequest =
+        //        await _unitOfWork.ServiceRequests.GetByIdempotencyKeyAsync(
+        //            dto.IdempotencyKey,
+        //            project.ProductionCompanyId,
+        //            cancellationToken);
 
-            if (existingRequest is not null)
-            {
-                return ApiResponse<ServiceRequestDto>.FailureResponse(
-                    "تعذرت إنشاء طلب خدمة مكرر.",
-                    "Duplicate service request detected.");
-            }
-        }
+        //    if (existingRequest is not null)
+        //    {
+        //        return ApiResponse<ServiceRequestDto>.FailureResponse(
+        //            "تعذرت إنشاء طلب خدمة مكرر.",
+        //            "Duplicate service request detected.");
+        //    }
+        //}
 
         // Get service from database
         var service = await _unitOfWork.Services
@@ -235,7 +235,7 @@ public class ServiceRequestService : IServiceRequestService
             AttendanceFrequency = dto.AttendanceFrequency,
             AdditionalRequirements = dto.AdditionalRequirements,
 
-            IdempotencyKey = dto.IdempotencyKey,
+            //IdempotencyKey = dto.IdempotencyKey,
 
             CreatedAt = DateTime.UtcNow,
             CreatedBy = currentUserId,

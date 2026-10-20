@@ -2045,7 +2045,12 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                             PermissionId = 39,
                             IsActive = true
                         },
-                      
+                        new
+                        {
+                            RoleId = 4,
+                            PermissionId = 16,
+                            IsActive = true
+                        },
                         new
                         {
                             RoleId = 4,
@@ -2183,10 +2188,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<string>("IdempotencyKey")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
@@ -2236,10 +2237,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.HasIndex("ProjectId");
 
                     b.HasIndex("ServiceId");
-
-                    b.HasIndex("IdempotencyKey", "ProductionCompanyId")
-                        .IsUnique()
-                        .HasFilter("[IdempotencyKey] IS NOT NULL");
 
                     b.ToTable("ServiceRequests", (string)null);
                 });
