@@ -431,19 +431,23 @@ public class WorkerService : IWorkerService
 
     private static HashSet<int> GetEffectivePermissionIds(User user)
     {
-        var rolePermissionIds = user.Role.RolePermissions
-            .Where(rp => rp.IsActive && rp.Permission.IsActive)
-            .Select(rp => rp.PermissionId);
+        // modify cause i modified a get with permission async in user repository to get the permission to users that is active in system
 
-        var directPermissionIds = user.UserPermissions
-            .Where(up => up.IsActive && up.Permission.IsActive)
-            .Select(up => up.PermissionId);
 
-        var groupPermissionIds = user.UserGroups
-            .Where(ug => ug.Group.IsActive)
-            .SelectMany(ug => ug.Group.GroupPermissions)
-            .Where(gp => gp.IsActive && gp.Permission.IsActive)
-            .Select(gp => gp.PermissionId);
+        var rolePermissionIds = user.Role?.RolePermissions?
+        .Where(rp => rp.IsActive && (rp.Permission == null || rp.Permission.IsActive))
+        .Select(rp => rp.PermissionId) ?? Enumerable.Empty<int>();
+
+        var directPermissionIds = user.UserPermissions?
+        .Where(up => up.IsActive && (up.Permission == null || up.Permission.IsActive))
+        .Select(up => up.PermissionId) ?? Enumerable.Empty<int>();
+
+        var groupPermissionIds = user.UserGroups?
+        .Where(ug => ug.Group != null && ug.Group.IsActive)
+        .SelectMany(ug => ug.Group.GroupPermissions ?? new List<GroupPermission>())
+        .Where(gp => gp.IsActive && (gp.Permission == null || gp.Permission.IsActive))
+        .Select(gp => gp.PermissionId) ?? Enumerable.Empty<int>();
+        // why Enumerable not queryable cause in this momment data in memory not in the database
 
         return rolePermissionIds.Concat(directPermissionIds).Concat(groupPermissionIds).ToHashSet();
     }

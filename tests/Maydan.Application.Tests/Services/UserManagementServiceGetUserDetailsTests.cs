@@ -47,7 +47,7 @@ public class UserManagementServiceGetUserDetailsTests
 
         var result = await service.GetUserDetailsAsync(1, 2);
 
-        Assert.Equal(2, result.UserId);
+        Assert.Equal(2, result.Data!.UserId);
     }
 
     [Theory]
