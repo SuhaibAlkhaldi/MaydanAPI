@@ -127,10 +127,10 @@ public class WorkerRepository : IWorkerRepository
                 w.Gender,
                 w.MaritalStatus,
                 w.Nationality,
-                w.CountryId,
-                w.Country != null ? w.Country.EnglishName : null,
-                w.CityId,
-                w.City != null ? w.City.EnglishName : null,
+                w.Association.City.CountryId,
+                w.Association.City.Country.EnglishName,
+                w.Association.CityId,
+                w.Association.City.EnglishName,
                 w.PhoneNumber,
                 w.YearsOfExperience,
                 w.AssociationId,
@@ -150,6 +150,11 @@ public class WorkerRepository : IWorkerRepository
        CancellationToken cancellationToken = default)
     {
         var query = _context.Workers
+            .Include(w => w.Association)
+                .ThenInclude(a => a.City)
+                    .ThenInclude(c => c.Country)
+            .Include(w => w.WorkerServices)
+                .ThenInclude(ws => ws.Service)
             .Where(w => w.AssociationId == associationId)
             .Where(w => w.WorkerServices.Any(ws => ws.ServiceId == serviceId))
             .Where(w => !w.ServiceRequestWorkers.Any(srw =>

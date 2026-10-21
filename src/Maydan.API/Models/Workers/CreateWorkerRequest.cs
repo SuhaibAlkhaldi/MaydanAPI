@@ -31,12 +31,6 @@ public class CreateWorkerRequest
     public string Nationality { get; set; } = string.Empty;
 
     [Required]
-    public int CountryId { get; set; }
-
-    [Required]
-    public int CityId { get; set; }
-
-    [Required]
     public string PhoneNumber { get; set; } = string.Empty;
 
     public List<int> ServiceIds { get; set; } = new();
