@@ -21,11 +21,6 @@ public class Worker : SharedEntities
     public MaritalStatus? MaritalStatus { get; set; }
     public string? Nationality { get; set; }
 
-    public int? CountryId { get; set; }
-    public Country? Country { get; set; }
-    public int? CityId { get; set; }
-    public City? City { get; set; }
-
     public int? YearsOfExperience { get; set; }
 
     public int AssociationId { get; set; }

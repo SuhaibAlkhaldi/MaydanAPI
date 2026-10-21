@@ -112,12 +112,6 @@ public class WorkerService : IWorkerService
             return ApiResponse<WorkerDto>.FailureResponse("Phone number is already registered to another worker.", "رقم الهاتف مستخدم مسبقًا لعامل آخر.");
         }
 
-        var countryCityError = await EnsureCountryAndCityExistAsync<WorkerDto>(dto.CountryId, dto.CityId, cancellationToken);
-        if (countryCityError is not null)
-        {
-            return countryCityError;
-        }
-
         var serviceIds = dto.ServiceIds.Distinct().ToList();
         var (requiresDocuments, servicesError) = await EnsureServicesExistAsync<WorkerDto>(serviceIds, cancellationToken);
         if (servicesError is not null)
@@ -148,8 +142,6 @@ public class WorkerService : IWorkerService
             Gender = dto.Gender,
             MaritalStatus = dto.MaritalStatus,
             Nationality = dto.Nationality.Trim(),
-            CountryId = dto.CountryId,
-            CityId = dto.CityId,
             PhoneNumber = phoneNumber,
             YearsOfExperience = dto.YearsOfExperience,
             AssociationId = associationId,
@@ -225,17 +217,6 @@ public class WorkerService : IWorkerService
             }
         }
 
-        var countryId = dto.CountryId ?? worker.CountryId ?? 0;
-        var cityId = dto.CityId ?? worker.CityId ?? 0;
-        if (dto.CountryId is not null || dto.CityId is not null)
-        {
-            var countryCityError = await EnsureCountryAndCityExistAsync<WorkerDto>(countryId, cityId, cancellationToken);
-            if (countryCityError is not null)
-            {
-                return countryCityError;
-            }
-        }
-
         var serviceIds = dto.ServiceIds?.Distinct().ToList() ?? worker.WorkerServices.Select(ws => ws.ServiceId).ToList();
         var (requiresDocuments, servicesError) = await EnsureServicesExistAsync<WorkerDto>(serviceIds, cancellationToken);
         if (servicesError is not null)
@@ -289,9 +270,6 @@ public class WorkerService : IWorkerService
         {
             worker.Nationality = dto.Nationality.Trim();
         }
-
-        worker.CountryId = countryId;
-        worker.CityId = cityId;
 
         if (phoneNumber is not null)
         {
@@ -419,6 +397,11 @@ public class WorkerService : IWorkerService
     {
         if (currentUser.EntityType == EntityType.Association)
         {
+            if (requestedAssociationId.HasValue && requestedAssociationId.Value != currentUser.EntityId)
+            {
+                return (0, ApiResponse<T>.FailureResponse("You cannot register a worker under a different association.", "لا يمكنك تسجيل عامل تحت جمعية أخرى."));
+            }
+
             return (currentUser.EntityId, null);
         }
 
@@ -467,21 +450,6 @@ public class WorkerService : IWorkerService
         // why Enumerable not queryable cause in this momment data in memory not in the database
 
         return rolePermissionIds.Concat(directPermissionIds).Concat(groupPermissionIds).ToHashSet();
-    }
-
-    private async Task<ApiResponse<T>?> EnsureCountryAndCityExistAsync<T>(int countryId, int cityId, CancellationToken cancellationToken)
-    {
-        if (await _unitOfWork.Countries.GetByIdAsync(countryId, cancellationToken) is null)
-        {
-            return ApiResponse<T>.FailureResponse("Country not found.", "الدولة غير موجودة.");
-        }
-
-        if (await _unitOfWork.Cities.GetByIdAsync(cityId, cancellationToken) is null)
-        {
-            return ApiResponse<T>.FailureResponse("City not found.", "المدينة غير موجودة.");
-        }
-
-        return null;
     }
 
     private async Task<(bool RequiresDocuments, ApiResponse<T>? Error)> EnsureServicesExistAsync<T>(List<int> serviceIds, CancellationToken cancellationToken)
@@ -615,14 +583,14 @@ public class WorkerService : IWorkerService
                 w.Gender,
                 w.MaritalStatus,
                 w.Nationality,
-                w.CountryId,
-                w.Country?.EnglishName,
-                w.CityId,
-                w.City?.EnglishName,
+                w.Association.City.CountryId,
+                w.Association.City.Country.EnglishName,
+                w.Association.CityId,
+                w.Association.City.EnglishName,
                 w.PhoneNumber,
                 w.YearsOfExperience,
                 w.AssociationId,
-                w.Association.EnglishName ?? string.Empty,
+                w.Association.EnglishName,
                 w.QrCode,
                 w.WorkerServices
                     .Select(ws => ws.ServiceId)
