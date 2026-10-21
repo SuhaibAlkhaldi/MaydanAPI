@@ -148,16 +148,22 @@ public class WorkerRepository : IWorkerRepository
        DateTime startDate,
        DateTime endDate,
        CancellationToken cancellationToken = default)
-    {
-        var query = _context.Workers
-            .Where(w => w.AssociationId == associationId)
-            .Where(w => w.WorkerServices.Any(ws => ws.ServiceId == serviceId))
-            .Where(w => !w.ServiceRequestWorkers.Any(srw =>
-                srw.ServiceRequest.Status == ServiceRequestStatus.InProgress &&
-                srw.ServiceRequest.StartDate <= endDate &&
-                srw.ServiceRequest.EndDate >= startDate));
-
-        return await query.ToListAsync(cancellationToken);
+    {// فحص هل الخدمة تتطلب وثائق
+    var serviceRequiresDocs = await _context.Set<Service>()
+        .Where(s => s.Id == serviceId)
+        .Select(s => s.RequiresDocuments)
+        .FirstOrDefaultAsync(cancellationToken);
+    var query = _context.Workers
+        .Include(w => w.Documents) // تحميل الوثائق
+        .Where(w => w.AssociationId == associationId)
+        .Where(w => w.WorkerServices.Any(ws => ws.ServiceId == serviceId))
+        // الفلترة الجوهرية: إذا الخدمة تتطلب وثائق، نشترط وجود وثيقة واحدة على الأقل مرفوعة
+        .Where(w => !serviceRequiresDocs || w.Documents.Any())
+        .Where(w => !w.ServiceRequestWorkers.Any(srw =>
+            srw.ServiceRequest.Status == ServiceRequestStatus.InProgress &&
+            srw.ServiceRequest.StartDate <= endDate &&
+            srw.ServiceRequest.EndDate >= startDate));
+    return await query.ToListAsync(cancellationToken);
     }
     
 }
