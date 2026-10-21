@@ -110,7 +110,8 @@ namespace Maydan.Infrastructure.Persistence.Seed
                 SystemPermissions.ManageAttendance,
                 SystemPermissions.ManageProductionCompanyUsers,
                 SystemPermissions.ViewTotalAmountForServiceRequest,
-                SystemPermissions.CreateUsers
+                SystemPermissions.CreateUsers,
+                SystemPermissions.ManageServiceRequests
             };
 
             var associationPermissions = new[]

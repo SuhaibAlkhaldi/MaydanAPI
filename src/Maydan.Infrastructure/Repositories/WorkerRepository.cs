@@ -127,10 +127,10 @@ public class WorkerRepository : IWorkerRepository
                 w.Gender,
                 w.MaritalStatus,
                 w.Nationality,
-                w.CountryId,
-                w.Country != null ? w.Country.EnglishName : null,
-                w.CityId,
-                w.City != null ? w.City.EnglishName : null,
+                w.Association.City.CountryId,
+                w.Association.City.Country.EnglishName,
+                w.Association.CityId,
+                w.Association.City.EnglishName,
                 w.PhoneNumber,
                 w.YearsOfExperience,
                 w.AssociationId,
@@ -142,28 +142,34 @@ public class WorkerRepository : IWorkerRepository
                 w.IsActive))
             .FirstOrDefaultAsync(cancellationToken);
 
-    public async Task<List<Worker>> GetAvailableWorkersForRequestAsync(
-       int associationId,
-       int serviceId,
-       DateTime startDate,
-       DateTime endDate,
-       CancellationToken cancellationToken = default)
-    {// فحص هل الخدمة تتطلب وثائق
-    var serviceRequiresDocs = await _context.Set<Service>()
+   public async Task<List<Worker>> GetAvailableWorkersForRequestAsync(
+   int associationId,
+   int serviceId,
+   DateTime startDate,
+   DateTime endDate,
+   CancellationToken cancellationToken = default)
+{
+    var serviceRequiresDocuments = await _context.Set<Service>()
         .Where(s => s.Id == serviceId)
         .Select(s => s.RequiresDocuments)
         .FirstOrDefaultAsync(cancellationToken);
+
     var query = _context.Workers
-        .Include(w => w.Documents) // تحميل الوثائق
+        .Include(w => w.Association)
+            .ThenInclude(a => a.City)
+                .ThenInclude(c => c.Country)
+        .Include(w => w.WorkerServices)
+            .ThenInclude(ws => ws.Service)
+        .Include(w => w.Documents)
         .Where(w => w.AssociationId == associationId)
         .Where(w => w.WorkerServices.Any(ws => ws.ServiceId == serviceId))
-        // الفلترة الجوهرية: إذا الخدمة تتطلب وثائق، نشترط وجود وثيقة واحدة على الأقل مرفوعة
-        .Where(w => !serviceRequiresDocs || w.Documents.Any())
+        .Where(w => !serviceRequiresDocuments || w.Documents.Any())
         .Where(w => !w.ServiceRequestWorkers.Any(srw =>
             srw.ServiceRequest.Status == ServiceRequestStatus.InProgress &&
             srw.ServiceRequest.StartDate <= endDate &&
             srw.ServiceRequest.EndDate >= startDate));
+
     return await query.ToListAsync(cancellationToken);
-    }
+}
     
 }
