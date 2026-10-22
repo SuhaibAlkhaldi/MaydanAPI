@@ -120,6 +120,12 @@ public class UserRepository : IUserRepository
     public Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken = default) =>
         _context.Users.AnyAsync(u => u.Email == email, cancellationToken);
 
+    public async Task<bool> PhoneExistsAsync(string phoneNumber,CancellationToken cancellationToken = default)
+    {
+        return await _context.Users
+            .AnyAsync(u => u.PhoneNumber == phoneNumber,cancellationToken);
+    }
+
     public Task<User?> GetByUserNameArAsync(User user, CancellationToken cancellationToken = default) =>
         _context.Users.FirstOrDefaultAsync(u => u.FirstNameAr==user.FirstNameAr && u.LastNameAr == user.LastNameAr, cancellationToken);
 

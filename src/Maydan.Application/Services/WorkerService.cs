@@ -69,6 +69,268 @@ public class WorkerService : IWorkerService
         return ApiResponse<WorkerDto>.SuccessResponse(worker, "Worker retrieved successfully.", "تم جلب بيانات العامل بنجاح.");
     }
 
+    public async Task<ApiResponse<WorkerDto>> GetByCivilIdAsync(
+
+       int currentUserId,
+
+       string civilId,
+
+       CancellationToken cancellationToken = default)
+
+    {
+
+        var (currentUser, authError) = await AuthorizeAsync<WorkerDto>(currentUserId, ReadScope, cancellationToken);
+
+        if (authError is not null)
+
+        {
+
+            return authError;
+
+        }
+
+
+
+        if (string.IsNullOrWhiteSpace(civilId))
+
+        {
+
+            return ApiResponse<WorkerDto>.FailureResponse("الرقم الوطني مطلوب.", "National ID is required.");
+
+        }
+
+
+
+        var civilIdHash = _civilIdHasher.ComputeHash(civilId.Trim());
+
+        var workerEntityResponse = await _unitOfWork.Workers.GetByCivilIdHashAsync(civilIdHash, cancellationToken);
+
+        var workerEntity = workerEntityResponse;
+
+        if (workerEntity is null)
+
+        {
+
+            return ApiResponse<WorkerDto>.FailureResponse("العامل غير موجود.", "Worker not found.");
+
+        }
+
+
+
+        var scopeError = EnsureWithinScope<WorkerDto>(currentUser!, workerEntity.AssociationId);
+
+        if (scopeError is not null)
+
+        {
+
+            return scopeError;
+
+        }
+
+
+
+        var workerDtoResponse = await _unitOfWork.Workers.GetByIdProjectedAsync(workerEntity.Id, cancellationToken);
+
+        var workerDto = workerDtoResponse;
+
+        return ApiResponse<WorkerDto>.SuccessResponse(workerDto!, "تم جلب بيانات العامل بنجاح.", "Worker retrieved successfully.");
+
+    }
+
+    public async Task<ApiResponse<List<WorkerSummaryDto>>> GetByAssociationIdAsync(
+
+       int currentUserId,
+
+       int? associationId = null,
+
+       CancellationToken cancellationToken = default)
+
+    {
+
+        var (currentUser, authError) = await AuthorizeAsync<List<WorkerSummaryDto>>(currentUserId, ReadScope, cancellationToken);
+
+        if (authError is not null)
+
+        {
+
+            return authError;
+
+        }
+
+
+
+        var (targetAssociationId, associationError) = await ResolveAssociationIdAsync<List<WorkerSummaryDto>>(currentUser!, associationId, cancellationToken);
+
+        if (associationError is not null)
+
+        {
+
+            return associationError;
+
+        }
+
+
+
+
+        var workersResponse = await _unitOfWork.Workers
+            .GetByAssociationIdAsync(
+                targetAssociationId,
+                cancellationToken);
+
+        var workers = workersResponse?
+            .Select(w => new WorkerSummaryDto(
+                w.Id,
+                w.FirstName,
+                w.LastName,
+                w.CivilId,
+                w.WorkerServices
+                    .Select(ws => $"{ws.Service.NameEn} - {ws.Service.NameAr}")
+                    .ToList(),
+                w.YearsOfExperience,
+                w.PhoneNumber
+            ))
+            .ToList() ?? new List<WorkerSummaryDto>();
+
+        return ApiResponse<List<WorkerSummaryDto>>.SuccessResponse(workers, "تم جلب العمال للجمعية بنجاح.", "Association workers retrieved successfully.");
+
+    }
+
+    public async Task<ApiResponse<List<WorkerSummaryDto>>> GetDeletedByAssociationIdAsync(
+
+      int currentUserId,
+
+      int? associationId = null,
+
+      CancellationToken cancellationToken = default)
+
+    {
+
+        var (currentUser, authError) = await AuthorizeAsync<List<WorkerSummaryDto>>(currentUserId, ReadScope, cancellationToken);
+
+        if (authError is not null)
+
+        {
+
+            return authError;
+
+        }
+
+
+
+        var (targetAssociationId, associationError) = await ResolveAssociationIdAsync<List<WorkerSummaryDto>>(currentUser!, associationId, cancellationToken);
+
+        if (associationError is not null)
+
+        {
+
+            return associationError;
+
+        }
+
+
+
+        var deletedWorkersResponse = await _unitOfWork.Workers.GetDeletedByAssociationIdAsync(targetAssociationId, cancellationToken);
+
+        var deletedWorkers = deletedWorkersResponse ?? new List<Worker>();
+
+        var dtos = deletedWorkers
+        .Select(w => new WorkerSummaryDto(
+        w.Id,
+        w.FirstName,
+        w.LastName,
+        w.CivilId,
+        w.WorkerServices
+            .Select(ws => $"{ws.Service.NameEn} - {ws.Service.NameAr}")
+            .ToList(),
+        w.YearsOfExperience,
+        w.PhoneNumber
+    ))
+    .ToList();
+
+
+
+        return ApiResponse<List<WorkerSummaryDto>>.SuccessResponse(dtos, "تم جلب العمال المحذوفين للجمعية بنجاح.", "Deleted association workers retrieved successfully.");
+
+    }
+
+
+    public async Task<ApiResponse<List<WorkerSummaryDto>>> QueryAsync(
+
+       int currentUserId,
+
+       bool isDeleted = false,
+
+       int? associationId = null,
+
+       bool? orderByYearsOfExperienceAscending = null,
+
+       bool? orderByNameEnAscending = null,
+
+       bool? orderByNameArAscending = null,
+
+       CancellationToken cancellationToken = default)
+
+    {
+
+        var (currentUser, authError) = await AuthorizeAsync<List<WorkerSummaryDto>>(currentUserId, ReadScope, cancellationToken);
+
+        if (authError is not null)
+
+        {
+
+            return authError;
+
+        }
+
+
+
+        int? targetAssociationId = currentUser!.EntityType == EntityType.Association
+
+            ? currentUser.EntityId
+
+            : associationId;
+
+
+
+        var workersResponse = await _unitOfWork.Workers.QueryAsync(
+
+            isDeleted,
+
+            targetAssociationId,
+
+            orderByYearsOfExperienceAscending,
+
+            orderByNameEnAscending,
+
+            orderByNameArAscending,
+
+            cancellationToken);
+
+
+
+        var workers = workersResponse ?? new List<Worker>();
+
+        var dtos = workers
+        .Select(w => new WorkerSummaryDto(
+        w.Id,
+        w.FirstName,
+        w.LastName,
+        w.CivilId,
+        w.WorkerServices
+            .Select(ws => $"{ws.Service.NameEn} - {ws.Service.NameAr}")
+            .ToList(),
+        w.YearsOfExperience,
+        w.PhoneNumber
+    ))
+    .ToList();
+
+
+
+        return ApiResponse<List<WorkerSummaryDto>>.SuccessResponse(dtos, "تم جلب العمال بنجاح.", "Workers retrieved successfully.");
+
+    }
+
+
     public async Task<ApiResponse<WorkerDto>> CreateAsync(int currentUserId, CreateWorkerDto dto, CancellationToken cancellationToken = default)
     {
         var (currentUser, authError) = await AuthorizeAsync<WorkerDto>(currentUserId, WriteScope, cancellationToken);
@@ -235,12 +497,6 @@ public class WorkerService : IWorkerService
         {
             return documentsError;
         }
-        var newDocumentPaths = requiresDocuments ? dto.DocumentPaths : new List<string>();
-        var documentsError = EnsureDocumentCountValid<WorkerDto>(requiresDocuments, worker.Documents.Count + newDocumentPaths.Count);
-        if (documentsError is not null)
-        {
-            return documentsError;
-        }
 
         if (dto.FirstName is not null)
         {
@@ -326,7 +582,7 @@ public class WorkerService : IWorkerService
         // Cascading the soft-delete to Documents/WorkerServices happens inside
         // WorkerRepository.Remove (needs direct DbContext access to avoid EF's "severed required
         // relationship" error — see its own comment for why).
-        _unitOfWork.Workers.Remove(worker);
+        await _unitOfWork.Workers.Remove(worker);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return ApiResponse<object?>.SuccessResponse(null, "Worker deleted successfully.", "تم حذف العامل بنجاح.");

@@ -19,7 +19,7 @@ public interface IWorkerRepository
         CancellationToken cancellationToken = default);
 
 
-    Task<bool> AddAsync(Worker worker, CancellationToken cancellationToken = default);
+    Task AddAsync(Worker worker, CancellationToken cancellationToken = default);
 
     Task<List<Worker>> QueryAsync(
         bool isDeleted,

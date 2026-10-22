@@ -649,6 +649,11 @@ public class ProjectServiceTests
 
             return role;
         }
+
+        public Task<bool> PhoneExistsAsync(string phoneNumber, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     private sealed class FakeProjectTypeRepository : IProjectTypeRepository

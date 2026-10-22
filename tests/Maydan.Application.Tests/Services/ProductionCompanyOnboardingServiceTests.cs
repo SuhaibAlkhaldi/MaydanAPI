@@ -196,6 +196,11 @@ public class ProductionCompanyOnboardingServiceTests
         public Task<User?> GetWithPermissionsAsync(int userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<List<User>> GetByIdsInEntityAsync(IEnumerable<int> userIds, EntityType entityType, int entityId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public void Remove(User user) => throw new NotSupportedException();
+
+        public Task<bool> PhoneExistsAsync(string phoneNumber, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     private sealed class FakeProductionCompanyRepository : IProductionCompanyRepository

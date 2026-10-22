@@ -19,6 +19,5 @@ public class Association : SharedEntities
 
     public ICollection<Worker> Workers { get; set; } = new List<Worker>();
 
-    // WorkersCount is intentionally NOT a column here — it's a computed
-    // COUNT(Workers WHERE AssociationId = Id), returned via DTO at query time.
+
 }

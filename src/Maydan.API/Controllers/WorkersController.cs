@@ -136,82 +136,9 @@ public class WorkersController : ApiControllerBase
         }
     }
 
-    [HttpPost]
-    public async Task<ActionResult> Create([FromForm] CreateWorkerRequest request, CancellationToken cancellationToken)
-    {
-        if (!TryGetCurrentUserId(out var currentUserId))
-        {
-            return Unauthorized(new ApiResponse<WorkerDto>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
-        }
+    
 
-        try
-        {
-            var dto = new CreateWorkerDto
-            {
-                AssociationId = request.AssociationId,
-                FirstName = request.FirstName,
-                MiddleName = request.MiddleName,
-                LastName = request.LastName,
-                CivilId = request.CivilId,
-                DateOfBirth = request.DateOfBirth,
-                Gender = request.Gender,
-                MaritalStatus = request.MaritalStatus,
-                Nationality = request.Nationality,
-                CountryId = request.CountryId,
-                CityId = request.CityId,
-                PhoneNumber = request.PhoneNumber,
-                ServiceIds = request.ServiceIds,
-                YearsOfExperience = request.YearsOfExperience,
-                DocumentPaths = await SaveAllAsync(request.Documents, cancellationToken)
-            };
-
-            var response = await _workerService.CreateAsync(currentUserId, dto, cancellationToken);
-            return StatusCode(response.StatusCode, response);
-        }
-        catch (Exception ex)
-        {
-            await using var stream = file.OpenReadStream();
-            paths.Add(await _fileStorageService.SaveAsync(stream, file.FileName, WorkerDocumentsSubfolder, cancellationToken));
-        }
-
-        return paths;
-    }
-
-    [HttpPut("{id:int}")]
-    public async Task<ActionResult> Update(int id, [FromForm] UpdateWorkerRequest request, CancellationToken cancellationToken)
-    {
-        if (!TryGetCurrentUserId(out var currentUserId))
-        {
-            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
-        }
-
-        try
-        {
-            var dto = new UpdateWorkerDto
-            {
-                FirstName = request.FirstName,
-                MiddleName = request.MiddleName,
-                LastName = request.LastName,
-                DateOfBirth = request.DateOfBirth,
-                Gender = request.Gender,
-                MaritalStatus = request.MaritalStatus,
-                Nationality = request.Nationality,
-                CountryId = request.CountryId,
-                CityId = request.CityId,
-                PhoneNumber = request.PhoneNumber,
-                ServiceIds = request.ServiceIds,
-                YearsOfExperience = request.YearsOfExperience,
-                DocumentPaths = await SaveAllAsync(request.Documents, cancellationToken)
-            };
-
-            var response = await _workerService.UpdateAsync(currentUserId, id, dto, cancellationToken);
-            return StatusCode(response.StatusCode, response);
-        }
-        catch (Exception ex)
-        {
-            return HandleException(ex);
-        }
-    }
+   
 
     private async Task<List<string>> SaveAllAsync(List<IFormFile> files, CancellationToken cancellationToken)
     {
@@ -255,9 +182,26 @@ public class WorkersController : ApiControllerBase
             return Unauthorized(new Maydan.Application.DTOs.Common.ApiResponse<object?>(false, "تعذر التحقق من هوية المستخدم", "Current user id is required.", null));
         }
 
+        var response = await _workerService.GetAvailableWorkersForRequestAsync(
+            currentUserId,
+            serviceRequestId,
+            cancellationToken);
+
+        return StatusCode(response.StatusCode, response);
+    }
+    [HttpGet("civil-id/{civilId}")]
+    public async Task<ActionResult<ApiResponse<WorkerDto>>> GetByCivilId(
+       string civilId,
+       CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized(new ApiResponse<WorkerDto>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
+        }
+
         try
         {
-            var response = await _workerService.RestoreAsync(currentUserId, id, cancellationToken);
+            var response = await _workerService.GetByCivilIdAsync(currentUserId, civilId, cancellationToken);
             return StatusCode(response.StatusCode, response);
         }
         catch (Exception ex)
@@ -266,21 +210,80 @@ public class WorkersController : ApiControllerBase
         }
     }
 
-    [HttpGet("service-request/{serviceRequestId}/available-workers")]
-    public async Task<IActionResult> GetAvailableWorkersForRequest(
-     int serviceRequestId,
-     CancellationToken cancellationToken)
+    [HttpGet("association")]
+    public async Task<ActionResult<ApiResponse<List<WorkerSummaryDto>>>> GetByAssociationId(
+       [FromQuery] int? associationId,
+       CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new Maydan.Application.DTOs.Common.ApiResponse<object?>(false, "تعذر التحقق من هوية المستخدم", "Current user id is required.", null));
+            return Unauthorized(new ApiResponse<List<WorkerSummaryDto>>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
         }
 
-        var response = await _workerService.GetAvailableWorkersForRequestAsync(
-            currentUserId,
-            serviceRequestId,
-            cancellationToken);
-
-        return StatusCode(response.StatusCode, response);
+        try
+        {
+            var response = await _workerService.GetByAssociationIdAsync(currentUserId, associationId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
+        }
+        catch (Exception ex)
+        {
+            return HandleException(ex);
+        }
     }
+
+    [HttpGet("association/deleted")]
+    public async Task<ActionResult<ApiResponse<List<WorkerSummaryDto>>>> GetDeletedByAssociationId(
+        [FromQuery] int? associationId,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized(new ApiResponse<List<WorkerSummaryDto>>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
+        }
+
+        try
+        {
+            var response = await _workerService.GetDeletedByAssociationIdAsync(currentUserId, associationId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
+        }
+        catch (Exception ex)
+        {
+            return HandleException(ex);
+        }
+    }
+
+    [HttpGet("query")]
+    public async Task<ActionResult<ApiResponse<List<WorkerSummaryDto>>>> Query(
+       [FromQuery] bool isDeleted = false,
+       [FromQuery] int? associationId = null,
+       [FromQuery] bool? orderByYearsOfExperienceAscending = null,
+       [FromQuery] bool? orderByNameEnAscending = null,
+       [FromQuery] bool? orderByNameArAscending = null,
+       CancellationToken cancellationToken = default)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized(new ApiResponse<List<WorkerSummaryDto>>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
+        }
+
+        try
+        {
+            var response = await _workerService.QueryAsync(
+                currentUserId,
+                isDeleted,
+                associationId,
+                orderByYearsOfExperienceAscending,
+                orderByNameEnAscending,
+                orderByNameArAscending,
+                cancellationToken);
+            return StatusCode(response.StatusCode, response);
+        }
+        catch (Exception ex)
+        {
+            return HandleException(ex);
+        }
+    }
+
 }
+
+

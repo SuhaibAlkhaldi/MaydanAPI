@@ -120,6 +120,11 @@ public class UserManagementServiceGetUserDetailsTests
         public Task<(List<User> Users, int TotalCount)> GetPagedByEntityAsync(EntityType entityType, int entityId, string? search, bool? isActive, int page, int pageSize, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task AddAsync(User user, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public void Remove(User user) => throw new NotSupportedException();
+
+        public Task<bool> PhoneExistsAsync(string phoneNumber, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     private sealed class FakeUnitOfWork : IUnitOfWork

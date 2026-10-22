@@ -190,7 +190,7 @@ public class AssociationsController : ApiControllerBase
         try
         {
             var result = await _associationService.CreateAsync(currentUserId, dto, cancellationToken);
-            return Created($"/api/Associations/{result.Id}", result);
+            return Created($"/api/Associations/{result.Data!.Id}", result);
         }
         catch (Exception exception)
         {
