@@ -25,6 +25,8 @@ public interface IProjectRepository
         DateTime? endDate,
         string? searchByProductionCompanyName,
         int? searchByProductionCompanyId,
+        int? cityId,
+        int? cityLocationId,
         CancellationToken cancellationToken = default);
 
     Task AddAsync(
@@ -32,4 +34,14 @@ public interface IProjectRepository
         CancellationToken cancellationToken = default);
 
     void Remove(Project project);
+
+
+    Task<string?> CheckOverlapConflictsAsync(
+    DateTime startDate,
+    DateTime endDate,
+    int producerId,
+    int locationManagerId,
+    int cityLocationId,
+    int? excludeProjectId = null,
+    CancellationToken cancellationToken = default);
 }

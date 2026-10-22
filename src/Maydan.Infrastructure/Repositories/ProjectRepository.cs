@@ -1,4 +1,4 @@
-using Maydan.Application.Interfaces;
+﻿using Maydan.Application.Interfaces;
 using Maydan.Domain.Entities;
 using Maydan.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -23,6 +23,8 @@ public class ProjectRepository : IProjectRepository
             .Include(x => x.Producer)
             .Include(x => x.LocationManager)
             .Include(x => x.ProductionCompany)
+            .Include(x => x.City)
+            .Include(x => x.CityLocation)
             .FirstOrDefaultAsync(
                 x => x.Id == projectId,
                 cancellationToken);
@@ -38,6 +40,8 @@ public class ProjectRepository : IProjectRepository
             .Include(x => x.Producer)
             .Include(x => x.LocationManager)
             .Include(x => x.ProductionCompany)
+            .Include(x => x.City)
+            .Include(x => x.CityLocation)
             .FirstOrDefaultAsync(
                 x => x.Id == projectId,
                 cancellationToken);
@@ -52,6 +56,8 @@ public class ProjectRepository : IProjectRepository
             .Include(x => x.ProjectType)
             .Include(x => x.Producer)
             .Include(x => x.LocationManager)
+            .Include(x => x.City)
+            .Include(x => x.CityLocation)
             .Where(x => x.ProductionCompanyId == productionCompanyId)
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync(cancellationToken);
@@ -64,6 +70,8 @@ public class ProjectRepository : IProjectRepository
         DateTime? endDate,
         string? searchByProductionCompanyName,
         int? searchByProductionCompanyId,
+        int? cityId,
+        int? cityLocationId,
         CancellationToken cancellationToken = default)
     {
 
@@ -78,7 +86,9 @@ public class ProjectRepository : IProjectRepository
             .Include(x => x.ProjectType)
             .Include(x => x.Producer)
             .Include(x => x.LocationManager)
-            .Include(x => x.ProductionCompany);
+            .Include(x => x.ProductionCompany)
+            .Include(x => x.City)
+            .Include(x => x.CityLocation);
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
@@ -110,6 +120,15 @@ public class ProjectRepository : IProjectRepository
         {
             query = query.Where(x => x.ProductionCompanyId == searchByProductionCompanyId.Value);
         }
+        if (cityId.HasValue && cityId.Value > 0)
+        {
+            query = query.Where(x => x.CityId == cityId.Value);
+        }
+
+        if (cityLocationId.HasValue && cityLocationId.Value > 0)
+        {
+            query = query.Where(x => x.CityLocationId == cityLocationId.Value);
+        }
 
         return await query
             .OrderByDescending(x => x.CreatedAt)
@@ -126,5 +145,55 @@ public class ProjectRepository : IProjectRepository
     public void Remove(Project project)
     {
         _context.Projects.Remove(project);
+    }
+
+
+
+    public async Task<string?> CheckOverlapConflictsAsync(
+    DateTime startDate,
+    DateTime endDate,
+    int producerId,
+    int locationManagerId,
+    int cityLocationId,
+    int? excludeProjectId = null,
+    CancellationToken cancellationToken = default)
+    {
+     
+        var query = _context.Projects
+            .Where(p => !p.IsDeleted && p.IsActive)
+            .Where(p => p.StartDate <= endDate && p.EndDate >= startDate);
+
+
+        if (excludeProjectId.HasValue)
+        {
+            query = query.Where(p => p.Id != excludeProjectId.Value);
+        }
+
+
+        var overlaps = await query
+            .Select(p => new { p.ProducerUserId, p.LocationManagerUserId, p.CityLocationId })
+            .ToListAsync(cancellationToken);
+
+        if (!overlaps.Any()) return null; 
+
+
+        if (overlaps.Any(p => p.ProducerUserId == producerId || p.LocationManagerUserId == producerId))
+        {
+            return "المنتج المختار مرتبط بمشروع آخر في نفس الفترة الزمنية.";
+        }
+
+
+        if (overlaps.Any(p => p.ProducerUserId == locationManagerId || p.LocationManagerUserId == locationManagerId))
+        {
+            return "مدير الموقع المختار مرتبط بمشروع آخر في نفس الفترة الزمنية.";
+        }
+
+
+        if (overlaps.Any(p => p.CityLocationId == cityLocationId))
+        {
+            return "يوجد مشروع آخر قيد التنفيذ في نفس الموقع التفصيلي خلال هذه الفترة الزمنية.";
+        }
+
+        return null; 
     }
 }

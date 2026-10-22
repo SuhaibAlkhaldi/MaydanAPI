@@ -14,6 +14,8 @@ public class UpdateProjectDto
 
     public int LocationManagerUserId { get; set; }
 
+    public int CityId { get; set; }
+    public int CityLocationId { get; set; }
 
     public string? WorkPermitImagePath { get; set; }
 }
