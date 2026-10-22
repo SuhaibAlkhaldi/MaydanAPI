@@ -598,7 +598,7 @@ public class WorkerService : IWorkerService
                 w.WorkerServices
                     .Select(ws => ws.Service.NameEn)
                     .ToList(),
-                new List<string>(), // Documents aren't loaded by GetAvailableWorkersForRequestAsync; out of scope for this endpoint.
+                w.Documents.Select(d => d.FilePath).ToList(), // Documents paths loaded by GetAvailableWorkersForRequestAsync
                 w.IsActive
             ))
             .ToList();

@@ -71,4 +71,6 @@ public class ServiceRequest : SharedEntities
     /// Request is marked as Cancelled status instead of being deleted.
     /// </summary>
     public DateTime? CancelledAt { get; set; }
+    // Navigation to assigned workers
+    public ICollection<ServiceRequestWorker> ServiceRequestWorkers { get; set; } = new HashSet<ServiceRequestWorker>();
 }

@@ -489,6 +489,16 @@ public class ServiceRequestService : IServiceRequestService
             AttendanceFrequency = CurrentRequestId.AttendanceFrequency,
             UnitPriceSnapshot = CurrentRequestId.UnitPriceSnapshot,
             ExpectedTotalAmount = CurrentRequestId.ExpectedTotalAmount,
+// get assigned workers with their documents
+            AssignedWorkers = CurrentRequestId.ServiceRequestWorkers
+            .Select(srw => new AssignedWorkerDto(
+            srw.Worker.Id,
+            $"{srw.Worker.FirstName} {srw.Worker.LastName}".Trim(),
+            srw.Worker.PhoneNumber,
+            srw.Worker.Nationality,
+            srw.Worker.YearsOfExperience,
+            srw.Worker.Documents.Select(d => d.FilePath).ToList())).ToList(),
+
             Status = CurrentRequestId.Status,
             CreatedAt = CurrentRequestId.CreatedAt,
             CancelledAt = CurrentRequestId.CancelledAt,
