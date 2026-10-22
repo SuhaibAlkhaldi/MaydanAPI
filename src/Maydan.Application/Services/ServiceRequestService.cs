@@ -500,6 +500,7 @@ public class ServiceRequestService : IServiceRequestService
             srw.Worker.Documents.Select(d => d.FilePath).ToList())).ToList(),
 
             Status = CurrentRequestId.Status,
+            RejectionReason = CurrentRequestId.RejectionReason,
             CreatedAt = CurrentRequestId.CreatedAt,
             CancelledAt = CurrentRequestId.CancelledAt,
             AdditionalRequirements = CurrentRequestId.AdditionalRequirements
@@ -545,52 +546,7 @@ public class ServiceRequestService : IServiceRequestService
 
 
 
-    //public async Task<ApiResponse<ExpectedPaymentCalculationDto>> CalculateExpectedPaymentAsync(int currentUserId, int serviceId, int requestedWorkers, int durationCount, ServiceTimeUnit timeUnit, CancellationToken cancellationToken = default)
-    //{
-    //    var (currentUser, authError) = await GetCurrentUserAsync<ExpectedPaymentCalculationDto>(currentUserId, cancellationToken);
-    //    if (authError is not null)
-    //    {
-    //        return authError;
-    //    }
-    //    var permissionError = EnsureCanRequestService<ExpectedPaymentCalculationDto>(currentUser!);
-    //    if (permissionError is not null) { return permissionError; }
-    //    var service = await _unitOfWork.Services.GetByIdAsync(serviceId, cancellationToken);
-    //    if (service is null)
-    //    {
-    //        return ApiResponse<ExpectedPaymentCalculationDto>.FailureResponse("لم يتم العثور على الخدمة.", "Service was not found.");
-    //    }
-    //    decimal totalExpected; switch (timeUnit)
-    //    {
-    //        case ServiceTimeUnit.Shift:
-    //            // Shift = 12 hours
-    //            totalExpected = (12 * service.Price) * requestedWorkers * durationCount;
-    //            break;
-    //        case ServiceTimeUnit.Day:
-    //            // Day = 9 hours
-    //            totalExpected = (9 * service.Price) * requestedWorkers * durationCount;
-    //            break;
-    //        case ServiceTimeUnit.Hour:
-    //            // Hour = direct calculation
-    //            totalExpected = (service.Price * durationCount) * requestedWorkers;
-    //            break;
-    //        default: return ApiResponse<ExpectedPaymentCalculationDto>.FailureResponse("وحدة الوقت غير صالحة.", "Invalid time unit.");
-    //    }
-    //    string timeUnitLabel = timeUnit switch
-    //    {
-    //        ServiceTimeUnit.Shift => "shifts (12 hours each)",
-    //        ServiceTimeUnit.Day => "days (9 hours each)",
-    //        ServiceTimeUnit.Hour => "hours",
-    //        _ => "unknown"
-    //    }; var CalculationInfo = new ExpectedPaymentCalculationDto
-    //    {
-    //        UnitPrice = service.Price,
-    //        RequestedWorkers = requestedWorkers,
-    //        DurationUnits = durationCount,
-    //        TotalExpectedPayment = totalExpected,
-    //        FormattedMessage = $"Expected payment for {requestedWorkers} workers " + $"for {durationCount} {timeUnitLabel}: " + $"{totalExpected:N2} JOD."
-    //    };
-    //    return ApiResponse<ExpectedPaymentCalculationDto>.SuccessResponse(CalculationInfo, "تم حساب المبلغ المتوقع بنجاح.", "Expected payment calculated successfully.");
-    //}
+    
 
     public async Task<ApiResponse<ExpectedPaymentCalculationDto>>CalculateExpectedPaymentAsync(
         int currentUserId,
@@ -690,34 +646,12 @@ public class ServiceRequestService : IServiceRequestService
         }
         RejectedRequestId.Status = ServiceRequestStatus.Rejected;
         // If you add a RejectionReason property to ServiceRequest entity, you can set it here:
-        //sr.RejectionReason = reason;
+        RejectedRequestId.RejectionReason = reason;
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         // Optional: Send Email to Production Company here that their request was rejected.
         return ApiResponse<object?>.SuccessResponse(null, "تم رفض طلب الخدمة بنجاح.", "Service request rejected successfully.");
     }
-    //public async Task<ApiResponse<object?>> ApproveAsync(int currentUserId, int id, CancellationToken cancellationToken = default)
-    //{
-    //    var (currentUser, authError) = await GetCurrentUserAsync<object?>(currentUserId, cancellationToken);
-    //    if (authError is not null)
-    //        return authError;
-    //    var sr = await _unitOfWork.ServiceRequests.GetByIdAsync(id, cancellationToken);
-    //    if (sr is null)
-    //        return ApiResponse<object?>.FailureResponse("لم يتم العثور على طلب الخدمة.", "Service request was not found.");
-    //    // Validate caller is the Association
-    //    if (currentUser!.EntityType != EntityType.Association || currentUser.EntityId != sr.AssociationId)
-    //    {
-    //        return ApiResponse<object?>.FailureResponse("ليس لديك الصلاحية للموافقة على طلب الخدمة هذا.", "Only the assigned association may approve this request.");
-    //    }
-    //    if (sr.Status != ServiceRequestStatus.PendingWorkerSelection)
-    //    {
-    //        return ApiResponse<object?>.FailureResponse("لا يمكن الموافقة على الطلب في حالته الحالية.", "Cannot approve request in its current status.");
-    //    }
-    //    sr.Status = ServiceRequestStatus.InProgress;
-    //    await _unitOfWork.SaveChangesAsync(cancellationToken);
-    //    // Optional: Send Email to Production Company here that their request was approved.
-    //    return ApiResponse<object?>.SuccessResponse(null, "تمت الموافقة على طلب الخدمة بنجاح.", "Service request approved successfully.");
-    //}
-
+    
 
     public async Task<ApiResponse<object?>> ApproveAndAssignAsync(int currentUserId, int id, List<int> workerIds, CancellationToken cancellationToken = default)
     {
