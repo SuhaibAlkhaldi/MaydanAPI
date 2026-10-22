@@ -128,18 +128,18 @@ public class UserRepository : IUserRepository
 
     public Task<User?> GetWithPermissionsAsync(int userId, CancellationToken cancellationToken = default) =>
         _context.Users
-            //.AsNoTracking()
-            //.AsSplitQuery()
-            //.Include(u => u.Role)
-            //    .ThenInclude(r => r.RolePermissions)
-            //        .ThenInclude(rp => rp.Permission)
-            //.Include(u => u.UserGroups)
-            //    .ThenInclude(ug => ug.Group)
-            //        .ThenInclude(g => g.GroupPermissions)
-            //            .ThenInclude(gp => gp.Permission)
-            //.Include(u => u.UserPermissions)
-            //    .ThenInclude(up => up.Permission)
-            .AsNoTracking()
+              //.AsNoTracking()
+              //.AsSplitQuery()
+              //.Include(u => u.Role)
+              //    .ThenInclude(r => r.RolePermissions)
+              //        .ThenInclude(rp => rp.Permission)
+              //.Include(u => u.UserGroups)
+              //    .ThenInclude(ug => ug.Group)
+              //        .ThenInclude(g => g.GroupPermissions)
+              //            .ThenInclude(gp => gp.Permission)
+              //.Include(u => u.UserPermissions)
+              //    .ThenInclude(up => up.Permission)
+              .AsNoTracking()
         .AsSplitQuery()
         .Include(u => u.Role)
             .ThenInclude(r => r.RolePermissions.Where(rp => rp.IsActive && rp.Permission.IsActive))
@@ -151,6 +151,9 @@ public class UserRepository : IUserRepository
         .Include(u => u.UserPermissions.Where(up => up.IsActive && up.Permission.IsActive))
             .ThenInclude(up => up.Permission) 
         .FirstOrDefaultAsync(u => u.UserId == userId, cancellationToken);
+
+
+
 
     public Task<List<User>> GetByIdsInEntityAsync(IEnumerable<int> userIds, EntityType entityType, int entityId, CancellationToken cancellationToken = default)
     {

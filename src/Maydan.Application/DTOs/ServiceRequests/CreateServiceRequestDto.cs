@@ -25,5 +25,5 @@ public class CreateServiceRequestDto
     //public decimal UnitPriceSnapshot { get; set; }
     //public decimal ExpectedTotalAmount { get; set; }
 
-    public string? IdempotencyKey { get; set; }
+    //public string? IdempotencyKey { get; set; }
 }
