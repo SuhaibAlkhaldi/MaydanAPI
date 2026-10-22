@@ -83,26 +83,68 @@ public class AssociationService : IAssociationService
         return MapToDto(result.Association, result.WorkersCount);
     }
 
-    // Association Users/Details gap: the one response that returns an Association's own fields
-    // together with its real Users (EntityType.Association + EntityId == associationId — same
-    // "users associated with an association" convention DeleteAsync's cascade and
-    // EntityOnboardingService's admin-check already rely on; no separate AssociationUser link entity
-    // exists). Deliberately its own method rather than added to GetByIdAsync/MapToDto: those are
-    // shared by every list endpoint too (GetAllAsync/SearchByNameAsync/GetOrderedByWorkersCountAsync/
-    // GetDeletedAsync/SearchDeletedByNameAsync), and populating a Users list on every row of a list
-    // response — an unbounded per-row query — is the exact perf cost this gap's own brief asked to
-    // avoid; this method exists so that cost is paid only for the single-item call that actually asks
-    // for it.
-    public async Task<AssociationDetailsDto> GetDetailsAsync(int currentUserId, int associationId, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<AssociationDetailsDto>> GetDetailsAsync(
+     int currentUserId,
+     int associationId,
+     CancellationToken cancellationToken = default)
     {
-        await GetAuthorizedUserAsync(currentUserId, ViewAssociationUsersPermissionId, cancellationToken);
+        var (_, authError) = await AuthorizeAsync<AssociationDetailsDto>(
+            currentUserId,
+            ViewUsersScope,
+            cancellationToken);
 
-        var result = await _unitOfWork.Associations.GetByIdWithWorkersCountAsync(associationId, cancellationToken)
-            ?? throw new KeyNotFoundException("Association was not found.");
+        if (authError is not null)
+        {
+            return authError;
+        }
 
-        var users = await _unitOfWork.Users.GetByEntityAsync(EntityType.Association, associationId, search: null, cancellationToken);
+        var result = await _unitOfWork.Associations.GetByIdWithWorkersCountAsync(
+            associationId,
+            cancellationToken);
 
-        return MapToDetailsDto(result.Association, result.WorkersCount, users);
+        if (result is null || !result.HasValue)
+        {
+            return ApiResponse<AssociationDetailsDto>.FailureResponse(
+                "لم يتم العثور على الجمعية.",
+                "Association not found.");
+        }
+
+        var (association, workersCount) = result.Value;
+
+        var users = await _unitOfWork.Users.GetByEntityAsync(
+            EntityType.Association,
+            associationId,
+            search: null,
+            cancellationToken);
+
+        var workerEntities = await _unitOfWork.Workers.GetByAssociationIdAsync(
+            associationId,
+            cancellationToken);
+
+        var workers = workerEntities.Select(w => new WorkerSummaryDto(
+            w.Id,
+            w.FirstName,
+            w.LastName,
+            w.PhoneNumber ?? string.Empty,
+            w.CivilId,
+            w.WorkerServices.Select(ws => ws.Service.NameEn).ToList(),
+            w.WorkerServices.Select(ws => ws.Service.NameAr).ToList(),
+            w.YearsOfExperience,
+            w.Association != null
+                ? w.Association.ArabicName ?? w.Association.EnglishName
+                : null
+        )).ToList();
+
+        var data = MapToDetailsDto(
+            association,
+            workersCount,
+            users,
+            workers);
+
+        return ApiResponse<AssociationDetailsDto>.SuccessResponse(
+            data,
+            "تم جلب تفاصيل الجمعية بنجاح",
+            "Association details retrieved successfully");
     }
 
     public async Task<List<AssociationDto>> SearchByNameAsync(int currentUserId, string name, CancellationToken cancellationToken = default)
@@ -448,6 +490,7 @@ public class AssociationService : IAssociationService
         var directPermissionIds = user.UserPermissions?
             .Where(up => up.IsActive && (up.Permission == null || up.Permission.IsActive))
             .Select(up => up.PermissionId) ?? Enumerable.Empty<int>();
+
 
         var groupPermissionIds = user.UserGroups?
             .Where(ug => ug.Group != null && ug.Group.IsActive)

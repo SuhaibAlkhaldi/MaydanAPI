@@ -31,18 +31,56 @@ public class WorkerRepository : IWorkerRepository
             .Include(w => w.Documents)
             .FirstOrDefaultAsync(w => w.Id == workerId, cancellationToken);
 
-    public Task<Worker?> GetByCivilIdHashAsync(string civilIdHash, CancellationToken cancellationToken = default) =>
-        _context.Workers.FirstOrDefaultAsync(w => w.CivilIdHash == civilIdHash, cancellationToken);
 
-    public Task<Worker?> GetByPhoneNumberAsync(string phoneNumber, CancellationToken cancellationToken = default) =>
-        _context.Workers.FirstOrDefaultAsync(w => w.PhoneNumber == phoneNumber, cancellationToken);
+    public async Task<Worker?> GetByPhoneNumberAsync(
+    string phoneNumber,
+    CancellationToken cancellationToken = default) =>
+     await _context.Workers.
+     FirstOrDefaultAsync(
+        w => w.PhoneNumber == phoneNumber,
+        cancellationToken);
 
-    public Task<List<Worker>> GetByAssociationIdAsync(int associationId, CancellationToken cancellationToken = default) =>
-        _context.Workers.Where(w => w.AssociationId == associationId).ToListAsync(cancellationToken);
 
-    public Task<List<Worker>> GetDeletedByAssociationIdAsync(int associationId, CancellationToken cancellationToken = default) =>
-        _context.Workers.IgnoreQueryFilters()
-            .Where(w => w.IsDeleted && w.AssociationId == associationId)
+    public async Task<Worker?> GetByCivilIdHashAsync(
+        string civilIdHash,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Workers
+            .FirstOrDefaultAsync(
+                w => w.CivilIdHash == civilIdHash,
+                cancellationToken);
+    }
+
+    public async Task<List<Worker>> GetAvailableWorkersForRequestAsync(
+    int associationId,
+    int serviceId,
+    DateTime startDate,
+    DateTime endDate,
+    CancellationToken cancellationToken = default)
+    {
+        var query = _context.Workers
+            .Where(w => w.AssociationId == associationId)
+            .Where(w => w.WorkerServices.Any(ws => ws.ServiceId == serviceId))
+            .Where(w => !w.ServiceRequestWorkers.Any(srw =>
+                srw.ServiceRequest.Status == ServiceRequestStatus.InProgress &&
+                srw.ServiceRequest.StartDate <= endDate &&
+                srw.ServiceRequest.EndDate >= startDate));
+
+        return await query.ToListAsync(cancellationToken);
+    }
+
+
+
+    public Task<List<Worker>> GetByAssociationIdAsync(
+    int associationId,
+    CancellationToken cancellationToken = default)
+    {
+        return _context.Workers
+            .AsNoTracking()
+            .Where(w => w.AssociationId == associationId)
+            .Include(w => w.Association)
+            .Include(w => w.WorkerServices)
+                .ThenInclude(ws => ws.Service)
             .ToListAsync(cancellationToken);
 
     public async Task AddAsync(Worker worker, CancellationToken cancellationToken = default) =>
@@ -164,5 +202,12 @@ public class WorkerRepository : IWorkerRepository
 
         return await query.ToListAsync(cancellationToken);
     }
-    
+
+    public async Task<bool> Remove(
+        Worker worker,
+        CancellationToken cancellationToken = default)
+    {
+        _context.Workers.Remove(worker);
+        return await Task.FromResult(true);
+    }
 }

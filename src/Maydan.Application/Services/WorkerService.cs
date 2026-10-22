@@ -235,6 +235,12 @@ public class WorkerService : IWorkerService
         {
             return documentsError;
         }
+        var newDocumentPaths = requiresDocuments ? dto.DocumentPaths : new List<string>();
+        var documentsError = EnsureDocumentCountValid<WorkerDto>(requiresDocuments, worker.Documents.Count + newDocumentPaths.Count);
+        if (documentsError is not null)
+        {
+            return documentsError;
+        }
 
         if (dto.FirstName is not null)
         {

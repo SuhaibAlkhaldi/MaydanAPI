@@ -4,6 +4,7 @@ using Maydan.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Maydan.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(MaydanDbContext))]
-    partial class MaydanDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261012201708_fixIsActiveAndAddedWithValueTrue")]
+    partial class fixIsActiveAndAddedWithValueTrue
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1034,6 +1037,7 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                             PermissionNameAr = "عرض إجمالي تكلفة طلب الخدمة",
                             PermissionNameEn = "View Total Amount for Service Request",
                             UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
+<<<<<<<< Updated upstream:src/Maydan.Infrastructure/Persistence/Migrations/MaydanDbContextModelSnapshot.cs
                         },
                         new
                         {
@@ -1046,6 +1050,8 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                             PermissionNameAr = "تسجيل العمليات اين ومتى تمت",
                             PermissionNameEn = "View Audit Trail",
                             UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
+========
+>>>>>>>> Stashed changes:src/Maydan.Infrastructure/Persistence/Migrations/20261012201708_fixIsActiveAndAddedWithValueTrue.Designer.cs
                         });
                 });
 
@@ -2005,6 +2011,7 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
+<<<<<<<< Updated upstream:src/Maydan.Infrastructure/Persistence/Migrations/MaydanDbContextModelSnapshot.cs
                             RoleId = 3,
                             PermissionId = 2,
                             IsActive = true
@@ -2017,6 +2024,8 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
+========
+>>>>>>>> Stashed changes:src/Maydan.Infrastructure/Persistence/Migrations/20261012201708_fixIsActiveAndAddedWithValueTrue.Designer.cs
                             RoleId = 4,
                             PermissionId = 1,
                             IsActive = true
