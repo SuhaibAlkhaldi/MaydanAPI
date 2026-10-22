@@ -30,6 +30,7 @@ internal static class AssociationAdminUserFactory
         {
             throw new InvalidOperationException("All admin fields are required.");
         }
+
     }
 
     public static User Build(Role associationRole, int associationId, OnboardAssociationAdminDto dto, IPasswordHasher passwordHasher)
