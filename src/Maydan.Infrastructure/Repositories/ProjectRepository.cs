@@ -196,4 +196,31 @@ public class ProjectRepository : IProjectRepository
 
         return null; 
     }
+
+    public async Task<List<int>> GetBusyUserIdsAsync(
+    int productionCompanyId,
+    DateTime startDate,
+    DateTime endDate,
+    int? excludeProjectId = null,
+    CancellationToken cancellationToken = default)
+    {
+
+        var query = _context.Projects
+            .Where(p => !p.IsDeleted && p.IsActive)
+            .Where(p => p.ProductionCompanyId == productionCompanyId)
+            .Where(p => p.StartDate <= endDate && p.EndDate >= startDate);
+
+
+        if (excludeProjectId.HasValue)
+        {
+            query = query.Where(p => p.Id != excludeProjectId.Value);
+        }
+
+
+        var busyProducers = await query.Select(p => p.ProducerUserId).ToListAsync(cancellationToken);
+        var busyLocationManagers = await query.Select(p => p.LocationManagerUserId).ToListAsync(cancellationToken);
+
+
+        return busyProducers.Concat(busyLocationManagers).Distinct().ToList();
+    }
 }

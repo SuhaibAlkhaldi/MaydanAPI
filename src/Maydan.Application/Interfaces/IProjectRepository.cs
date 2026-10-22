@@ -44,4 +44,6 @@ public interface IProjectRepository
     int cityLocationId,
     int? excludeProjectId = null,
     CancellationToken cancellationToken = default);
+
+    Task<List<int>> GetBusyUserIdsAsync(int productionCompanyId, DateTime startDate, DateTime endDate, int? excludeProjectId = null, CancellationToken cancellationToken = default);
 }

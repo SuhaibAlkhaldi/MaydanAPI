@@ -202,4 +202,24 @@ public class ProjectsController : ApiControllerBase
             return HandleException(exception);
         }
     }
+    [HttpGet("available-users")]
+    public async Task<ActionResult> GetAvailableUsers(
+    [FromQuery] DateTime startDate,
+    [FromQuery] DateTime endDate,
+    [FromQuery] int? currentProjectId,
+    CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
+
+        try
+        {
+            var response = await _projectService.GetAvailableUsersAsync(currentUserId, startDate, endDate, currentProjectId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
+        }
+        catch (Exception exception)
+        {
+            return HandleException(exception);
+        }
+    }
 }
