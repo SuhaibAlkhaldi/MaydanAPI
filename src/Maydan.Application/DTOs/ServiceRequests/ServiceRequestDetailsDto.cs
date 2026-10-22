@@ -39,6 +39,7 @@ public class ServiceRequestDetailsDto
 
     // Status and metadata
     public ServiceRequestStatus Status { get; set; }
+    public string? RejectionReason { get; set; } 
     public DateTime? CreatedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
 

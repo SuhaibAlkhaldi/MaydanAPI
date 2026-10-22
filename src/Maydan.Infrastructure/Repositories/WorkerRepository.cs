@@ -142,34 +142,53 @@ public class WorkerRepository : IWorkerRepository
                 w.IsActive))
             .FirstOrDefaultAsync(cancellationToken);
 
-   public async Task<List<Worker>> GetAvailableWorkersForRequestAsync(
-   int associationId,
-   int serviceId,
-   DateTime startDate,
-   DateTime endDate,
-   CancellationToken cancellationToken = default)
-{
-    var serviceRequiresDocuments = await _context.Set<Service>()
-        .Where(s => s.Id == serviceId)
-        .Select(s => s.RequiresDocuments)
-        .FirstOrDefaultAsync(cancellationToken);
+    public async Task<List<WorkerDto>> GetAvailableWorkersForRequestAsync(
+     int associationId,
+     int serviceId,
+     DateTime startDate,
+     DateTime endDate,
+     CancellationToken cancellationToken = default)
+    {
+//Make sure if the service require uploading documents
+var serviceRequiresDocs = await _context.Set<Service>()
+            .Where(s => s.Id == serviceId)
+            .Select(s => s.RequiresDocuments)
+            .FirstOrDefaultAsync(cancellationToken);
 
-    var query = _context.Workers
-        .Include(w => w.Association)
-            .ThenInclude(a => a.City)
-                .ThenInclude(c => c.Country)
-        .Include(w => w.WorkerServices)
-            .ThenInclude(ws => ws.Service)
-        .Include(w => w.Documents)
-        .Where(w => w.AssociationId == associationId)
-        .Where(w => w.WorkerServices.Any(ws => ws.ServiceId == serviceId))
-        .Where(w => !serviceRequiresDocuments || w.Documents.Any())
-        .Where(w => !w.ServiceRequestWorkers.Any(srw =>
-            srw.ServiceRequest.Status == ServiceRequestStatus.InProgress &&
-            srw.ServiceRequest.StartDate <= endDate &&
-            srw.ServiceRequest.EndDate >= startDate));
-
-    return await query.ToListAsync(cancellationToken);
-}
-    
+       
+        return await _context.Workers
+            .AsNoTracking()
+            .Where(w => w.AssociationId == associationId)
+            .Where(w => w.WorkerServices.Any(ws => ws.ServiceId == serviceId))
+            .Where(w => !serviceRequiresDocs || w.Documents.Any())
+            .Where(w => !w.ServiceRequestWorkers.Any(srw =>
+                srw.ServiceRequest.Status == ServiceRequestStatus.InProgress &&
+                srw.ServiceRequest.StartDate <= endDate &&
+                srw.ServiceRequest.EndDate >= startDate))
+            .Select(w => new WorkerDto(
+                w.Id,
+                w.FirstName,
+                w.MiddleName,
+                w.LastName,
+                w.CivilId,
+                w.DateOfBirth,
+                w.Gender,
+                w.MaritalStatus,
+                w.Nationality,
+                w.Association.City.CountryId,
+                w.Association.City.Country.EnglishName,
+                w.Association.CityId,
+                w.Association.City.EnglishName,
+                w.PhoneNumber,
+                w.YearsOfExperience,
+                w.AssociationId,
+                w.Association.EnglishName,
+                w.QrCode,
+                w.WorkerServices.Select(ws => ws.ServiceId).ToList(),
+                w.WorkerServices.Select(ws => ws.Service.NameEn).ToList(),
+                w.Documents.Select(d => d.FilePath).ToList(),
+                w.IsActive
+            ))
+            .ToListAsync(cancellationToken);
+    }
 }

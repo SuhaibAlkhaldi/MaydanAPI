@@ -2234,6 +2234,9 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Property<int>("ProjectId")
                         .HasColumnType("int");
 
+                    b.Property<string>("RejectionReason")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<bool>("ReminderSent")
                         .HasColumnType("bit");
 
@@ -3024,7 +3027,7 @@ namespace Maydan.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Maydan.Domain.Entities.ServiceRequestWorker", b =>
                 {
                     b.HasOne("Maydan.Domain.Entities.ServiceRequest", "ServiceRequest")
-                        .WithMany()
+                        .WithMany("ServiceRequestWorkers")
                         .HasForeignKey("ServiceRequestId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -3181,6 +3184,11 @@ namespace Maydan.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Maydan.Domain.Entities.Service", b =>
                 {
                     b.Navigation("ServiceRequests");
+                });
+
+            modelBuilder.Entity("Maydan.Domain.Entities.ServiceRequest", b =>
+                {
+                    b.Navigation("ServiceRequestWorkers");
                 });
 
             modelBuilder.Entity("Maydan.Domain.Entities.User", b =>
