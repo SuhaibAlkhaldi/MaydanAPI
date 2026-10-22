@@ -33,4 +33,9 @@ public class UpdateProjectRequest
     public int LocationManagerUserId { get; set; }
 
     public IFormFile? WorkPermitImage { get; set; }
+    [Required]
+    public int CityId { get; set; }
+
+    [Required]
+    public int CityLocationId { get; set; }
 }

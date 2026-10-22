@@ -38,13 +38,17 @@ public class ProjectService : IProjectService
             return Fail<ProjectDto>("يمكن لمستخدمي شركات الإنتاج فقط إنشاء المشاريع.", "Only Production Company users can create projects.");
         }
 
-        var validationError = ValidateProjectPayload<ProjectDto>(
+        var validationError = await ValidateProjectPayloadAsync<ProjectDto>(
             request.ProjectNameEn,
             request.ProjectNameAr,
             request.StartDate,
             request.EndDate,
             request.ProducerUserId,
-            request.LocationManagerUserId);
+            request.LocationManagerUserId,
+            request.CityId,
+            request.CityLocationId,
+            null,
+            cancellationToken);
 
         if (validationError is not null)
         {
@@ -80,7 +84,9 @@ public class ProjectService : IProjectService
             WorkPermitImagePath = request.WorkPermitImagePath,
             ProductionCompanyId = currentUser.EntityId,
             CreatedBy = currentUser.UserId,
-            IsActive = true
+            IsActive = true,
+            CityId = request.CityId,
+            CityLocationId = request.CityLocationId
         };
 
         await _unitOfWork.Projects.AddAsync(project, cancellationToken);
@@ -113,6 +119,8 @@ public class ProjectService : IProjectService
             query.EndDate,
             query.SearchByProductionCompanyName,
             query.SearchByProductionCompanyId,
+            query.CityId,
+            query.CityLocationId,
             cancellationToken);
 
         var filteredProjects = projects
@@ -172,13 +180,17 @@ public class ProjectService : IProjectService
             return companyError;
         }
 
-        var validationError = ValidateProjectPayload<ProjectDto>(
+        var validationError = await ValidateProjectPayloadAsync<ProjectDto>(
             request.ProjectNameEn,
             request.ProjectNameAr,
             request.StartDate,
             request.EndDate,
             request.ProducerUserId,
-            request.LocationManagerUserId);
+            request.LocationManagerUserId,
+            request.CityId,
+            request.CityLocationId,
+            project.Id,
+            cancellationToken);
 
         if (validationError is not null)
         {
@@ -209,11 +221,14 @@ public class ProjectService : IProjectService
         project.ProjectTypeId = request.ProjectTypeId;
         project.ProducerUserId = producer!.UserId;
         project.LocationManagerUserId = locationManager!.UserId;
+        project.CityId = request.CityId;
+        project.CityLocationId = request.CityLocationId;
 
         if (!string.IsNullOrWhiteSpace(request.WorkPermitImagePath))
         {
             project.WorkPermitImagePath = request.WorkPermitImagePath;
         }
+
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -369,13 +384,18 @@ public class ProjectService : IProjectService
         return null;
     }
 
-    private static ApiResponse<T>? ValidateProjectPayload<T>(
+
+    private async Task<ApiResponse<T>?> ValidateProjectPayloadAsync<T>(
         string projectNameEn,
         string projectNameAr,
         DateTime startDate,
         DateTime endDate,
         int producerUserId,
-        int locationManagerUserId)
+        int locationManagerUserId,
+        int cityId,
+        int cityLocationId,
+        int? excludeProjectId = null,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(projectNameEn))
         {
@@ -405,6 +425,32 @@ public class ProjectService : IProjectService
         if (producerUserId == locationManagerUserId)
         {
             return Fail<T>("يجب أن يكون المنتج ومدير الموقع شخصين مختلفين.", "Producer and Location Manager must be different users.");
+        }
+
+ 
+        var overlapErrorMsg = await _unitOfWork.Projects.CheckOverlapConflictsAsync(
+             startDate,
+             endDate,
+             producerUserId,
+             locationManagerUserId,
+             cityLocationId,
+             excludeProjectId,
+             cancellationToken);
+
+        if (overlapErrorMsg != null)
+        {
+
+            return Fail<T>(overlapErrorMsg, "Resource or schedule overlap detected.");
+        }
+
+        if (cityId <= 0)
+        {
+            return Fail<T>("المدينة مطلوبة لتسجيل المشروع.", "City is required to register the project.");
+        }
+
+        if (cityLocationId <= 0)
+        {
+            return Fail<T>("موقع المدينة التفصيلي مطلوب.", "City location is required.");
         }
 
         return null;
@@ -479,7 +525,12 @@ public class ProjectService : IProjectService
             LocationManagerNameAr = $"{project.LocationManager.FirstNameAr} {project.LocationManager.LastNameAr}",
             WorkPermitImagePath = project.WorkPermitImagePath,
             ProductionCompanyId = project.ProductionCompanyId,
-            IsDeleted = project.IsDeleted
+            IsDeleted = project.IsDeleted,
+            CityId = project.CityId,
+            CityName = project.City?.EnglishName ?? string.Empty,
+            CityNameAr = project.City?.ArabicName ?? string.Empty,
+            CityLocationId = project.CityLocationId,
+            CityLocationName = project.CityLocation?.EnglishName ?? string.Empty
         };
     }
 

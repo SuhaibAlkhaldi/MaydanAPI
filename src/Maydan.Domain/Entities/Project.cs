@@ -25,4 +25,10 @@ public class Project : SharedEntities
     public ProductionCompany ProductionCompany { get; set; } = null!;
 
     // Approval/status remains handled by the Service Request workflow.
+
+    public int CityId { get; set; }
+    public City City { get; set; } = null!;
+
+    public int CityLocationId { get; set; }
+    public CityLocation CityLocation { get; set; } = null!;
 }
