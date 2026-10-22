@@ -136,6 +136,83 @@ public class WorkersController : ApiControllerBase
         }
     }
 
+    [HttpPost]
+    public async Task<ActionResult> Create([FromForm] CreateWorkerRequest request, CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized(new ApiResponse<WorkerDto>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
+        }
+
+        try
+        {
+            var dto = new CreateWorkerDto
+            {
+                AssociationId = request.AssociationId,
+                FirstName = request.FirstName,
+                MiddleName = request.MiddleName,
+                LastName = request.LastName,
+                CivilId = request.CivilId,
+                DateOfBirth = request.DateOfBirth,
+                Gender = request.Gender,
+                MaritalStatus = request.MaritalStatus,
+                Nationality = request.Nationality,
+                CountryId = request.CountryId,
+                CityId = request.CityId,
+                PhoneNumber = request.PhoneNumber,
+                ServiceIds = request.ServiceIds,
+                YearsOfExperience = request.YearsOfExperience,
+                DocumentPaths = await SaveAllAsync(request.Documents, cancellationToken)
+            };
+
+            var response = await _workerService.CreateAsync(currentUserId, dto, cancellationToken);
+            return StatusCode(response.StatusCode, response);
+        }
+        catch (Exception ex)
+        {
+            await using var stream = file.OpenReadStream();
+            paths.Add(await _fileStorageService.SaveAsync(stream, file.FileName, WorkerDocumentsSubfolder, cancellationToken));
+        }
+
+        return paths;
+    }
+
+    [HttpPut("{id:int}")]
+    public async Task<ActionResult> Update(int id, [FromForm] UpdateWorkerRequest request, CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
+        }
+
+        try
+        {
+            var dto = new UpdateWorkerDto
+            {
+                FirstName = request.FirstName,
+                MiddleName = request.MiddleName,
+                LastName = request.LastName,
+                DateOfBirth = request.DateOfBirth,
+                Gender = request.Gender,
+                MaritalStatus = request.MaritalStatus,
+                Nationality = request.Nationality,
+                CountryId = request.CountryId,
+                CityId = request.CityId,
+                PhoneNumber = request.PhoneNumber,
+                ServiceIds = request.ServiceIds,
+                YearsOfExperience = request.YearsOfExperience,
+                DocumentPaths = await SaveAllAsync(request.Documents, cancellationToken)
+            };
+
+            var response = await _workerService.UpdateAsync(currentUserId, id, dto, cancellationToken);
+            return StatusCode(response.StatusCode, response);
+        }
+        catch (Exception ex)
+        {
+            return HandleException(ex);
+        }
+    }
+
     private async Task<List<string>> SaveAllAsync(List<IFormFile> files, CancellationToken cancellationToken)
     {
         var paths = new List<string>();
@@ -149,8 +226,8 @@ public class WorkersController : ApiControllerBase
         return paths;
     }
 
-    [HttpDelete("{id:int}")]
-    public async Task<ActionResult> Delete(int id, CancellationToken cancellationToken)
+    [HttpPatch("restore/{id:int}")]
+    public async Task<ActionResult> Restore(int id, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
@@ -159,7 +236,7 @@ public class WorkersController : ApiControllerBase
 
         try
         {
-            var response = await _workerService.DeleteAsync(currentUserId, id, cancellationToken);
+            var response = await _workerService.RestoreAsync(currentUserId, id, cancellationToken);
             return StatusCode(response.StatusCode, response);
         }
         catch (Exception ex)
@@ -168,12 +245,14 @@ public class WorkersController : ApiControllerBase
         }
     }
 
-    [HttpPatch("restore/{id:int}")]
-    public async Task<ActionResult> Restore(int id, CancellationToken cancellationToken)
+    [HttpGet("service-request/{serviceRequestId}/available-workers")]
+    public async Task<IActionResult> GetAvailableWorkersForRequest(
+     int serviceRequestId,
+     CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
+            return Unauthorized(new Maydan.Application.DTOs.Common.ApiResponse<object?>(false, "تعذر التحقق من هوية المستخدم", "Current user id is required.", null));
         }
 
         try

@@ -13,6 +13,10 @@
     <Folder Include="HostedServices\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="HostedServices\" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

@@ -20,7 +20,6 @@ using Microsoft.OpenApi.Models;
 var builder = WebApplication.CreateBuilder(args);
 
 
-
 builder.Services.AddControllers(options => options.Filters.Add<SystemConfigurationGateFilter>());
 //builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -115,6 +114,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+
 
 if (app.Environment.IsDevelopment())
 {
