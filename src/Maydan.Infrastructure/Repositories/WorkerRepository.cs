@@ -127,10 +127,10 @@ public class WorkerRepository : IWorkerRepository
                 w.Gender,
                 w.MaritalStatus,
                 w.Nationality,
-                w.CountryId,
-                w.Country != null ? w.Country.EnglishName : null,
-                w.CityId,
-                w.City != null ? w.City.EnglishName : null,
+                w.Association.City.CountryId,
+                w.Association.City.Country.EnglishName,
+                w.Association.CityId,
+                w.Association.City.EnglishName,
                 w.PhoneNumber,
                 w.YearsOfExperience,
                 w.AssociationId,
@@ -154,6 +154,7 @@ public class WorkerRepository : IWorkerRepository
         .Where(s => s.Id == serviceId)
         .Select(s => s.RequiresDocuments)
         .FirstOrDefaultAsync(cancellationToken);
+
     var query = _context.Workers
         .Include(w => w.Documents) //load documents
         .Where(w => w.AssociationId == associationId)
@@ -164,7 +165,8 @@ public class WorkerRepository : IWorkerRepository
             srw.ServiceRequest.Status == ServiceRequestStatus.InProgress &&
             srw.ServiceRequest.StartDate <= endDate &&
             srw.ServiceRequest.EndDate >= startDate));
+
     return await query.ToListAsync(cancellationToken);
-    }
+}
     
 }

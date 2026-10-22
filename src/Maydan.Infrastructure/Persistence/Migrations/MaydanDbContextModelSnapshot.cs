@@ -2011,6 +2011,12 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
+                            RoleId = 3,
+                            PermissionId = 17,
+                            IsActive = true
+                        },
+                        new
+                        {
                             RoleId = 4,
                             PermissionId = 1,
                             IsActive = true
@@ -2613,9 +2619,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Property<int>("AssociationId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("CityId")
-                        .HasColumnType("int");
-
                     b.Property<string>("CivilId")
                         .IsRequired()
                         .HasMaxLength(256)
@@ -2625,9 +2628,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
-
-                    b.Property<int?>("CountryId")
-                        .HasColumnType("int");
 
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -2692,12 +2692,8 @@ namespace Maydan.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("AssociationId");
 
-                    b.HasIndex("CityId");
-
                     b.HasIndex("CivilIdHash")
                         .IsUnique();
-
-                    b.HasIndex("CountryId");
 
                     b.HasIndex("QrCode")
                         .IsUnique();
@@ -3057,21 +3053,7 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Maydan.Domain.Entities.City", "City")
-                        .WithMany()
-                        .HasForeignKey("CityId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("Maydan.Domain.Entities.Country", "Country")
-                        .WithMany()
-                        .HasForeignKey("CountryId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.Navigation("Association");
-
-                    b.Navigation("City");
-
-                    b.Navigation("Country");
                 });
 
             modelBuilder.Entity("Maydan.Domain.Entities.WorkerDocument", b =>
