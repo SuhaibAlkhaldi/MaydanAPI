@@ -87,7 +87,7 @@ public class AssociationServiceTests
 
         var result = await service.GetAllAsync(caller.UserId);
 
-        var dto = Assert.Single(result);
+        var dto = Assert.Single(result.Data!);
         Assert.Equal("Association 10", dto.EnglishName);
         Assert.Equal(country.Id, dto.CountryId);
         Assert.Equal("Jordan", dto.CountryEnglishName);
@@ -115,7 +115,7 @@ public class AssociationServiceTests
 
         var result = await service.GetAllAsync(caller.UserId);
 
-        Assert.Empty(result);
+        Assert.Empty(result.Data!);
     }
 
     [Fact]
@@ -130,9 +130,9 @@ public class AssociationServiceTests
 
         var result = await service.CreateAsync(caller.UserId, dto);
 
-        Assert.Equal("New Assoc", result.EnglishName);
-        Assert.Equal(city.Id, result.CityId);
-        Assert.Equal("31.953", result.Latitude);
+        Assert.Equal("New Assoc", result.Data!.EnglishName);
+        Assert.Equal(city.Id, result.Data!.CityId);
+        Assert.Equal("31.953", result.Data!.Latitude);
     }
 
     [Fact]
@@ -193,7 +193,7 @@ public class AssociationServiceTests
 
         var result = await service.CreateAsync(caller.UserId, dto);
 
-        var createdUsers = await userRepository.GetByEntityAsync(EntityType.Association, result.Id, search: null);
+        var createdUsers = await userRepository.GetByEntityAsync(EntityType.Association, result.Data!.Id, search: null);
         var admin = Assert.Single(createdUsers);
         Assert.Equal("new-admin@example.org", admin.Email);
         Assert.True(admin.MustResetPassword);
@@ -251,7 +251,7 @@ public class AssociationServiceTests
 
         var result = await service.CreateAsync(caller.UserId, dto);
 
-        Assert.Empty(await userRepository.GetByEntityAsync(EntityType.Association, result.Id, search: null));
+        Assert.Empty(await userRepository.GetByEntityAsync(EntityType.Association, result.Data!.Id, search: null));
     }
 
     // Association Users/Details gap.
@@ -269,8 +269,8 @@ public class AssociationServiceTests
 
         var result = await service.GetDetailsAsync(caller.UserId, association.Id);
 
-        Assert.Equal("Amman Assoc", result.EnglishName);
-        var user = Assert.Single(result.Users);
+        Assert.Equal("Amman Assoc", result.Data!.EnglishName);
+        var user = Assert.Single(result.Data!.Users);
         Assert.Equal(associationUser.UserId, user.UserId);
         Assert.Equal(associationUser.Email, user.Email);
     }
@@ -318,7 +318,7 @@ public class AssociationServiceTests
 
         var result = await service.UpdateAsync(caller.UserId, dto);
 
-        Assert.Equal("Updated", result.EnglishName);
+        Assert.Equal("Updated", result.Data!.EnglishName);
     }
 
     [Fact]
@@ -359,7 +359,7 @@ public class AssociationServiceTests
 
         var result = await service.RestoreAsync(caller.UserId, 10);
 
-        Assert.False(result.IsDeleted);
+        Assert.False(result.Data!.IsDeleted);
         Assert.False(association.IsDeleted);
     }
 
@@ -459,7 +459,7 @@ public class AssociationServiceTests
 
         var result = await service.RestoreAsync(caller.UserId, 10);
 
-        Assert.False(result.IsDeleted);
+        Assert.False(result.Data!.IsDeleted);
         Assert.False(association.IsDeleted);
         Assert.False(associationUser.IsDeleted);
         Assert.Null(associationUser.DeletedAt);
