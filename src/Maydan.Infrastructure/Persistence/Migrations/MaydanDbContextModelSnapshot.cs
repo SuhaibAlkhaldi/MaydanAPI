@@ -1128,8 +1128,14 @@ namespace Maydan.Infrastructure.Persistence.Migrations
 
                 SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                b.Property<DateTime?>("CreatedAt")
-                    .HasColumnType("datetime2");
+                    b.Property<int>("CityId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CityLocationId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
 
                 b.Property<int?>("CreatedBy")
                     .HasColumnType("int");
@@ -1181,7 +1187,11 @@ namespace Maydan.Infrastructure.Persistence.Migrations
 
                 b.HasKey("Id");
 
-                b.HasIndex("LocationManagerUserId");
+                    b.HasIndex("CityId");
+
+                    b.HasIndex("CityLocationId");
+
+                    b.HasIndex("LocationManagerUserId");
 
                 b.HasIndex("ProducerUserId");
 
@@ -1612,488 +1622,506 @@ namespace Maydan.Infrastructure.Persistence.Migrations
 
                 b.ToTable("RolePermissions", (string)null);
 
-                b.HasData(
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 1,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 2,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 3,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 4,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 5,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 6,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 7,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 8,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 9,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 10,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 11,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 12,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 13,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 14,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 15,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 16,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 17,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 18,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 19,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 20,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 21,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 22,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 23,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 24,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 25,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 26,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 27,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 28,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 29,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 30,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 31,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 32,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 33,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 34,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 35,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 36,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 37,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 38,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 39,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 1,
-                        PermissionId = 40,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 2,
-                        PermissionId = 1,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 2,
-                        PermissionId = 33,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 2,
-                        PermissionId = 4,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 2,
-                        PermissionId = 35,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 2,
-                        PermissionId = 8,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 2,
-                        PermissionId = 31,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 2,
-                        PermissionId = 41,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 2,
-                        PermissionId = 29,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 2,
-                        PermissionId = 14,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 2,
-                        PermissionId = 16,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 2,
-                        PermissionId = 19,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 2,
-                        PermissionId = 9,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 3,
-                        PermissionId = 1,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 3,
-                        PermissionId = 25,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 3,
-                        PermissionId = 26,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 3,
-                        PermissionId = 27,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 3,
-                        PermissionId = 15,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 3,
-                        PermissionId = 16,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 3,
-                        PermissionId = 23,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 3,
-                        PermissionId = 4,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 3,
-                        PermissionId = 8,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 3,
-                        PermissionId = 33,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 3,
-                        PermissionId = 34,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 3,
-                        PermissionId = 40,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 3,
-                        PermissionId = 41,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 3,
-                        PermissionId = 2,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 3,
-                        PermissionId = 17,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 4,
-                        PermissionId = 1,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 4,
-                        PermissionId = 11,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 4,
-                        PermissionId = 24,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 4,
-                        PermissionId = 18,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 4,
-                        PermissionId = 14,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 4,
-                        PermissionId = 39,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 4,
-                        PermissionId = 16,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 4,
-                        PermissionId = 4,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 4,
-                        PermissionId = 8,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 4,
-                        PermissionId = 33,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 4,
-                        PermissionId = 34,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 4,
-                        PermissionId = 35,
-                        IsActive = true
-                    },
-                    new
-                    {
-                        RoleId = 4,
-                        PermissionId = 2,
-                        IsActive = true
-                    });
-            });
+                    b.HasData(
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 1,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 2,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 3,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 4,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 5,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 6,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 7,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 8,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 9,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 10,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 11,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 12,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 13,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 14,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 15,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 16,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 17,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 18,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 19,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 20,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 21,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 22,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 23,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 24,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 25,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 26,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 27,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 28,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 29,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 30,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 31,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 32,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 33,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 34,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 35,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 36,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 37,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 38,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 39,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 40,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 41,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 42,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 2,
+                            PermissionId = 1,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 2,
+                            PermissionId = 33,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 2,
+                            PermissionId = 4,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 2,
+                            PermissionId = 35,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 2,
+                            PermissionId = 8,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 2,
+                            PermissionId = 31,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 2,
+                            PermissionId = 41,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 2,
+                            PermissionId = 29,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 2,
+                            PermissionId = 14,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 2,
+                            PermissionId = 16,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 2,
+                            PermissionId = 19,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 2,
+                            PermissionId = 9,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 2,
+                            PermissionId = 2,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 3,
+                            PermissionId = 1,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 3,
+                            PermissionId = 25,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 3,
+                            PermissionId = 26,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 3,
+                            PermissionId = 27,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 3,
+                            PermissionId = 15,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 3,
+                            PermissionId = 16,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 3,
+                            PermissionId = 23,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 3,
+                            PermissionId = 4,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 3,
+                            PermissionId = 8,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 3,
+                            PermissionId = 33,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 3,
+                            PermissionId = 34,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 3,
+                            PermissionId = 40,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 3,
+                            PermissionId = 41,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 3,
+                            PermissionId = 2,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 3,
+                            PermissionId = 17,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 4,
+                            PermissionId = 1,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 4,
+                            PermissionId = 11,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 4,
+                            PermissionId = 24,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 4,
+                            PermissionId = 18,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 4,
+                            PermissionId = 14,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 4,
+                            PermissionId = 39,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 4,
+                            PermissionId = 16,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 4,
+                            PermissionId = 4,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 4,
+                            PermissionId = 8,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 4,
+                            PermissionId = 33,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 4,
+                            PermissionId = 34,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 4,
+                            PermissionId = 35,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 4,
+                            PermissionId = 2,
+                            IsActive = true
+                        });
+                });
 
             modelBuilder.Entity("Maydan.Domain.Entities.Service", b =>
             {
@@ -2206,8 +2234,11 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                 b.Property<int>("ProjectId")
                     .HasColumnType("int");
 
-                b.Property<bool>("ReminderSent")
-                    .HasColumnType("bit");
+                    b.Property<string>("RejectionReason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("ReminderSent")
+                        .HasColumnType("bit");
 
                 b.Property<int>("RequestedWorkersCount")
                     .HasColumnType("int");
@@ -2878,12 +2909,24 @@ namespace Maydan.Infrastructure.Persistence.Migrations
             });
 
             modelBuilder.Entity("Maydan.Domain.Entities.Project", b =>
-            {
-                b.HasOne("Maydan.Domain.Entities.User", "LocationManager")
-                    .WithMany()
-                    .HasForeignKey("LocationManagerUserId")
-                    .OnDelete(DeleteBehavior.Restrict)
-                    .IsRequired();
+                {
+                    b.HasOne("Maydan.Domain.Entities.City", "City")
+                        .WithMany()
+                        .HasForeignKey("CityId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Maydan.Domain.Entities.CityLocation", "CityLocation")
+                        .WithMany()
+                        .HasForeignKey("CityLocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Maydan.Domain.Entities.User", "LocationManager")
+                        .WithMany()
+                        .HasForeignKey("LocationManagerUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                 b.HasOne("Maydan.Domain.Entities.User", "Producer")
                     .WithMany()
@@ -2903,7 +2946,11 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     .OnDelete(DeleteBehavior.Restrict)
                     .IsRequired();
 
-                b.Navigation("LocationManager");
+                    b.Navigation("City");
+
+                    b.Navigation("CityLocation");
+
+                    b.Navigation("LocationManager");
 
                 b.Navigation("Producer");
 
@@ -2978,12 +3025,12 @@ namespace Maydan.Infrastructure.Persistence.Migrations
             });
 
             modelBuilder.Entity("Maydan.Domain.Entities.ServiceRequestWorker", b =>
-            {
-                b.HasOne("Maydan.Domain.Entities.ServiceRequest", "ServiceRequest")
-                    .WithMany()
-                    .HasForeignKey("ServiceRequestId")
-                    .OnDelete(DeleteBehavior.Cascade)
-                    .IsRequired();
+                {
+                    b.HasOne("Maydan.Domain.Entities.ServiceRequest", "ServiceRequest")
+                        .WithMany("ServiceRequestWorkers")
+                        .HasForeignKey("ServiceRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                 b.HasOne("Maydan.Domain.Entities.Worker", "Worker")
                     .WithMany("ServiceRequestWorkers")
@@ -3138,6 +3185,11 @@ namespace Maydan.Infrastructure.Persistence.Migrations
             {
                 b.Navigation("ServiceRequests");
             });
+
+            modelBuilder.Entity("Maydan.Domain.Entities.ServiceRequest", b =>
+                {
+                    b.Navigation("ServiceRequestWorkers");
+                });
 
             modelBuilder.Entity("Maydan.Domain.Entities.User", b =>
             {

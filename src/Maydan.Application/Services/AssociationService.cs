@@ -56,16 +56,22 @@ public class AssociationService : IAssociationService
         int associationId,
         CancellationToken cancellationToken = default)
     {
-        var (_, authError) = await AuthorizeAsync<AssociationDto>(currentUserId, ReadScope, cancellationToken);
+        var (currentUser, authError) = await AuthorizeAsync<AssociationDto>(currentUserId, ReadScope, cancellationToken);
         if (authError is not null)
         {
             return authError;
         }
 
+        var tenantError = EnsureSameAssociation<AssociationDto>(associationId, currentUser!);
+        if (tenantError is not null)
+        {
+            return tenantError;
+        }
+
         var result = await _unitOfWork.Associations.GetByIdWithWorkersCountAsync(associationId, cancellationToken);
         if (result is null || !result.HasValue)
         {
-            return ApiResponse<AssociationDto>.FailureResponse("لم يتم العثور على الجمعية.", "Association not found.");
+            return new ApiResponse<AssociationDto>(false, "لم يتم العثور على الجمعية.", "Association not found.", default, 404);
         }
 
         var data = MapToDto(result.Value.Association, result.Value.WorkersCount);
@@ -78,16 +84,22 @@ public class AssociationService : IAssociationService
          int associationId,
          CancellationToken cancellationToken = default)
     {
-        var (_, authError) = await AuthorizeAsync<AssociationDetailsDto>(currentUserId, ViewUsersScope, cancellationToken);
+        var (currentUser, authError) = await AuthorizeAsync<AssociationDetailsDto>(currentUserId, ViewUsersScope, cancellationToken);
         if (authError is not null)
         {
             return authError;
         }
 
+        var tenantError = EnsureSameAssociation<AssociationDetailsDto>(associationId, currentUser!);
+        if (tenantError is not null)
+        {
+            return tenantError;
+        }
+
         var result = await _unitOfWork.Associations.GetByIdWithWorkersCountAsync(associationId, cancellationToken);
         if (result is null || !result.HasValue)
         {
-            return ApiResponse<AssociationDetailsDto>.FailureResponse("لم يتم العثور على الجمعية.", "Association not found.");
+            return new ApiResponse<AssociationDetailsDto>(false, "لم يتم العثور على الجمعية.", "Association not found.", default, 404);
         }
 
         var (association, workersCount) = result.Value;
@@ -201,7 +213,7 @@ public class AssociationService : IAssociationService
 
         if (await _unitOfWork.Cities.GetByIdAsync(dto.CityId, cancellationToken) is null)
         {
-            return ApiResponse<AssociationDto>.FailureResponse("المدينة غير موجودة.", "City not found.");
+            return new ApiResponse<AssociationDto>(false, "المدينة غير موجودة.", "City not found.", default, 404);
         }
 
         var existingAssociations = await _unitOfWork.Associations.QueryAsync(isDeleted: false, cancellationToken: cancellationToken);
@@ -308,10 +320,16 @@ public class AssociationService : IAssociationService
         UpdateAssociationDto dto,
         CancellationToken cancellationToken = default)
     {
-        var (_, authError) = await AuthorizeAsync<AssociationDto>(currentUserId, EditScope, cancellationToken);
+        var (currentUser, authError) = await AuthorizeAsync<AssociationDto>(currentUserId, EditScope, cancellationToken);
         if (authError is not null)
         {
             return authError;
+        }
+
+        var tenantError = EnsureSameAssociation<AssociationDto>(dto.Id, currentUser!);
+        if (tenantError is not null)
+        {
+            return tenantError;
         }
 
         var nameEnError = ValidateName<AssociationDto>(dto.EnglishName, "English association name", "اسم الجمعية باللغة الإنجليزية");
@@ -323,12 +341,12 @@ public class AssociationService : IAssociationService
         var association = await _unitOfWork.Associations.GetByIdAsync(dto.Id, cancellationToken);
         if (association is null)
         {
-            return ApiResponse<AssociationDto>.FailureResponse("لم يتم العثور على الجمعية.", "Association not found.");
+            return new ApiResponse<AssociationDto>(false, "لم يتم العثور على الجمعية.", "Association not found.", default, 404);
         }
 
         if (await _unitOfWork.Cities.GetByIdAsync(dto.CityId, cancellationToken) is null)
         {
-            return ApiResponse<AssociationDto>.FailureResponse("المدينة غير موجودة.", "City not found.");
+            return new ApiResponse<AssociationDto>(false, "المدينة غير موجودة.", "City not found.", default, 404);
         }
 
         var existingAssociations = await _unitOfWork.Associations.QueryAsync(isDeleted: false, cancellationToken: cancellationToken);
@@ -386,16 +404,22 @@ public class AssociationService : IAssociationService
         int associationId,
         CancellationToken cancellationToken = default)
     {
-        var (_, authError) = await AuthorizeAsync<bool>(currentUserId, DeleteScope, cancellationToken);
+        var (currentUser, authError) = await AuthorizeAsync<bool>(currentUserId, DeleteScope, cancellationToken);
         if (authError is not null)
         {
             return authError;
         }
 
+        var tenantError = EnsureSameAssociation<bool>(associationId, currentUser!);
+        if (tenantError is not null)
+        {
+            return tenantError;
+        }
+
         var association = await _unitOfWork.Associations.GetByIdWithWorkersAsync(associationId, cancellationToken);
         if (association is null)
         {
-            return ApiResponse<bool>.FailureResponse("لم يتم العثور على الجمعية.", "Association not found.");
+            return new ApiResponse<bool>(false, "لم يتم العثور على الجمعية.", "Association not found.", default, 404);
         }
 
         var users = await _unitOfWork.Users.GetByEntityAsync(EntityType.Association, association.Id, search: null, cancellationToken);
@@ -422,16 +446,22 @@ public class AssociationService : IAssociationService
         int associationId,
         CancellationToken cancellationToken = default)
     {
-        var (_, authError) = await AuthorizeAsync<AssociationDto>(currentUserId, DeleteScope, cancellationToken);
+        var (currentUser, authError) = await AuthorizeAsync<AssociationDto>(currentUserId, DeleteScope, cancellationToken);
         if (authError is not null)
         {
             return authError;
         }
 
+        var tenantError = EnsureSameAssociation<AssociationDto>(associationId, currentUser!);
+        if (tenantError is not null)
+        {
+            return tenantError;
+        }
+
         var association = await _unitOfWork.Associations.GetByIdIncludingDeletedAsync(associationId, cancellationToken);
         if (association is null)
         {
-            return ApiResponse<AssociationDto>.FailureResponse("لم يتم العثور على الجمعية.", "Association not found.");
+            return new ApiResponse<AssociationDto>(false, "لم يتم العثور على الجمعية.", "Association not found.", default, 404);
         }
 
         if (!association.IsDeleted)
@@ -475,20 +505,37 @@ public class AssociationService : IAssociationService
         var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken);
         if (currentUser is null)
         {
-            return (null, ApiResponse<T>.FailureResponse("المستخدم الحالي غير موجود.", "Current user was not found."));
+            return (null, new ApiResponse<T>(false, "المستخدم الحالي غير موجود.", "Current user was not found.", default, 401));
         }
 
         if (!currentUser.IsActive)
         {
-            return (null, ApiResponse<T>.FailureResponse("المستخدم الحالي غير فعّال.", "Current user is inactive."));
+            return (null, new ApiResponse<T>(false, "المستخدم الحالي غير فعّال.", "Current user is inactive.", default, 401));
         }
 
         if (!GetEffectivePermissionIds(currentUser).Overlaps(anyOfPermissionIds))
         {
-            return (null, ApiResponse<T>.FailureResponse("لا تملك الصلاحية المطلوبة لإدارة الجمعيات.", "You do not hold the required Associations permission."));
+            return (null, new ApiResponse<T>(false, "لا تملك الصلاحية المطلوبة لإدارة الجمعيات.", "You do not hold the required Associations permission.", default, 403));
         }
 
         return (currentUser, null);
+    }
+
+
+    // Association-scoped users cannot access another association by supplying its ID.
+    private static ApiResponse<T>? EnsureSameAssociation<T>(int associationId, User currentUser)
+    {
+        if (currentUser.EntityType == EntityType.Association && currentUser.EntityId != associationId)
+        {
+            return new ApiResponse<T>(
+                false,
+                "لا تملك صلاحية الوصول لبيانات جمعية أخرى.",
+                "Cannot access data outside your own association.",
+                default,
+                403);
+        }
+
+        return null;
     }
 
     private static ApiResponse<AssociationDto> HandleDbUpdateException(Exception ex)

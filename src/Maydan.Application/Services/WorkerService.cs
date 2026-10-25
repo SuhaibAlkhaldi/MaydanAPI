@@ -834,41 +834,15 @@ public class WorkerService : IWorkerService
                 request.EndDate,
                 cancellationToken);
 
-        var workers = availableWorkers
-            .Select(w => new WorkerDto(
-                w.Id,
-                w.FirstName,
-                w.MiddleName,
-                w.LastName,
-                w.CivilId,
-                w.DateOfBirth,
-                w.Gender,
-                w.MaritalStatus,
-                w.Nationality,
-                w.Association.City.CountryId,
-                w.Association.City.Country.EnglishName,
-                w.Association.CityId,
-                w.Association.City.EnglishName,
-                w.PhoneNumber,
-                w.YearsOfExperience,
-                w.AssociationId,
-                w.Association.EnglishName,
-                w.QrCode,
-                w.WorkerServices
-                    .Select(ws => ws.ServiceId)
-                    .ToList(),
-                w.WorkerServices
-                    .Select(ws => ws.Service.NameEn)
-                    .ToList(),
-                new List<string>(), // Documents aren't loaded by GetAvailableWorkersForRequestAsync; out of scope for this endpoint.
-                w.IsActive
-            ))
-            .ToList();
-
+        var workers = await _unitOfWork.Workers.GetAvailableWorkersForRequestAsync(
+     request.AssociationId,
+     request.ServiceId,
+     request.StartDate,
+     request.EndDate,
+     cancellationToken);
         return ApiResponse<List<WorkerDto>>.SuccessResponse(
             workers,
             "Available workers retrieved successfully.",
-            "تم جلب العمال المتاحين بنجاح."
-        );
+            "تم استرجاع العمال المتاحين بنجاح.");
     }
 }

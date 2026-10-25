@@ -39,8 +39,20 @@ public class ServiceRequestDetailsDto
 
     // Status and metadata
     public ServiceRequestStatus Status { get; set; }
+    public string? RejectionReason { get; set; } 
     public DateTime? CreatedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
 
     public string? AdditionalRequirements { get; set; }
+
+    //
+    public List<AssignedWorkerDto> AssignedWorkers { get; set; } = new();
 }
+public record AssignedWorkerDto(
+   int Id,
+   string FullName,
+   string? PhoneNumber,
+   string? Nationality,
+   int? YearsOfExperience,
+   List<string> DocumentPaths
+);

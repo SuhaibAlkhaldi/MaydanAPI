@@ -15,4 +15,7 @@ public class CreateProjectDto
     public int LocationManagerUserId { get; set; }
 
     public string WorkPermitImagePath { get; set; } = string.Empty;
+
+    public int CityId { get; set; }
+    public int CityLocationId { get; set; }
 }

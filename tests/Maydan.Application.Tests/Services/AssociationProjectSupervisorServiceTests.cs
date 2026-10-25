@@ -300,9 +300,29 @@ public class AssociationProjectSupervisorServiceTests
 
         public Task<Project?> GetByIdIncludingDeletedAsync(int projectId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<List<Project>> GetByProductionCompanyIdAsync(int productionCompanyId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<List<Project>> GetAllAsync(bool isDeleted, string? searchTerm, DateTime? startDate, DateTime? endDate, string? searchByProductionCompanyName, int? searchByProductionCompanyId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<List<Project>> GetAllAsync(bool isDeleted, string? searchTerm, DateTime? startDate, DateTime? endDate, string? searchByProductionCompanyName, int? searchByProductionCompanyId, int? cityId, int? cityLocationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task AddAsync(Project project, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public void Remove(Project project) => throw new NotSupportedException();
+        public Task<string?> CheckOverlapConflictsAsync(
+       DateTime startDate,
+       DateTime endDate,
+       int producerId,
+       int locationManagerId,
+       int cityLocationId,
+       int? excludeProjectId = null,
+       CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<string?>(null);
+        }
+        public Task<List<int>> GetBusyUserIdsAsync(
+    int productionCompanyId,
+    DateTime startDate,
+    DateTime endDate,
+    int? excludeProjectId = null,
+    CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
     }
 
     private sealed class FakeAssociationRepository : IAssociationRepository

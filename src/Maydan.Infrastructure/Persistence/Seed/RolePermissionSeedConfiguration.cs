@@ -84,7 +84,8 @@ namespace Maydan.Infrastructure.Persistence.Seed
               SystemPermissions.  ViewAssociationUsers,
                SystemPermissions. ViewServiceRequests,
                 SystemPermissions.ViewProductionCompanies,
-                SystemPermissions.ViewAssociations
+                SystemPermissions.ViewAssociations,
+                SystemPermissions.CreateUsers
             };
 
             // MAYD-20 (2026-09-24): ViewUsers added to both arrays below — previously granted to
@@ -131,7 +132,7 @@ namespace Maydan.Infrastructure.Persistence.Seed
                 SystemPermissions.CreateUsers
             };
             
-            var allPermissionIds = Enumerable.Range(1, 40);
+            var allPermissionIds = Enumerable.Range(1, 42);
 
             var grants = ForRole(BaytAlUrdon, allPermissionIds)
                 .Concat(ForRole(Aseza, asezaPermissions))

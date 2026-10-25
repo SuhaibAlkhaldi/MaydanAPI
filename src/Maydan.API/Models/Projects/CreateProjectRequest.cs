@@ -30,4 +30,9 @@ public class CreateProjectRequest
 
     [Required]
     public IFormFile WorkPermitImage { get; set; } = null!;
+    [Required]
+    public int CityId { get; set; }
+
+    [Required]
+    public int CityLocationId { get; set; }
 }

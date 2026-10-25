@@ -16,189 +16,102 @@ public class WorkerRepository : IWorkerRepository
         _context = context;
     }
 
-    public async Task<Worker?> GetByIdAsync(int workerId, CancellationToken cancellationToken = default) =>
-        await _context.Workers.FirstOrDefaultAsync(w => w.Id == workerId, cancellationToken);
+    public Task<Worker?> GetByIdAsync(
+        int workerId,
+        CancellationToken cancellationToken = default) =>
+        _context.Workers.FirstOrDefaultAsync(w => w.Id == workerId, cancellationToken);
 
-    public async Task<Worker?> GetByIdWithServicesAsync(
-     int workerId,
-     CancellationToken cancellationToken = default) =>
-     await _context.Workers
-         .AsNoTracking()
-         .Where(w => w.Id == workerId)
-         .Select(w => new Worker
-         {
-             Id = w.Id,
-             FirstName = w.FirstName,
-             MiddleName = w.MiddleName,
-             LastName = w.LastName,
-             CivilId = w.CivilId,
-             DateOfBirth = w.DateOfBirth,
-             Gender = w.Gender,
-             MaritalStatus = w.MaritalStatus,
-             Nationality = w.Nationality,
-             PhoneNumber = w.PhoneNumber,
-             YearsOfExperience = w.YearsOfExperience,
-             AssociationId = w.AssociationId,
-             QrCode = w.QrCode,
-             IsActive = w.IsActive,
-             IsDeleted = w.IsDeleted,
-             WorkerServices = w.WorkerServices
-                 .Select(ws => new WorkerServiceLink
-                 {
-                     WorkerId = ws.WorkerId,
-                     ServiceId = ws.ServiceId,
-                     Service = new Service
-                     {
-                         Id = ws.Service.Id,
-                         NameEn = ws.Service.NameEn,
-                         NameAr = ws.Service.NameAr
-                     }
-                 })
-                 .ToList()
-         })
-         .FirstOrDefaultAsync(cancellationToken);
+    // Return a tracked entity with real WorkerServiceLink IDs and loaded documents.
+    // The assignment service needs ServiceId; delete workflows need tracked children.
+    public Task<Worker?> GetByIdWithServicesAsync(
+        int workerId,
+        CancellationToken cancellationToken = default) =>
+        _context.Workers
+            .Include(w => w.WorkerServices)
+                .ThenInclude(ws => ws.Service)
+            .Include(w => w.Documents)
+            .FirstOrDefaultAsync(w => w.Id == workerId, cancellationToken);
 
-    public async Task<Worker?> GetByIdIncludingDeletedAsync(int workerId, CancellationToken cancellationToken = default) =>
-        await  _context.Workers.IgnoreQueryFilters()
+    public Task<Worker?> GetByIdIncludingDeletedAsync(
+        int workerId,
+        CancellationToken cancellationToken = default) =>
+        _context.Workers
+            .IgnoreQueryFilters()
             .Include(w => w.WorkerServices)
             .Include(w => w.Documents)
             .FirstOrDefaultAsync(w => w.Id == workerId, cancellationToken);
 
-
-    public async Task<Worker?> GetByPhoneNumberAsync(
-    string phoneNumber,
-    CancellationToken cancellationToken = default) =>
-     await _context.Workers.
-     FirstOrDefaultAsync(
-        w => w.PhoneNumber == phoneNumber,
-        cancellationToken);
-
-
-    public async Task<Worker?> GetByCivilIdHashAsync(
+    public Task<Worker?> GetByCivilIdHashAsync(
         string civilIdHash,
+        CancellationToken cancellationToken = default) =>
+        _context.Workers.FirstOrDefaultAsync(w => w.CivilIdHash == civilIdHash, cancellationToken);
+
+    public Task<Worker?> GetByPhoneNumberAsync(
+        string phoneNumber,
+        CancellationToken cancellationToken = default) =>
+        _context.Workers.FirstOrDefaultAsync(w => w.PhoneNumber == phoneNumber, cancellationToken);
+
+    // Used to display association workers and their services.
+    public Task<List<Worker>> GetByAssociationIdAsync(
+        int associationId,
+        CancellationToken cancellationToken = default) =>
+        _context.Workers
+            .Include(w => w.WorkerServices)
+                .ThenInclude(ws => ws.Service)
+            .Where(w => w.AssociationId == associationId)
+            .ToListAsync(cancellationToken);
+
+    // Keep tracking enabled: AssociationService.RestoreAsync modifies the returned workers.
+    public Task<List<Worker>> GetDeletedByAssociationIdAsync(
+        int associationId,
+        CancellationToken cancellationToken = default) =>
+        _context.Workers
+            .IgnoreQueryFilters()
+            .Where(w => w.IsDeleted && w.AssociationId == associationId)
+            .ToListAsync(cancellationToken);
+
+    public async Task AddAsync(
+        Worker worker,
+        CancellationToken cancellationToken = default) =>
+        await _context.Workers.AddAsync(worker, cancellationToken);
+
+    // Match the merged IWorkerRepository: Task<bool>, not void.
+    // Load children here because some callers supply a worker without populated navigations.
+    public async Task<bool> Remove(
+        Worker worker,
         CancellationToken cancellationToken = default)
     {
-        return await _context.Workers
-            .FirstOrDefaultAsync(
-                w => w.CivilIdHash == civilIdHash,
-                cancellationToken);
-    }
+        var trackedWorker = await _context.Workers
+            .Include(w => w.WorkerServices)
+            .Include(w => w.Documents)
+            .FirstOrDefaultAsync(w => w.Id == worker.Id, cancellationToken);
 
+        if (trackedWorker is null)
+        {
+            return false;
+        }
 
-
-
-    public async Task<List<Worker>> GetByAssociationIdAsync(
-    int associationId,
-    CancellationToken cancellationToken = default)
-    {
-        return await _context.Workers
-                   .Where(w => w.AssociationId == associationId)
-                     .Select(w => new Worker
-                     {
-                         Id = w.Id,
-                         FirstName = w.FirstName,
-                         MiddleName = w.MiddleName,
-                         LastName = w.LastName,
-                         CivilId = w.CivilId,
-                         DateOfBirth = w.DateOfBirth,
-                         Gender = w.Gender,
-                         MaritalStatus = w.MaritalStatus,
-                         Nationality = w.Nationality,
-                         PhoneNumber = w.PhoneNumber,
-                         YearsOfExperience = w.YearsOfExperience,
-                         AssociationId = w.AssociationId,
-                         QrCode = w.QrCode,
-                         IsActive = w.IsActive,
-                         IsDeleted = w.IsDeleted,
-                         WorkerServices = w.WorkerServices
-                    .Select(ws => new WorkerServiceLink
-                    {
-                        Service = new Service
-                        {
-                            NameEn = ws.Service.NameEn,
-                            NameAr = ws.Service.NameAr
-                        }
-                    })
-                    .ToList()
-                     })
-                   .ToListAsync(cancellationToken);
-    }
-
-
-    public async Task<List<Worker>> GetDeletedByAssociationIdAsync(
-       int associationId,
-       CancellationToken cancellationToken = default)
-    {
-        return await _context.Workers
-            .IgnoreQueryFilters()
-            .AsNoTracking()
-            .Where(w => w.IsDeleted && w.AssociationId == associationId)
-            .Select(w => new Worker
-            {
-                Id = w.Id,
-                FirstName = w.FirstName,
-                MiddleName = w.MiddleName,
-                LastName = w.LastName,
-                CivilId = w.CivilId,
-                DateOfBirth = w.DateOfBirth,
-                Gender = w.Gender,
-                MaritalStatus = w.MaritalStatus,
-                Nationality = w.Nationality,
-                PhoneNumber = w.PhoneNumber,
-                YearsOfExperience = w.YearsOfExperience,
-                QrCode = w.QrCode,
-                IsActive = w.IsActive,
-                IsDeleted = w.IsDeleted,
-                Association = new Association
-
-                {
-                    ArabicName = w.Association.ArabicName,
-                    EnglishName = w.Association.EnglishName
-                },
-                WorkerServices = w.WorkerServices
-                    .Select(ws => new WorkerServiceLink
-                    {
-                        Service = new Service
-                        {
-                            NameEn = ws.Service.NameEn,
-                            NameAr = ws.Service.NameAr
-                        }
-                    })
-                    .ToList()
-            })
-            .ToListAsync(cancellationToken);
-    }
-
-    public async Task AddAsync(Worker worker, CancellationToken cancellationToken = default)=>
-        await _context.Workers.AddAsync(worker, cancellationToken);
-        
-    
-
-    public void Remove(Worker worker)
-    {
-        // Documents/WorkerServices have a required, Restrict FK to Worker. Soft-deleting the
-        // worker alone leaves them pointing at a "deleted" parent without being deleted
-        // themselves, which EF's change tracker rejects as a severed required relationship
-        // (removing them from worker.Documents/worker.WorkerServices isn't enough either — that
-        // only clears the in-memory collection, it doesn't mark the entities themselves for
-        // deletion). They must be loaded (callers use GetByIdWithServicesAsync) and explicitly
-        // removed from their own DbSet so MaydanDbContext.SaveChangesAsync's soft-delete
-        // conversion applies to them the same way it does to the worker.
-        foreach (var document in worker.Documents)
+        foreach (var document in trackedWorker.Documents.ToList())
         {
             _context.WorkerDocuments.Remove(document);
         }
 
-        foreach (var link in worker.WorkerServices)
+        foreach (var link in trackedWorker.WorkerServices.ToList())
         {
             _context.WorkerServiceLinks.Remove(link);
         }
 
-        _context.Workers.Remove(worker);
+        _context.Workers.Remove(trackedWorker);
+        return true;
     }
 
     public async Task<(List<WorkerSummaryDto> Items, int TotalCount)> GetAllProjectedAsync(
-        int? associationId, string? search, int? serviceId, int page, int pageSize, CancellationToken cancellationToken = default)
+        int? associationId,
+        string? search,
+        int? serviceId,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default)
     {
         var query = _context.Workers.AsQueryable();
 
@@ -240,7 +153,9 @@ public class WorkerRepository : IWorkerRepository
         return (items, totalCount);
     }
 
-    public Task<WorkerDto?> GetByIdProjectedAsync(int workerId, CancellationToken cancellationToken = default) =>
+    public Task<WorkerDto?> GetByIdProjectedAsync(
+        int workerId,
+        CancellationToken cancellationToken = default) =>
         _context.Workers
             .Where(w => w.Id == workerId)
             .Select(w => new WorkerDto(
@@ -268,29 +183,56 @@ public class WorkerRepository : IWorkerRepository
                 w.IsActive))
             .FirstOrDefaultAsync(cancellationToken);
 
-    public async Task<List<Worker>> GetAvailableWorkersForRequestAsync(
-       int associationId,
-       int serviceId,
-       DateTime startDate,
-       DateTime endDate,
-       CancellationToken cancellationToken = default)
+    // Keep the master's document requirement, the confirmed IsActive rule,
+    // and the WorkerDto return type declared in IWorkerRepository.
+    public async Task<List<WorkerDto>> GetAvailableWorkersForRequestAsync(
+        int associationId,
+        int serviceId,
+        DateTime startDate,
+        DateTime endDate,
+        CancellationToken cancellationToken = default)
     {
-        var query = _context.Workers
-            .Include(w => w.Association)
-                .ThenInclude(a => a.City)
-                    .ThenInclude(c => c.Country)
-            .Include(w => w.WorkerServices)
-                .ThenInclude(ws => ws.Service)
-            .Where(w => w.AssociationId == associationId)
+        var serviceRequiresDocs = await _context.Set<Service>()
+            .Where(s => s.Id == serviceId)
+            .Select(s => s.RequiresDocuments)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return await _context.Workers
+            .AsNoTracking()
+            .Where(w => w.AssociationId == associationId && w.IsActive)
             .Where(w => w.WorkerServices.Any(ws => ws.ServiceId == serviceId))
+            .Where(w => !serviceRequiresDocs || w.Documents.Any())
             .Where(w => !w.ServiceRequestWorkers.Any(srw =>
                 srw.ServiceRequest.Status == ServiceRequestStatus.InProgress &&
                 srw.ServiceRequest.StartDate <= endDate &&
-                srw.ServiceRequest.EndDate >= startDate));
-
-        return await query.ToListAsync(cancellationToken);
+                srw.ServiceRequest.EndDate >= startDate))
+            .Select(w => new WorkerDto(
+                w.Id,
+                w.FirstName,
+                w.MiddleName,
+                w.LastName,
+                w.CivilId,
+                w.DateOfBirth,
+                w.Gender,
+                w.MaritalStatus,
+                w.Nationality,
+                w.Association.City.CountryId,
+                w.Association.City.Country.EnglishName,
+                w.Association.CityId,
+                w.Association.City.EnglishName,
+                w.PhoneNumber,
+                w.YearsOfExperience,
+                w.AssociationId,
+                w.Association.EnglishName,
+                w.QrCode,
+                w.WorkerServices.Select(ws => ws.ServiceId).ToList(),
+                w.WorkerServices.Select(ws => ws.Service.NameEn).ToList(),
+                w.Documents.Select(d => d.FilePath).ToList(),
+                w.IsActive))
+            .ToListAsync(cancellationToken);
     }
 
+    // Retain the current branch's worker query/sort API.
     public async Task<List<Worker>> QueryAsync(
         bool isDeleted,
         int? associationId = null,
@@ -299,14 +241,15 @@ public class WorkerRepository : IWorkerRepository
         bool? orderByNameArAscending = null,
         CancellationToken cancellationToken = default)
     {
-        var query = _context.Workers
-            .AsNoTracking()
-            .Where(w => w.IsDeleted == isDeleted);
+        IQueryable<Worker> query = isDeleted
+            ? _context.Workers.IgnoreQueryFilters()
+            : _context.Workers;
+
+        query = query.AsNoTracking().Where(w => w.IsDeleted == isDeleted);
 
         if (associationId.HasValue)
         {
-            query = query.Where(
-                w => w.AssociationId == associationId.Value);
+            query = query.Where(w => w.AssociationId == associationId.Value);
         }
 
         if (orderByYearsOfExperienceAscending.HasValue)
@@ -318,20 +261,16 @@ public class WorkerRepository : IWorkerRepository
         else if (orderByNameEnAscending.HasValue)
         {
             query = orderByNameEnAscending.Value
-                ? query.OrderBy(w => w.FirstName)
-                    .ThenBy(w => w.LastName)
-                : query.OrderByDescending(w => w.FirstName)
-                    .ThenByDescending(w => w.LastName);
+                ? query.OrderBy(w => w.FirstName).ThenBy(w => w.LastName)
+                : query.OrderByDescending(w => w.FirstName).ThenByDescending(w => w.LastName);
         }
         else if (orderByNameArAscending.HasValue)
         {
-            // Uses the existing name properties because the Arabic
-            // name property names are not shown in the provided entity.
+            // Preserve the existing fallback to FirstName/LastName until
+            // distinct Arabic-name properties are confirmed in the entity.
             query = orderByNameArAscending.Value
-                ? query.OrderBy(w => w.FirstName)
-                    .ThenBy(w => w.LastName)
-                : query.OrderByDescending(w => w.FirstName)
-                    .ThenByDescending(w => w.LastName);
+                ? query.OrderBy(w => w.FirstName).ThenBy(w => w.LastName)
+                : query.OrderByDescending(w => w.FirstName).ThenByDescending(w => w.LastName);
         }
 
         return await query
@@ -348,6 +287,10 @@ public class WorkerRepository : IWorkerRepository
                 Nationality = w.Nationality,
                 PhoneNumber = w.PhoneNumber,
                 YearsOfExperience = w.YearsOfExperience,
+                AssociationId = w.AssociationId,
+                QrCode = w.QrCode,
+                IsActive = w.IsActive,
+                IsDeleted = w.IsDeleted,
                 Association = new Association
                 {
                     EnglishName = w.Association.EnglishName,
@@ -356,8 +299,11 @@ public class WorkerRepository : IWorkerRepository
                 WorkerServices = w.WorkerServices
                     .Select(ws => new WorkerServiceLink
                     {
+                        WorkerId = ws.WorkerId,
+                        ServiceId = ws.ServiceId,
                         Service = new Service
                         {
+                            Id = ws.Service.Id,
                             NameEn = ws.Service.NameEn,
                             NameAr = ws.Service.NameAr
                         }
@@ -366,13 +312,4 @@ public class WorkerRepository : IWorkerRepository
             })
             .ToListAsync(cancellationToken);
     }
-    public async Task<bool> Remove(
-        Worker worker,
-        CancellationToken cancellationToken = default)
-    {
-        _context.Workers.Remove(worker);
-        return await Task.FromResult(true);
-    }
-
-
 }

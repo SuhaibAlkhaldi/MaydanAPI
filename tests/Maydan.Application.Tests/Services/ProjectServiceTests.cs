@@ -1133,13 +1133,15 @@ public class ProjectServiceTests
         }
 
         public Task<List<Project>> GetAllAsync(
-            bool isDeleted,
-            string? searchTerm,
-            DateTime? startDate,
-            DateTime? endDate,
-            string? searchByProductionCompanyName,
-            int? searchByProductionCompanyId,
-            CancellationToken cancellationToken = default)
+          bool isDeleted,
+          string? searchTerm,
+          DateTime? startDate,
+          DateTime? endDate,
+          string? searchByProductionCompanyName,
+          int? searchByProductionCompanyId,
+          int? cityId,
+          int? cityLocationId,
+          CancellationToken cancellationToken = default)
         {
             var results = _projectsById.Values.Where(p => p.IsDeleted == isDeleted);
 
@@ -1201,6 +1203,23 @@ public class ProjectServiceTests
             project.Producer = _usersById[project.ProducerUserId];
             project.LocationManager = _usersById[project.LocationManagerUserId];
             project.ProjectType = _projectTypesById[project.ProjectTypeId];
+        }
+        public Task<string?> CheckOverlapConflictsAsync(
+     DateTime startDate,
+     DateTime endDate,
+     int producerId,
+     int locationManagerId,
+     int cityLocationId,
+     int? excludeProjectId = null,
+     CancellationToken cancellationToken = default)
+        {
+         
+            return Task.FromResult<string?>(null);
+        }
+
+        public Task<List<int>> GetBusyUserIdsAsync(int productionCompanyId, DateTime startDate, DateTime endDate, int? excludeProjectId = null, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
         }
     }
 

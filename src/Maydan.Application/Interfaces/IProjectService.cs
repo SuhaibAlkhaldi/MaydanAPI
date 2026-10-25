@@ -1,6 +1,6 @@
 using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.Projects;
-
+using Maydan.Application.DTOs.UserManagement;
 namespace Maydan.Application.Interfaces;
 
 public interface IProjectService
@@ -38,4 +38,6 @@ public interface IProjectService
 
     Task<ApiResponse<List<ProjectTypeDto>>> GetProjectTypesAsync(
         CancellationToken cancellationToken = default);
+
+Task<ApiResponse<List<UserSummaryDto>>> GetAvailableUsersAsync(int currentUserId, DateTime startDate, DateTime endDate, int? currentProjectId = null, CancellationToken cancellationToken = default);
 }

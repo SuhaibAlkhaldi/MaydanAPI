@@ -1,3 +1,4 @@
+using Azure.Core;
 using Maydan.API.Models.Workers;
 using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.Workers;
@@ -174,8 +175,7 @@ public class WorkersController : ApiControllerBase
 
     [HttpGet("service-request/{serviceRequestId}/available-workers")]
     public async Task<IActionResult> GetAvailableWorkersForRequest(
-     int serviceRequestId,
-     CancellationToken cancellationToken)
+     int serviceRequestId, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
@@ -185,6 +185,7 @@ public class WorkersController : ApiControllerBase
         var response = await _workerService.GetAvailableWorkersForRequestAsync(
             currentUserId,
             serviceRequestId,
+           
             cancellationToken);
 
         return StatusCode(response.StatusCode, response);
