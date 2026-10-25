@@ -25,4 +25,7 @@ public class Project : SharedEntities
     public ProductionCompany ProductionCompany { get; set; } = null!;
 
     // Approval/status remains handled by the Service Request workflow.
+
+    //
+    public ICollection<WorkerProjectLink> WorkerProjectLinks { get; set; } = new List<WorkerProjectLink>();
 }

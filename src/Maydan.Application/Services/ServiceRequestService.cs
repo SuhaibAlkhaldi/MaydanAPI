@@ -714,6 +714,21 @@ public class ServiceRequestService : IServiceRequestService
 
             await _unitOfWork.ServiceRequests
             .AssignToServiceRequestAsync(id,workerId,cancellationToken);
+            var existing = await _unitOfWork.WorkerProjectLinks
+    .GetByProjectAndWorkerAsync(CurrentRequestToApprove.ProjectId, workerId, cancellationToken);
+
+            if (existing is null || !existing.IsWorkerActive)
+            {
+                await _unitOfWork.WorkerProjectLinks.AddAsync(new WorkerProjectLink
+                {
+                    ProjectId = CurrentRequestToApprove.ProjectId,
+                    WorkerId = workerId,
+                    ServiceRequestId = CurrentRequestToApprove.Id,
+                    DailyWageAmount = CurrentRequestToApprove.Service.Price,   // same value as the service price
+                    IsWorkerActive = true,
+                    CreatedBy = currentUserId
+                }, cancellationToken);
+            }
         }
 
 

@@ -2745,6 +2745,59 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.ToTable("WorkerDocuments", (string)null);
                 });
 
+            modelBuilder.Entity("Maydan.Domain.Entities.WorkerProjectLink", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<decimal>("DailyWageAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("IsWorkerActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<int>("ProjectId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ServiceRequestId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("WorkerId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServiceRequestId");
+
+                    b.HasIndex("WorkerId");
+
+                    b.HasIndex("ProjectId", "WorkerId")
+                        .IsUnique()
+                        .HasFilter("[IsWorkerActive] = 1");
+
+                    b.ToTable("WorkerProjectLinks", (string)null);
+                });
+
             modelBuilder.Entity("Maydan.Domain.Entities.WorkerServiceLink", b =>
                 {
                     b.Property<int>("Id")
@@ -3070,6 +3123,33 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Navigation("Worker");
                 });
 
+            modelBuilder.Entity("Maydan.Domain.Entities.WorkerProjectLink", b =>
+                {
+                    b.HasOne("Maydan.Domain.Entities.Project", "Project")
+                        .WithMany("WorkerProjectLinks")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Maydan.Domain.Entities.ServiceRequest", "ServiceRequest")
+                        .WithMany()
+                        .HasForeignKey("ServiceRequestId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Maydan.Domain.Entities.Worker", "Worker")
+                        .WithMany("WorkerProjectLinks")
+                        .HasForeignKey("WorkerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+
+                    b.Navigation("ServiceRequest");
+
+                    b.Navigation("Worker");
+                });
+
             modelBuilder.Entity("Maydan.Domain.Entities.WorkerServiceLink", b =>
                 {
                     b.HasOne("Maydan.Domain.Entities.Service", "Service")
@@ -3125,6 +3205,11 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Navigation("Projects");
                 });
 
+            modelBuilder.Entity("Maydan.Domain.Entities.Project", b =>
+                {
+                    b.Navigation("WorkerProjectLinks");
+                });
+
             modelBuilder.Entity("Maydan.Domain.Entities.ProjectType", b =>
                 {
                     b.Navigation("Projects");
@@ -3159,6 +3244,8 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Navigation("Documents");
 
                     b.Navigation("ServiceRequestWorkers");
+
+                    b.Navigation("WorkerProjectLinks");
 
                     b.Navigation("WorkerServices");
                 });

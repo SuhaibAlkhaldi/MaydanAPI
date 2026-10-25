@@ -54,7 +54,7 @@ public class ServiceRequestRepository : IServiceRequestRepository
     {
         var assignment = new ServiceRequestWorker
         {
-            
+
             ServiceRequestId = serviceRequestId,
             WorkerId = workerId
         };
@@ -62,5 +62,15 @@ public class ServiceRequestRepository : IServiceRequestRepository
         await _context.ServiceRequestWorkers.AddAsync(
             assignment,
             cancellationToken);
+    }
+    public async Task<List<ServiceRequest>> GetByProjectIdAsync(
+      int projectId,
+      CancellationToken cancellationToken = default)
+    {
+        return await _context.ServiceRequestWorkers
+            .Where(srw => srw.ServiceRequest.ProjectId == projectId)
+            .Select(srw => srw.ServiceRequest)
+            .Distinct()
+            .ToListAsync(cancellationToken);
     }
 }

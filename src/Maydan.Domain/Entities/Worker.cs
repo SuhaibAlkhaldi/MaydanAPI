@@ -37,4 +37,5 @@ public class Worker : SharedEntities
     // in WorkerService, not here. Capped at 4, no minimum beyond "at least one" (see
     // WorkerService's own comment on the exact rule).
     public ICollection<WorkerDocument> Documents { get; set; } = new List<WorkerDocument>();
+    public ICollection<WorkerProjectLink> WorkerProjectLinks { get; set; }
 }
