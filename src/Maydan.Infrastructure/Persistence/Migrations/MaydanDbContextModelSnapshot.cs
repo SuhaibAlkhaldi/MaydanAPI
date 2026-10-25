@@ -129,6 +129,48 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.ToTable("AssociationProjectSupervisors", (string)null);
                 });
 
+            modelBuilder.Entity("Maydan.Domain.Entities.AttendanceTimeWindow", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AttendanceDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("ClosesAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<DateTime>("OpensAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ServiceRequestId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServiceRequestId", "AttendanceDate")
+                        .IsUnique();
+
+                    b.ToTable("AttendanceTimeWindows", (string)null);
+                });
+
             modelBuilder.Entity("Maydan.Domain.Entities.City", b =>
                 {
                     b.Property<int>("Id")
@@ -2704,6 +2746,86 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.ToTable("Workers", (string)null);
                 });
 
+            modelBuilder.Entity("Maydan.Domain.Entities.WorkerAttendance", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ApprovalStatus")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("AssociationCheckInDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("AssociationCheckOutDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("AssociationUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("AttendanceForDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("CheckInNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CityId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<int>("EntryType")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ProductionCompanyCheckInDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ProductionCompanyCheckOutDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ProductionCompanyUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("ReviewedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ReviewedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("WorkerProjectLinkId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AttendanceForDate");
+
+                    b.HasIndex("CityId");
+
+                    b.HasIndex("WorkerProjectLinkId", "AttendanceForDate", "CheckInNumber")
+                        .IsUnique();
+
+                    b.ToTable("WorkerAttendances", (string)null);
+                });
+
             modelBuilder.Entity("Maydan.Domain.Entities.WorkerDocument", b =>
                 {
                     b.Property<int>("Id")
@@ -2868,6 +2990,17 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Navigation("Project");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Maydan.Domain.Entities.AttendanceTimeWindow", b =>
+                {
+                    b.HasOne("Maydan.Domain.Entities.ServiceRequest", "ServiceRequest")
+                        .WithMany()
+                        .HasForeignKey("ServiceRequestId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ServiceRequest");
                 });
 
             modelBuilder.Entity("Maydan.Domain.Entities.City", b =>
@@ -3110,6 +3243,25 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Association");
+                });
+
+            modelBuilder.Entity("Maydan.Domain.Entities.WorkerAttendance", b =>
+                {
+                    b.HasOne("Maydan.Domain.Entities.City", "City")
+                        .WithMany()
+                        .HasForeignKey("CityId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Maydan.Domain.Entities.WorkerProjectLink", "WorkerProjectLink")
+                        .WithMany()
+                        .HasForeignKey("WorkerProjectLinkId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("City");
+
+                    b.Navigation("WorkerProjectLink");
                 });
 
             modelBuilder.Entity("Maydan.Domain.Entities.WorkerDocument", b =>

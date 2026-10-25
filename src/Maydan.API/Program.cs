@@ -72,6 +72,8 @@ builder.Services.AddScoped<ISystemConfigurationService, SystemConfigurationServi
 builder.Services.AddScoped<ISystemConfigurationGateService, SystemConfigurationGateService>();
 builder.Services.AddScoped<IServiceConfigurationService, ServiceConfigurationService>();
 builder.Services.AddScoped<IServiceRequestService, ServiceRequestService>();
+builder.Services.AddScoped<IWorkerAttendanceRepository, WorkerAttendanceRepository>();
+builder.Services.AddScoped<IWorkerAttendanceService, WorkerAttendanceService>();
 
 builder.Services.AddHostedService<Maydan.API.HostedServices.ServiceRequestReminderHostedService>();
 
