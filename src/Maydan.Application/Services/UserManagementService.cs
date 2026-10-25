@@ -86,7 +86,13 @@ public class UserManagementService : IUserManagementService
         var role = await _unitOfWork.Roles.GetWithPermissionsAsync(dto.RoleId, cancellationToken);
         if (role == null)
             return ApiResponse<UserDetailsDto>.FailureResponse("Role was not found.", "الدور غير موجود.");
-
+        if (role.RoleId == ProductionHouseRoleId || role.RoleId == AssociationRoleId ||role.RoleId==BaytAlUrdonRoleId ||role.RoleId==AsezaRoleId)
+        {
+            return ApiResponse<UserDetailsDto>.FailureResponse(
+         "Cannot assign root entity roles (Production House, Association, ASEZA, or Bayt Al-Urdon) from this screen. These roles are assigned automatically when creating the entity.",
+         "لا يمكن إنشاء مستخدم بأحد أدوار الكيانات الأساسية (شركة إنتاج، جمعية، سلطة العقبة، أو بيت الأردن) من هذه الشاشة. يتم تعيين هذه الأدوار تلقائياً عند إضافة الجهة في النظام."
+     );
+        }
         var creationError = EnsureEntityCreationAllowed<UserDetailsDto>(currentUser!, role);
         if (creationError != null) return creationError;
 
@@ -100,9 +106,9 @@ public class UserManagementService : IUserManagementService
             if (roleAllowError != null) return roleAllowError;
         }
 
-        var (targetEntityType, targetEntityId, entityError) = role.RoleId == currentUser!.RoleId
-            ? (currentUser.EntityType, currentUser.EntityId, null)
-            : await ResolveEntityForRoleAsync<UserDetailsDto>(role.RoleId, dto.EntityId, cancellationToken);
+        var (targetEntityType, targetEntityId, entityError) = (role.RoleId == currentUser!.RoleId || role.RoleId == 10)
+                    ? (currentUser.EntityType, currentUser.EntityId, null)
+                    : await ResolveEntityForRoleAsync<UserDetailsDto>(role.RoleId, dto.EntityId, cancellationToken);
         if (entityError != null) return entityError;
 
         var groupIds = NormalizeIds(dto.GroupIds);
@@ -158,22 +164,32 @@ public class UserManagementService : IUserManagementService
 
         if (effectiveEntityType == EntityType.BaytAlUrdon)
         {
-            
-            entityRoles = allRoles.Where(r => r.TargetEntityType == null && r.RoleId == BaytAlUrdonRoleId).ToList();
+            entityRoles = allRoles.Where(r => r.TargetEntityType == effectiveEntityType
+                                                                 && r.RoleId != BaytAlUrdonRoleId).ToList();
+
+           
         }
         else if (effectiveEntityType == EntityType.Aseza)
         {
+
+            entityRoles = allRoles.Where(r => r.TargetEntityType == effectiveEntityType  
+                                          && r.RoleId != AsezaRoleId).ToList();
+
            
-            entityRoles = allRoles.Where(r => r.TargetEntityType == null && r.RoleId == AsezaRoleId).ToList();
         }
         else
         {
-           
-            entityRoles = allRoles.Where(r => r.TargetEntityType == effectiveEntityType).ToList();
+
+            entityRoles = allRoles.Where(r => r.TargetEntityType == effectiveEntityType
+                                            && r.RoleId != ProductionHouseRoleId
+                                            && r.RoleId != AssociationRoleId
+                                                                            ).ToList();
+
+
         }
 
-       
-        if (currentUser.RoleId == BaytAlUrdonRoleId && effectiveEntityType == EntityType.BaytAlUrdon)
+
+        if (currentUser.RoleId == BaytAlUrdonRoleId && effectiveEntityType == EntityType.BaytAlUrdon ||currentUser.RoleId==AsezaRoleId&& effectiveEntityType==EntityType.Aseza)
         {
             var systemAdminRole = allRoles.FirstOrDefault(r => r.RoleId == 10);
             if (systemAdminRole != null && !entityRoles.Any(r => r.RoleId == 10))
@@ -711,8 +727,7 @@ public class UserManagementService : IUserManagementService
 
 
         if (currentUser.EntityType == EntityType.BaytAlUrdon && role.RoleId == SystemRoles.BaytAlUrdon) return null;
-        if (currentUser.EntityType == EntityType.Aseza && role.RoleId == SystemRoles.Aseza) return null;
-
+        if (currentUser.EntityType == EntityType.Aseza && role.RoleId == 10) return null;
         if (role.RoleId == currentUser.RoleId) return null;
 
         return ApiResponse<T>.FailureResponse("Cannot create a user with a role outside your entity type.", "لا يمكنك إنشاء مستخدم خارج نطاق كيانك.");
