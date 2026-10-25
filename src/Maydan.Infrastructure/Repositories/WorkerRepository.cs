@@ -19,39 +19,44 @@ public class WorkerRepository : IWorkerRepository
     public async Task<Worker?> GetByIdAsync(int workerId, CancellationToken cancellationToken = default) =>
         await _context.Workers.FirstOrDefaultAsync(w => w.Id == workerId, cancellationToken);
 
-    public async Task<Worker?> GetByIdWithServicesAsync(int workerId, CancellationToken cancellationToken = default) =>
-        await _context.Workers
-             .AsNoTracking()
-            .Where(w => w.Id == workerId)
-            .Select(w => new Worker
-            {
-                Id = w.Id,
-                FirstName = w.FirstName,
-                MiddleName = w.MiddleName,
-                LastName = w.LastName,
-                CivilId = w.CivilId,
-                DateOfBirth = w.DateOfBirth,
-                Gender = w.Gender,
-                MaritalStatus = w.MaritalStatus,
-                Nationality = w.Nationality,
-                PhoneNumber = w.PhoneNumber,
-                YearsOfExperience = w.YearsOfExperience,
-                AssociationId = w.AssociationId,
-                QrCode = w.QrCode,
-                IsActive = w.IsActive,
-                IsDeleted = w.IsDeleted,
-                WorkerServices = w.WorkerServices
-                    .Select(ws => new WorkerServiceLink
-                    {
-                        Service = new Service
-                        {
-                            NameEn = ws.Service.NameEn,
-                            NameAr = ws.Service.NameAr
-                        }
-                    })
-                    .ToList()
-            })
-            .FirstOrDefaultAsync(cancellationToken);
+    public async Task<Worker?> GetByIdWithServicesAsync(
+     int workerId,
+     CancellationToken cancellationToken = default) =>
+     await _context.Workers
+         .AsNoTracking()
+         .Where(w => w.Id == workerId)
+         .Select(w => new Worker
+         {
+             Id = w.Id,
+             FirstName = w.FirstName,
+             MiddleName = w.MiddleName,
+             LastName = w.LastName,
+             CivilId = w.CivilId,
+             DateOfBirth = w.DateOfBirth,
+             Gender = w.Gender,
+             MaritalStatus = w.MaritalStatus,
+             Nationality = w.Nationality,
+             PhoneNumber = w.PhoneNumber,
+             YearsOfExperience = w.YearsOfExperience,
+             AssociationId = w.AssociationId,
+             QrCode = w.QrCode,
+             IsActive = w.IsActive,
+             IsDeleted = w.IsDeleted,
+             WorkerServices = w.WorkerServices
+                 .Select(ws => new WorkerServiceLink
+                 {
+                     WorkerId = ws.WorkerId,
+                     ServiceId = ws.ServiceId,
+                     Service = new Service
+                     {
+                         Id = ws.Service.Id,
+                         NameEn = ws.Service.NameEn,
+                         NameAr = ws.Service.NameAr
+                     }
+                 })
+                 .ToList()
+         })
+         .FirstOrDefaultAsync(cancellationToken);
 
     public async Task<Worker?> GetByIdIncludingDeletedAsync(int workerId, CancellationToken cancellationToken = default) =>
         await  _context.Workers.IgnoreQueryFilters()

@@ -27,6 +27,13 @@ public interface IProjectRepository
         int? searchByProductionCompanyId,
         CancellationToken cancellationToken = default);
 
+    Task<bool> HasLocationManagerOverlapAsync(
+    int locationManagerUserId,
+    DateTime projectStartDate,
+    DateTime projectEndDate,
+    int? excludedProjectId,
+    CancellationToken cancellationToken = default);
+
     Task AddAsync(
         Project project,
         CancellationToken cancellationToken = default);

@@ -35,7 +35,7 @@ public class ProjectService : IProjectService
 
         if (currentUser!.EntityType != EntityType.ProductionCompany)
         {
-            return Fail<ProjectDto>("يمكن لمستخدمي شركات الإنتاج فقط إنشاء المشاريع.", "Only Production Company users can create projects.");
+            return ApiResponse<ProjectDto>.FailureResponse("يمكن لمستخدمي شركات الإنتاج فقط إنشاء المشاريع.", "Only Production Company users can create projects.");
         }
 
         var validationError = ValidateProjectPayload<ProjectDto>(
@@ -53,7 +53,7 @@ public class ProjectService : IProjectService
 
         if (!await _unitOfWork.ProjectTypes.ExistsAsync(request.ProjectTypeId, cancellationToken))
         {
-            return Fail<ProjectDto>("نوع المشروع غير صالح.", "Invalid Project Type.");
+            return ApiResponse<ProjectDto>.FailureResponse("نوع المشروع غير صالح.", "Invalid Project Type.");
         }
 
         var (producer, producerError) = await GetSameCompanyUserAsync<ProjectDto>(request.ProducerUserId, currentUser, "المنتج", "Producer", cancellationToken);
@@ -66,6 +66,21 @@ public class ProjectService : IProjectService
         if (lmError is not null)
         {
             return lmError;
+        }
+
+        var hasLocationManagerOverlap =
+            await _unitOfWork.Projects.HasLocationManagerOverlapAsync(
+                locationManager!.UserId,
+                request.StartDate,
+                request.EndDate,
+                excludedProjectId: null,
+                cancellationToken: cancellationToken);
+
+        if (hasLocationManagerOverlap)
+        {
+            return ApiResponse<ProjectDto>.FailureResponse(
+                "مدير الموقع مسند إلى مشروع آخر خلال هذه الفترة.",
+                "Location Manager is already assigned to another Project during these dates.");
         }
 
         var project = new Project
@@ -89,10 +104,10 @@ public class ProjectService : IProjectService
         var createdProject = await _unitOfWork.Projects.GetByIdAsync(project.Id, cancellationToken);
         if (createdProject is null)
         {
-            return Fail<ProjectDto>("تعذر تحميل المشروع بعد الإنشاء.", "Project could not be loaded after creation.");
+            return ApiResponse<ProjectDto>.FailureResponse("تعذر تحميل المشروع بعد الإنشاء.", "Project could not be loaded after creation.");
         }
 
-        return Ok(MapToDto(createdProject), "تم إنشاء المشروع بنجاح.", "Project created successfully.", statusCode: 201);
+        return ApiResponse<ProjectDto>.SuccessResponse(MapToDto(createdProject), "تم إنشاء المشروع بنجاح.", "Project created successfully.", 201);
     }
 
     public async Task<ApiResponse<List<ProjectDto>>> GetAllAsync(
@@ -120,7 +135,7 @@ public class ProjectService : IProjectService
             .Select(MapToDto)
             .ToList();
 
-        return Ok(filteredProjects, "تم جلب المشاريع بنجاح.", "Projects retrieved successfully.");
+        return ApiResponse<List<ProjectDto>>.SuccessResponse(filteredProjects, "تم جلب المشاريع بنجاح.", "Projects retrieved successfully.");
     }
 
     public async Task<ApiResponse<ProjectDto>> GetByIdAsync(
@@ -137,15 +152,15 @@ public class ProjectService : IProjectService
         var project = await _unitOfWork.Projects.GetByIdAsync(id, cancellationToken);
         if (project is null)
         {
-            return Fail<ProjectDto>("المشروع غير موجود.", "Project was not found.");
+            return ApiResponse<ProjectDto>.FailureResponse("المشروع غير موجود.", "Project was not found.");
         }
 
         if (!CanViewProject(currentUser!, project))
         {
-            return Fail<ProjectDto>("لا تملك صلاحية الوصول لهذا المشروع.", "Cannot view a project outside the caller's authorized scope.", statusCode: 403);
+            return new ApiResponse<ProjectDto>(false, "لا تملك صلاحية الوصول لهذا المشروع.", "Cannot view a project outside the caller's authorized scope.", default, 403);
         }
 
-        return Ok(MapToDto(project), "تم جلب بيانات المشروع بنجاح.", "Project retrieved successfully.");
+        return ApiResponse<ProjectDto>.SuccessResponse(MapToDto(project), "تم جلب بيانات المشروع بنجاح.", "Project retrieved successfully.");
     }
 
     public async Task<ApiResponse<ProjectDto>> UpdateAsync(
@@ -163,7 +178,7 @@ public class ProjectService : IProjectService
         var project = await _unitOfWork.Projects.GetByIdAsync(id, cancellationToken);
         if (project is null)
         {
-            return Fail<ProjectDto>("المشروع غير موجود.", "Project was not found.");
+            return ApiResponse<ProjectDto>.FailureResponse("المشروع غير موجود.", "Project was not found.");
         }
 
         var companyError = EnsureSameProductionCompany<ProjectDto>(project, currentUser!);
@@ -187,7 +202,7 @@ public class ProjectService : IProjectService
 
         if (!await _unitOfWork.ProjectTypes.ExistsAsync(request.ProjectTypeId, cancellationToken))
         {
-            return Fail<ProjectDto>("نوع المشروع غير صالح.", "Invalid Project Type.");
+            return ApiResponse<ProjectDto>.FailureResponse("نوع المشروع غير صالح.", "Invalid Project Type.");
         }
 
         var (producer, producerError) = await GetSameCompanyUserAsync<ProjectDto>(request.ProducerUserId, currentUser!, "المنتج", "Producer", cancellationToken);
@@ -200,6 +215,21 @@ public class ProjectService : IProjectService
         if (lmError is not null)
         {
             return lmError;
+        }
+
+        var hasLocationManagerOverlap =
+            await _unitOfWork.Projects.HasLocationManagerOverlapAsync(
+                locationManager!.UserId,
+                request.StartDate,
+                request.EndDate,
+                excludedProjectId: project.Id,
+                cancellationToken: cancellationToken);
+
+        if (hasLocationManagerOverlap)
+        {
+            return ApiResponse<ProjectDto>.FailureResponse(
+                "مدير الموقع مسند إلى مشروع آخر خلال هذه الفترة.",
+                "Location Manager is already assigned to another Project during these dates.");
         }
 
         project.ProjectNameEn = request.ProjectNameEn.Trim();
@@ -220,10 +250,10 @@ public class ProjectService : IProjectService
         var updatedProject = await _unitOfWork.Projects.GetByIdAsync(project.Id, cancellationToken);
         if (updatedProject is null)
         {
-            return Fail<ProjectDto>("تعذر تحميل المشروع بعد التحديث.", "Project could not be loaded after update.");
+            return ApiResponse<ProjectDto>.FailureResponse("تعذر تحميل المشروع بعد التحديث.", "Project could not be loaded after update.");
         }
 
-        return Ok(MapToDto(updatedProject), "تم تحديث بيانات المشروع بنجاح.", "Project updated successfully.");
+        return ApiResponse<ProjectDto>.SuccessResponse(MapToDto(updatedProject), "تم تحديث بيانات المشروع بنجاح.", "Project updated successfully.");
     }
 
     public async Task<ApiResponse<object?>> DeleteAsync(
@@ -240,7 +270,7 @@ public class ProjectService : IProjectService
         var project = await _unitOfWork.Projects.GetByIdAsync(id, cancellationToken);
         if (project is null)
         {
-            return Fail<object?>("المشروع غير موجود.", "Project was not found.");
+            return ApiResponse<object?>.FailureResponse("المشروع غير موجود.", "Project was not found.");
         }
 
         var companyError = EnsureSameProductionCompany<object?>(project, currentUser!);
@@ -252,7 +282,7 @@ public class ProjectService : IProjectService
         _unitOfWork.Projects.Remove(project);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return Ok<object?>(null, "تم حذف المشروع بنجاح.", "Project deleted successfully.");
+        return ApiResponse<object?>.SuccessResponse(null, "تم حذف المشروع بنجاح.", "Project deleted successfully.");
     }
 
     public async Task<ApiResponse<ProjectDto>> RestoreAsync(
@@ -269,7 +299,7 @@ public class ProjectService : IProjectService
         var project = await _unitOfWork.Projects.GetByIdIncludingDeletedAsync(id, cancellationToken);
         if (project is null)
         {
-            return Fail<ProjectDto>("المشروع غير موجود.", "Project was not found.");
+            return ApiResponse<ProjectDto>.FailureResponse("المشروع غير موجود.", "Project was not found.");
         }
 
         var companyError = EnsureSameProductionCompany<ProjectDto>(project, currentUser!);
@@ -280,7 +310,7 @@ public class ProjectService : IProjectService
 
         if (!project.IsDeleted)
         {
-            return Fail<ProjectDto>("المشروع غير محذوف أصلًا.", "Project is not deleted.");
+            return ApiResponse<ProjectDto>.FailureResponse("المشروع غير محذوف أصلًا.", "Project is not deleted.");
         }
 
         project.IsDeleted = false;
@@ -289,7 +319,7 @@ public class ProjectService : IProjectService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var restoredProject = await _unitOfWork.Projects.GetByIdAsync(project.Id, cancellationToken);
-        return Ok(MapToDto(restoredProject!), "تم استرجاع المشروع بنجاح.", "Project restored successfully.");
+        return ApiResponse<ProjectDto>.SuccessResponse(MapToDto(restoredProject!), "تم استرجاع المشروع بنجاح.", "Project restored successfully.");
     }
 
     public async Task<ApiResponse<List<ProjectTypeDto>>> GetProjectTypesAsync(
@@ -301,7 +331,7 @@ public class ProjectService : IProjectService
             .Select(pt => new ProjectTypeDto(pt.Id, pt.NameEn, pt.NameAr))
             .ToList();
 
-        return Ok(dtos, "تم جلب أنواع المشاريع بنجاح.", "Project types retrieved successfully.");
+        return ApiResponse<List<ProjectTypeDto>>.SuccessResponse(dtos, "تم جلب أنواع المشاريع بنجاح.", "Project types retrieved successfully.");
     }
 
     #region Helpers
@@ -311,12 +341,12 @@ public class ProjectService : IProjectService
         var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken);
         if (currentUser is null)
         {
-            return (null, Fail<T>("المستخدم الحالي غير موجود.", "Current user was not found.", 401));
+            return (null, new ApiResponse<T>(false, "المستخدم الحالي غير موجود.", "Current user was not found.", default, 401));
         }
 
         if (!currentUser.IsActive)
         {
-            return (null, Fail<T>("المستخدم الحالي غير فعّال.", "Current user is inactive.", 401));
+            return (null, new ApiResponse<T>(false, "المستخدم الحالي غير فعّال.", "Current user is inactive.", default, 401));
         }
 
         return (currentUser, null);
@@ -332,7 +362,7 @@ public class ProjectService : IProjectService
 
         if (!GetEffectivePermissionIds(currentUser!).Overlaps(anyOfPermissionIds))
         {
-            return (null, Fail<T>("لا تملك الصلاحية المطلوبة لإدارة المشاريع.", "You do not hold the required Projects permission.", 403));
+            return (null, new ApiResponse<T>(false, "لا تملك الصلاحية المطلوبة لإدارة المشاريع.", "You do not hold the required Projects permission.", default, 403));
         }
 
         return (currentUser, null);
@@ -348,12 +378,12 @@ public class ProjectService : IProjectService
         var user = await _unitOfWork.Users.GetByIdAsync(userId, cancellationToken);
         if (user is null)
         {
-            return (null, Fail<T>($"المستخدم المحدد لـ ({roleLabelAr}) غير موجود.", $"{roleLabelEn} not found."));
+            return (null, ApiResponse<T>.FailureResponse($"المستخدم المحدد لـ ({roleLabelAr}) غير موجود.", $"{roleLabelEn} not found."));
         }
 
         if (user.EntityType != EntityType.ProductionCompany || user.EntityId != currentUser.EntityId)
         {
-            return (null, Fail<T>($"يجب أن ينتمي ({roleLabelAr}) إلى نفس شركة الإنتاج.", $"{roleLabelEn} must belong to the same Production Company."));
+            return (null, ApiResponse<T>.FailureResponse($"يجب أن ينتمي ({roleLabelAr}) إلى نفس شركة الإنتاج.", $"{roleLabelEn} must belong to the same Production Company."));
         }
 
         return (user, null);
@@ -363,7 +393,7 @@ public class ProjectService : IProjectService
     {
         if (project.ProductionCompanyId != currentUser.EntityId)
         {
-            return Fail<T>("لا يمكنك إدارة مشروع خارج شركة الإنتاج الخاصة بك.", "Cannot manage a project outside the current Production Company.", 403);
+            return new ApiResponse<T>(false, "لا يمكنك إدارة مشروع خارج شركة الإنتاج الخاصة بك.", "Cannot manage a project outside the current Production Company.", default, 403);
         }
 
         return null;
@@ -379,32 +409,32 @@ public class ProjectService : IProjectService
     {
         if (string.IsNullOrWhiteSpace(projectNameEn))
         {
-            return Fail<T>("اسم المشروع باللغة الإنجليزية مطلوب.", "English project name is required.");
+            return ApiResponse<T>.FailureResponse("اسم المشروع باللغة الإنجليزية مطلوب.", "English project name is required.");
         }
 
         if (string.IsNullOrWhiteSpace(projectNameAr))
         {
-            return Fail<T>("اسم المشروع باللغة العربية مطلوب.", "Arabic project name is required.");
+            return ApiResponse<T>.FailureResponse("اسم المشروع باللغة العربية مطلوب.", "Arabic project name is required.");
         }
 
         if (projectNameEn.Trim().Length > 200)
         {
-            return Fail<T>("اسم المشروع باللغة الإنجليزية يجب ألا يتجاوز 200 حرف.", "English project name cannot exceed 200 characters.");
+            return ApiResponse<T>.FailureResponse("اسم المشروع باللغة الإنجليزية يجب ألا يتجاوز 200 حرف.", "English project name cannot exceed 200 characters.");
         }
 
         if (projectNameAr.Trim().Length > 200)
         {
-            return Fail<T>("اسم المشروع باللغة العربية يجب ألا يتجاوز 200 حرف.", "Arabic project name cannot exceed 200 characters.");
+            return ApiResponse<T>.FailureResponse("اسم المشروع باللغة العربية يجب ألا يتجاوز 200 حرف.", "Arabic project name cannot exceed 200 characters.");
         }
 
         if (endDate <= startDate)
         {
-            return Fail<T>("تاريخ الانتهاء يجب أن يكون بعد تاريخ البداية.", "End date must be greater than start date.");
+            return ApiResponse<T>.FailureResponse("تاريخ الانتهاء يجب أن يكون بعد تاريخ البداية.", "End date must be greater than start date.");
         }
 
         if (producerUserId == locationManagerUserId)
         {
-            return Fail<T>("يجب أن يكون المنتج ومدير الموقع شخصين مختلفين.", "Producer and Location Manager must be different users.");
+            return ApiResponse<T>.FailureResponse("يجب أن يكون المنتج ومدير الموقع شخصين مختلفين.", "Producer and Location Manager must be different users.");
         }
 
         return null;
@@ -483,11 +513,6 @@ public class ProjectService : IProjectService
         };
     }
 
-    private static ApiResponse<T> Fail<T>(string messageAr, string messageEn, int statusCode = 400) =>
-        new(false, messageAr, messageEn, default, statusCode);
-
-    private static ApiResponse<T> Ok<T>(T data, string messageAr, string messageEn, int statusCode = 200) =>
-        new(true, messageAr, messageEn, data, statusCode);
 
     #endregion
 }

@@ -278,6 +278,26 @@ public class AssociationProjectSupervisorServiceTests
             return Task.FromResult(project is { IsDeleted: false } ? project : null);
         }
 
+
+        public Task<bool> HasLocationManagerOverlapAsync(
+            int locationManagerUserId,
+            DateTime projectStartDate,
+            DateTime projectEndDate,
+            int? excludedProjectId,
+            CancellationToken cancellationToken = default)
+        {
+            var hasOverlap = _projectsById.Values.Any(project =>
+                !project.IsDeleted &&
+                project.LocationManagerUserId == locationManagerUserId &&
+                (!excludedProjectId.HasValue ||
+                    project.Id != excludedProjectId.Value) &&
+                project.StartDate.Date <= projectEndDate.Date &&
+                project.EndDate.Date >= projectStartDate.Date);
+
+            return Task.FromResult(hasOverlap);
+        }
+
+
         public Task<Project?> GetByIdIncludingDeletedAsync(int projectId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<List<Project>> GetByProductionCompanyIdAsync(int productionCompanyId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<List<Project>> GetAllAsync(bool isDeleted, string? searchTerm, DateTime? startDate, DateTime? endDate, string? searchByProductionCompanyName, int? searchByProductionCompanyId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
