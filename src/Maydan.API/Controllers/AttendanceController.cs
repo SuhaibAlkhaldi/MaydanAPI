@@ -33,7 +33,7 @@ public class AttendanceController : ApiControllerBase
         return StatusCode(r.StatusCode, r);
     }
 
-    // Recording
+    // Recording 
     [HttpPost("check-in")]
     public async Task<IActionResult> CheckIn([FromBody] RecordAttendanceDto dto, CancellationToken ct)
     {
@@ -42,15 +42,15 @@ public class AttendanceController : ApiControllerBase
         return StatusCode(r.StatusCode, r);
     }
 
-    [HttpPost("{attendanceId:int}/check-out")]
-    public async Task<IActionResult> CheckOut(int attendanceId, CancellationToken ct)
+    [HttpPost("check-out")]
+    public async Task<IActionResult> CheckOut([FromBody] RecordAttendanceDto dto, CancellationToken ct)
     {
         if (!TryGetCurrentUserId(out var uid)) return NoUser();
-        var r = await _service.CheckOutAsync(uid, attendanceId, ct);
+        var r = await _service.CheckOutAsync(uid, dto, ct);
         return StatusCode(r.StatusCode, r);
     }
 
-    // Approval (one record at a time)
+    // Approval (one record at a time) 
     [HttpPost("{attendanceId:int}/approve")]
     public async Task<IActionResult> Approve(int attendanceId, CancellationToken ct)
     {
@@ -67,7 +67,7 @@ public class AttendanceController : ApiControllerBase
         return StatusCode(r.StatusCode, r);
     }
 
-    // Reads 
+    //  Reads 
     [HttpGet("service-requests/{serviceRequestId:int}/day")]
     public async Task<IActionResult> GetDay(int serviceRequestId, [FromQuery] DateTime? date, CancellationToken ct)
     {

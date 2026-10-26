@@ -7,6 +7,8 @@ public interface IWorkerAttendanceRepository
     Task<WorkerAttendance?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
     Task<List<WorkerAttendance>> ListByLinkAndDateAsync(int workerProjectLinkId, DateTime date, CancellationToken cancellationToken = default);
     Task<List<WorkerAttendance>> ListByServiceRequestAsync(int serviceRequestId, DateTime from, DateTime to, CancellationToken cancellationToken = default);
+    //Active link of the worker that owns this QR code on this service request (null if not assigned).
+    Task<WorkerProjectLink?> GetActiveLinkByQrAsync(string qrCode, int serviceRequestId, CancellationToken cancellationToken = default);
     Task<List<WorkerProjectLink>> ListLinksByServiceRequestAsync(int serviceRequestId, CancellationToken cancellationToken = default);
     Task AddAsync(WorkerAttendance attendance, CancellationToken cancellationToken = default);
 

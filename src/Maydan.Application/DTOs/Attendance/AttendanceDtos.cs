@@ -2,10 +2,14 @@
 
 namespace Maydan.Application.DTOs.Attendance;
 
-//Requests
+// Requests 
 public class RecordAttendanceDto
 {
-    public int WorkerProjectLinkId { get; set; }
+    //The exact value read from the worker's QR code (Worker.QrCode).
+    public string QrCode { get; set; } = string.Empty;
+
+    //The service request the supervisor / location manager is taking attendance for.
+    public int ServiceRequestId { get; set; }
 
     //Date the attendance counts for. Defaults to today (Jordan time).
     public DateTime? AttendanceForDate { get; set; }
@@ -27,7 +31,7 @@ public class SetAttendanceWindowDto
     public TimeSpan ClosesAtLocal { get; set; }
 }
 
-//Responses
+// Responses 
 public class AttendanceTimeWindowDto
 {
     public DateTime Date { get; set; }
@@ -41,6 +45,8 @@ public class WorkerAttendanceDto
 {
     public int Id { get; set; }
     public int WorkerProjectLinkId { get; set; }
+    public int WorkerId { get; set; }
+    public string? WorkerName { get; set; }
     public DateTime AttendanceForDate { get; set; }
     public int CheckInNumber { get; set; }
     public string EntryType { get; set; } = string.Empty;

@@ -31,7 +31,7 @@ public class WorkerAttendanceService : IWorkerAttendanceService
 
     
     //  1) Time windows (Production House)
-  
+   
     public async Task<ApiResponse<List<AttendanceTimeWindowDto>>> SetTimeWindowsAsync(
         int currentUserId, int serviceRequestId, SetAttendanceWindowDto dto, CancellationToken ct = default)
     {
@@ -108,20 +108,25 @@ public class WorkerAttendanceService : IWorkerAttendanceService
             windows.Select(ToDto).ToList(), "Time windows fetched.", "تم جلب أوقات التسجيل.");
     }
 
-    
+   
     //  2) Recording (Association or Production House)
-    
+   
     public async Task<ApiResponse<WorkerAttendanceDto>> CheckInAsync(int currentUserId, RecordAttendanceDto dto, CancellationToken ct = default)
     {
         var user = await GetActiveUserAsync(currentUserId, ct);
         if (user is null) return Unauthorized<WorkerAttendanceDto>();
 
-        var link = await _uow.WorkerProjectLinks.GetByIdAsync(dto.WorkerProjectLinkId, ct);
-        if (link is null || !link.IsWorkerActive)
-            return Fail<WorkerAttendanceDto>("Worker is not actively linked to this project.", "العامل غير مرتبط بالمشروع أو غير نشط.", 404);
+        if (string.IsNullOrWhiteSpace(dto.QrCode))
+            return Fail<WorkerAttendanceDto>("The worker's QR code is required.", "رمز QR الخاص بالعامل مطلوب.");
 
-        var sr = await _uow.ServiceRequests.GetByIdAsync(link.ServiceRequestId, ct);
+        var sr = await _uow.ServiceRequests.GetByIdAsync(dto.ServiceRequestId, ct);
         if (sr is null) return Fail<WorkerAttendanceDto>("Service request was not found.", "طلب الخدمة غير موجود.", 404);
+
+        // The worker is identified ONLY by his own QR code, and must be assigned to this very request.
+        var link = await _repo.GetActiveLinkByQrAsync(dto.QrCode.Trim(), sr.Id, ct);
+        if (link is null)
+            return Fail<WorkerAttendanceDto>("This QR code does not belong to a worker assigned to this service request.",
+                "رمز QR هذا لا يخص عاملاً مسجلاً في طلب الخدمة هذا.", 404);
 
         var now = DateTime.UtcNow;
         var date = (dto.AttendanceForDate ?? (now + LocalOffset)).Date;
@@ -165,50 +170,59 @@ public class WorkerAttendanceService : IWorkerAttendanceService
         await _repo.AddAsync(entry, ct);
         await _uow.SaveChangesAsync(ct);
 
-        return ApiResponse<WorkerAttendanceDto>.SuccessResponse(ToDto(entry), "Attendance recorded.", "تم تسجيل الحضور.", 201);
+        var result = ToDto(entry);
+        result.WorkerId = link.WorkerId;
+        result.WorkerName = link.Worker is null ? null : $"{link.Worker.FirstName} {link.Worker.LastName}";   // lets the scanner confirm who was scanned
+        return ApiResponse<WorkerAttendanceDto>.SuccessResponse(result, "Attendance recorded.", "تم تسجيل الحضور.", 201);
     }
 
-    public async Task<ApiResponse<WorkerAttendanceDto>> CheckOutAsync(int currentUserId, int attendanceId, CancellationToken ct = default)
+    public async Task<ApiResponse<WorkerAttendanceDto>> CheckOutAsync(int currentUserId, RecordAttendanceDto dto, CancellationToken ct = default)
     {
         var user = await GetActiveUserAsync(currentUserId, ct);
         if (user is null) return Unauthorized<WorkerAttendanceDto>();
 
-        var a = await _repo.GetByIdAsync(attendanceId, ct);
-        if (a is null) return Fail<WorkerAttendanceDto>("Attendance record was not found.", "سجل الحضور غير موجود.", 404);
+        if (string.IsNullOrWhiteSpace(dto.QrCode))
+            return Fail<WorkerAttendanceDto>("The worker's QR code is required.", "رمز QR الخاص بالعامل مطلوب.");
 
-        var sr = await _uow.ServiceRequests.GetByIdAsync(a.WorkerProjectLink.ServiceRequestId, ct);
+        var sr = await _uow.ServiceRequests.GetByIdAsync(dto.ServiceRequestId, ct);
         if (sr is null) return Fail<WorkerAttendanceDto>("Service request was not found.", "طلب الخدمة غير موجود.", 404);
 
+        var link = await _repo.GetActiveLinkByQrAsync(dto.QrCode.Trim(), sr.Id, ct);
+        if (link is null)
+            return Fail<WorkerAttendanceDto>("This QR code does not belong to a worker assigned to this service request.",
+                "رمز QR هذا لا يخص عاملاً مسجلاً في طلب الخدمة هذا.", 404);
+
         var now = DateTime.UtcNow;
-        var gate = await ValidateRecordingAsync(user, sr, a.AttendanceForDate.Date, now, ct);
+        var date = (dto.AttendanceForDate ?? (now + LocalOffset)).Date;
+        var gate = await ValidateRecordingAsync(user, sr, date, now, ct);
         if (gate.En is not null) return Fail<WorkerAttendanceDto>(gate.En, gate.Ar!, gate.Status);
 
-        if (a.EntryType != AttendanceEntryType.Present)
-            return Fail<WorkerAttendanceDto>("Check-out applies to presence records only.", "تسجيل الخروج ينطبق على سجلات الحضور فقط.");
-        if (a.ApprovalStatus == AttendanceApprovalStatus.Rejected)
-            return Fail<WorkerAttendanceDto>("This attendance record was rejected.", "تم رفض سجل الحضور هذا.");
+        // Close the latest check-in of this worker that THIS side opened and has not closed yet.
+        var rows = await _repo.ListByLinkAndDateAsync(link.Id, date, ct);
+        var open = rows.LastOrDefault(r =>
+            r.EntryType == AttendanceEntryType.Present &&
+            r.ApprovalStatus != AttendanceApprovalStatus.Rejected &&
+            (gate.Side == Side.Association
+                ? r.AssociationCheckInDate != null && r.AssociationCheckOutDate == null
+                : r.ProductionCompanyCheckInDate != null && r.ProductionCompanyCheckOutDate == null));
 
-        if (gate.Side == Side.Association)
-        {
-            if (a.AssociationCheckInDate is null || a.AssociationCheckOutDate is not null)
-                return Fail<WorkerAttendanceDto>("No open association check-in to close.", "لا يوجد تسجيل دخول مفتوح من الجمعية.");
-            a.AssociationCheckOutDate = now;
-        }
-        else
-        {
-            if (a.ProductionCompanyCheckInDate is null || a.ProductionCompanyCheckOutDate is not null)
-                return Fail<WorkerAttendanceDto>("No open production house check-in to close.", "لا يوجد تسجيل دخول مفتوح من بيت الإنتاج.");
-            a.ProductionCompanyCheckOutDate = now;
-        }
+        if (open is null)
+            return Fail<WorkerAttendanceDto>("This worker has no open check-in to close.", "لا يوجد تسجيل دخول مفتوح لهذا العامل.");
 
-        a.UpdatedBy = user.UserId; a.UpdatedDate = now;
+        if (gate.Side == Side.Association) open.AssociationCheckOutDate = now;
+        else open.ProductionCompanyCheckOutDate = now;
+        open.UpdatedBy = user.UserId; open.UpdatedDate = now;
+
         await _uow.SaveChangesAsync(ct);
-        return ApiResponse<WorkerAttendanceDto>.SuccessResponse(ToDto(a), "Check-out recorded.", "تم تسجيل الخروج.");
+        var result = ToDto(open);
+        result.WorkerId = link.WorkerId;
+        result.WorkerName = link.Worker is null ? null : $"{link.Worker.FirstName} {link.Worker.LastName}";
+        return ApiResponse<WorkerAttendanceDto>.SuccessResponse(result, "Check-out recorded.", "تم تسجيل الخروج.");
     }
 
-    
+   
     //  3) Approval (Production House, one record = one worker at a time)
-    
+   
     public Task<ApiResponse<WorkerAttendanceDto>> ApproveAsync(int currentUserId, int attendanceId, CancellationToken ct = default) =>
         ReviewAsync(currentUserId, attendanceId, approve: true, reason: null, ct);
 
@@ -254,7 +268,7 @@ public class WorkerAttendanceService : IWorkerAttendanceService
 
    
     //  4) Reads: day roster + summary (final wages preview)
-   
+    
     public async Task<ApiResponse<DayRosterDto>> GetDayRosterAsync(int currentUserId, int serviceRequestId, DateTime? date, CancellationToken ct = default)
     {
         var (_, sr, error) = await LoadForViewAsync(currentUserId, serviceRequestId, ct);
@@ -352,15 +366,15 @@ public class WorkerAttendanceService : IWorkerAttendanceService
         return ApiResponse<AttendanceSummaryDto>.SuccessResponse(dto, "Attendance summary fetched.", "تم جلب ملخص الحضور.");
     }
 
- 
+    
     //  Business rules
- 
+    
 
-   
-    /// Day outcome. Present only if ALL required check-ins are recorded AND approved.
-    /// Otherwise, once the day is over (window closed) the worker is automatically Absent for the whole day.
-    /// Computed on read, so nothing needs a background job and approvals made later are picked up automatically.
-  
+
+    // Day outcome. Present only if ALL required check-ins are recorded AND approved.
+    // Otherwise, once the day is over (window closed) the worker is automatically Absent for the whole day.
+    // Computed on read, so nothing needs a background job and approvals made later are picked up automatically.
+
     private static AttendanceDayStatus ComputeDayStatus(int frequency, DateTime date, AttendanceTimeWindow? window,
         IReadOnlyList<WorkerAttendance> rows, DateTime nowUtc)
     {
@@ -410,7 +424,9 @@ public class WorkerAttendanceService : IWorkerAttendanceService
 
     private async Task<Side> ResolveSideAsync(User user, ServiceRequest sr, CancellationToken ct)
     {
-        if (IsProductionHouseOf(user, sr)) return Side.ProductionCompany;
+        // Production House side = the Location Manager assigned to the project (the person who is physically on site).
+        if (IsProductionHouseOf(user, sr))
+            return sr.Project.LocationManagerUserId == user.UserId ? Side.ProductionCompany : Side.None;
 
         // Association Representative = an Association user assigned as supervisor on the request's project.
         if (user.EntityType == EntityType.Association && user.EntityId == sr.AssociationId)
@@ -444,9 +460,9 @@ public class WorkerAttendanceService : IWorkerAttendanceService
         return (user, sr, null);
     }
 
-  
+    
     //  Helpers
-
+   
     private async Task<User?> GetActiveUserAsync(int id, CancellationToken ct)
     {
         var u = await _uow.Users.GetWithPermissionsAsync(id, ct);

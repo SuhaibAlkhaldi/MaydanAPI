@@ -28,6 +28,13 @@ public class WorkerAttendanceRepository : IWorkerAttendanceRepository
            .OrderBy(a => a.AttendanceForDate).ThenBy(a => a.CheckInNumber)
            .ToListAsync(cancellationToken);
 
+    public Task<WorkerProjectLink?> GetActiveLinkByQrAsync(string qrCode, int serviceRequestId, CancellationToken cancellationToken = default) =>
+        _db.WorkerProjectLinks
+           .Include(l => l.Worker)
+           .FirstOrDefaultAsync(l => l.ServiceRequestId == serviceRequestId
+                                  && l.IsWorkerActive
+                                  && l.Worker.QrCode == qrCode, cancellationToken);
+
     public Task<List<WorkerProjectLink>> ListLinksByServiceRequestAsync(int serviceRequestId, CancellationToken cancellationToken = default) =>
         _db.WorkerProjectLinks
            .Where(l => l.ServiceRequestId == serviceRequestId && l.IsWorkerActive)
