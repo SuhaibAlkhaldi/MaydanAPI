@@ -567,6 +567,10 @@ public class AuthService : IAuthService
         {
             return Fail<LoginResponseDto>("البريد الإلكتروني، كلمة المرور الحالية، وكلمة المرور الجديدة مطلوبان.", "Email, current password, and new password are required.");
         }
+        if (dto.NewPassword.Length < 8)
+        {
+            throw new InvalidOperationException("Password must be at least 8 characters.");
+        }
 
         var email = dto.Email.Trim();
         var user = await _unitOfWork.Users.GetByEmailWithAccessAsync(email, cancellationToken);
@@ -607,9 +611,11 @@ public class AuthService : IAuthService
         {
             return Fail<ForgotPasswordResponseDto>("البريد الإلكتروني مطلوب.", "Email is required.");
         }
-
-        const string genericMessageAr = "إذا كان الحساب المرتبط بهذا البريد موجوداً، فقد تم إرسال رابط إعادة تعيين كلمة المرور إليه.";
-        const string genericMessageEn = "If an account with that email exists, a password reset link has been sent to it.";
+        if (!new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(dto.Email))
+        {
+            throw new InvalidOperationException("Invalid email address format.");
+        }
+        const string genericMessage = "If an account with that email exists, a password reset link has been sent to it.";
 
         var email = dto.Email.Trim();
         var user = await _unitOfWork.Users.GetByEmailWithAccessAsync(email, cancellationToken);
@@ -663,9 +669,15 @@ public class AuthService : IAuthService
         {
             return Fail<ResetPasswordWithTokenResponseDto>("كلمة المرور الجديدة وتأكيدها غير متطابقتين.", "New password and confirmation do not match.");
         }
+        if (dto.NewPassword.Length < 8)
+        {
+            throw new InvalidOperationException("Password must be at least 8 characters.");
+        }
 
         var candidates = await _unitOfWork.PasswordResetTokens.GetAllAsync(cancellationToken);
         var matched = candidates.FirstOrDefault(t => _passwordHasher.VerifyPassword(dto.Token, t.TokenHash));
+
+
 
         if (matched is null)
         {

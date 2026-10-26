@@ -1,7 +1,7 @@
-using System.Text;
 using FluentValidation;
 using Maydan.API.Filters;
 using Maydan.API.Security;
+using Maydan.Application.DTOs.Common;
 using Maydan.Application.Interfaces;
 using Maydan.Application.Services;
 using Maydan.Infrastructure.Email;
@@ -13,9 +13,11 @@ using Maydan.Infrastructure.Storage;
 using Maydan.Infrastructure.Web;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -111,6 +113,27 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
         };
     });
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = actionContext =>
+    {
+        var errors = actionContext.ModelState
+            .Where(e => e.Value.Errors.Count > 0)
+            .SelectMany(x => x.Value.Errors)
+            .Select(x => x.ErrorMessage)
+            .ToList();
+
+        var response = new ApiResponse<object>
+        {
+            Success = false,
+            MessageEn = "Validation errors occurred.",
+            MessageAr = "حدثت أخطاء في صحة البيانات.",
+            Data = errors
+        };
+
+        return new BadRequestObjectResult(response);
+    };
+});
 
 builder.Services.AddAuthorization();
 

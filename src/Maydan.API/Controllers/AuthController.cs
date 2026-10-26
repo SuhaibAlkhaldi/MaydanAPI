@@ -4,6 +4,7 @@ using Maydan.Application.DTOs.Common;
 using Maydan.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Maydan.API.Controllers;
 
@@ -22,12 +23,27 @@ public class AuthController : ApiControllerBase
     }
 
     [HttpPost("login", Name = "Login User")]
-    public async Task<ActionResult<ApiResponse<LoginResponseDto>>> Login([FromBody] LoginRequestDto dto, CancellationToken cancellationToken)
+    public async Task<IActionResult> Login([FromBody] LoginRequestDto dto, CancellationToken cancellationToken)
     {
         try
         {
-            var response = await _authService.LoginAsync(dto, cancellationToken);
-            return StatusCode(response.StatusCode, response);
+            var result = await _authService.LoginAsync(dto, cancellationToken);
+
+            return Ok(new ApiResponse<LoginResponseDto>(
+                success: true,
+                messageAr: "تم تسجيل الدخول بنجاح",
+                messageEn: "Login successful",
+                data: result
+            ));
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            return Unauthorized(new ApiResponse<LoginResponseDto>(
+                success: false,
+                messageAr: "اسم المستخدم أو كلمة المرور غير صحيحة",
+                messageEn: exception.Message,
+                data: null
+            ));
         }
         catch (Exception exception)
         {
@@ -36,12 +52,27 @@ public class AuthController : ApiControllerBase
     }
 
     [HttpPost("reset-password", Name = "Reset Password")]
-    public async Task<ActionResult<ApiResponse<LoginResponseDto>>> ResetPassword([FromBody] ResetPasswordDto dto, CancellationToken cancellationToken)
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto, CancellationToken cancellationToken)
     {
         try
         {
-            var response = await _authService.ResetPasswordAsync(dto, cancellationToken);
-            return StatusCode(response.StatusCode, response);
+            var result = await _authService.ResetPasswordAsync(dto, cancellationToken);
+
+            return Ok(new ApiResponse<LoginResponseDto>(
+                success: true,
+                messageAr: "تم إعادة تعيين كلمة المرور بنجاح",
+                messageEn: "Password reset successfully",
+                data: result
+            ));
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            return Unauthorized(new ApiResponse<LoginResponseDto>(
+                success: false,
+                messageAr: "غير مصرح بالوصول",
+                messageEn: exception.Message,
+                data: null
+            ));
         }
         catch (Exception exception)
         {
@@ -50,12 +81,18 @@ public class AuthController : ApiControllerBase
     }
 
     [HttpPost("forgot-password", Name = "Forgot Password")]
-    public async Task<ActionResult<ApiResponse<ForgotPasswordResponseDto>>> ForgotPassword([FromBody] ForgotPasswordDto dto, CancellationToken cancellationToken)
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto, CancellationToken cancellationToken)
     {
         try
         {
-            var response = await _authService.ForgotPasswordAsync(dto, cancellationToken);
-            return StatusCode(response.StatusCode, response);
+            var result = await _authService.ForgotPasswordAsync(dto, cancellationToken);
+
+            return Ok(new ApiResponse<ForgotPasswordResponseDto>(
+                success: true,
+                messageAr: "تم إرسال تعليمات استعادة كلمة المرور",
+                messageEn: "Password recovery instructions sent successfully",
+                data: result
+            ));
         }
         catch (Exception exception)
         {
@@ -64,12 +101,18 @@ public class AuthController : ApiControllerBase
     }
 
     [HttpPost("reset-password-with-token", Name = "Reset Password With Token")]
-    public async Task<ActionResult<ApiResponse<ResetPasswordWithTokenResponseDto>>> ResetPasswordWithToken([FromBody] ResetPasswordWithTokenDto dto, CancellationToken cancellationToken)
+    public async Task<IActionResult> ResetPasswordWithToken([FromBody] ResetPasswordWithTokenDto dto, CancellationToken cancellationToken)
     {
         try
         {
-            var response = await _authService.ResetPasswordWithTokenAsync(dto, cancellationToken);
-            return StatusCode(response.StatusCode, response);
+            var result = await _authService.ResetPasswordWithTokenAsync(dto, cancellationToken);
+
+            return Ok(new ApiResponse<ResetPasswordWithTokenResponseDto>(
+                success: true,
+                messageAr: "تم إعادة تعيين كلمة المرور بنجاح",
+                messageEn: "Password reset with token successful",
+                data: result
+            ));
         }
         catch (Exception exception)
         {
@@ -78,12 +121,27 @@ public class AuthController : ApiControllerBase
     }
 
     [HttpPost("refresh", Name = "Refresh Access Token")]
-    public async Task<ActionResult<ApiResponse<RefreshTokenResponseDto>>> Refresh([FromBody] RefreshTokenRequestDto dto, CancellationToken cancellationToken)
+    public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequestDto dto, CancellationToken cancellationToken)
     {
         try
         {
-            var response = await _authService.RefreshTokenAsync(dto, cancellationToken);
-            return StatusCode(response.StatusCode, response);
+            var result = await _authService.RefreshTokenAsync(dto, cancellationToken);
+
+            return Ok(new ApiResponse<RefreshTokenResponseDto>(
+                success: true,
+                messageAr: "تم تجديد الجلسة بنجاح",
+                messageEn: "Token refreshed successfully",
+                data: result
+            ));
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            return Unauthorized(new ApiResponse<RefreshTokenResponseDto>(
+                success: false,
+                messageAr: "رمز التحديث غير صالح أو منتهي الصلاحية",
+                messageEn: exception.Message,
+                data: null
+            ));
         }
         catch (Exception exception)
         {
@@ -92,12 +150,18 @@ public class AuthController : ApiControllerBase
     }
 
     [HttpPost("logout", Name = "Logout")]
-    public async Task<ActionResult<ApiResponse<LogoutResponseDto>>> Logout([FromBody] LogoutRequestDto dto, CancellationToken cancellationToken)
+    public async Task<IActionResult> Logout([FromBody] LogoutRequestDto dto, CancellationToken cancellationToken)
     {
         try
         {
-            var response = await _authService.LogoutAsync(dto, cancellationToken);
-            return StatusCode(response.StatusCode, response);
+            var result = await _authService.LogoutAsync(dto, cancellationToken);
+
+            return Ok(new ApiResponse<LogoutResponseDto>(
+                success: true,
+                messageAr: "تم تسجيل الخروج بنجاح",
+                messageEn: "Logout successful",
+                data: result
+            ));
         }
         catch (Exception exception)
         {
@@ -111,6 +175,11 @@ public class AuthController : ApiControllerBase
     {
         try
         {
+            if (!TryGetCurrentUserId(out var currentUserId))
+            {
+             
+                return Forbid();
+            }
             var result = await _productionCompanyOnboardingService.RegisterAsync(dto, cancellationToken);
             var response = new ApiResponse<RegisterProductionCompanyResponseDto>(
                 success: true,

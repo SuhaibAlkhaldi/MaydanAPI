@@ -149,6 +149,11 @@ public class ProductionCompanyOnboardingService : IProductionCompanyOnboardingSe
             throw new InvalidOperationException("All company and admin fields are required.");
         }
 
+        if (!new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(dto.Email))
+        {
+            throw new InvalidOperationException("Invalid email address format.");
+        }
+
         if (dto.CityId <= 0)
         {
             throw new InvalidOperationException("A valid city is required.");
