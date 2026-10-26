@@ -23,7 +23,7 @@ public class ProjectsController : ApiControllerBase
         _fileStorageService = fileStorageService;
     }
 
-    [HttpGet]
+    [HttpGet("Get-Projects")]
     public async Task<ActionResult> GetAll(
         [FromQuery] ProjectQueryDto query,
         CancellationToken cancellationToken)
@@ -65,7 +65,7 @@ public class ProjectsController : ApiControllerBase
         }
     }
 
-    [HttpPost]
+    [HttpPost("Create-Project")]
     public async Task<ActionResult> Create(
         [FromForm] CreateProjectRequest request,
         CancellationToken cancellationToken)
@@ -101,7 +101,9 @@ public class ProjectsController : ApiControllerBase
                 ProjectTypeId = request.ProjectTypeId,
                 ProducerUserId = request.ProducerUserId,
                 LocationManagerUserId = request.LocationManagerUserId,
-                WorkPermitImagePath = workPermitImagePath
+                WorkPermitImagePath = workPermitImagePath,
+                CityId = request.CityId,
+                CityLocationId = request.CityLocationId,
             };
 
             var response = await _projectService.CreateAsync(dto, currentUserId, cancellationToken);
@@ -113,7 +115,7 @@ public class ProjectsController : ApiControllerBase
         }
     }
 
-    [HttpPut]
+    [HttpPut("Update-Project")]
     public async Task<ActionResult> Update(
         [FromForm] UpdateProjectRequest request,
         CancellationToken cancellationToken)
@@ -145,7 +147,9 @@ public class ProjectsController : ApiControllerBase
                 ProjectTypeId = request.ProjectTypeId,
                 ProducerUserId = request.ProducerUserId,
                 LocationManagerUserId = request.LocationManagerUserId,
-                WorkPermitImagePath = workPermitImagePath
+                WorkPermitImagePath = workPermitImagePath,
+                CityId = request.CityId,
+                CityLocationId = request.CityLocationId,
             };
 
             var response = await _projectService.UpdateAsync(request.Id, dto, currentUserId, cancellationToken);
@@ -191,6 +195,26 @@ public class ProjectsController : ApiControllerBase
         try
         {
             var response = await _projectService.RestoreAsync(projectId, currentUserId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
+        }
+        catch (Exception exception)
+        {
+            return HandleException(exception);
+        }
+    }
+    [HttpGet("available-users")]
+    public async Task<ActionResult> GetAvailableUsers(
+    [FromQuery] DateTime startDate,
+    [FromQuery] DateTime endDate,
+    [FromQuery] int? currentProjectId,
+    CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
+
+        try
+        {
+            var response = await _projectService.GetAvailableUsersAsync(currentUserId, startDate, endDate, currentProjectId, cancellationToken);
             return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)

@@ -1170,6 +1170,12 @@ namespace Maydan.Infrastructure.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int>("CityId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CityLocationId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -1222,6 +1228,10 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(500)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CityId");
+
+                    b.HasIndex("CityLocationId");
 
                     b.HasIndex("LocationManagerUserId");
 
@@ -1897,6 +1907,18 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
+                            RoleId = 1,
+                            PermissionId = 41,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 42,
+                            IsActive = true
+                        },
+                        new
+                        {
                             RoleId = 2,
                             PermissionId = 1,
                             IsActive = true
@@ -1965,6 +1987,12 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         {
                             RoleId = 2,
                             PermissionId = 9,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 2,
+                            PermissionId = 2,
                             IsActive = true
                         },
                         new
@@ -3068,6 +3096,18 @@ namespace Maydan.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Maydan.Domain.Entities.Project", b =>
                 {
+                    b.HasOne("Maydan.Domain.Entities.City", "City")
+                        .WithMany()
+                        .HasForeignKey("CityId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Maydan.Domain.Entities.CityLocation", "CityLocation")
+                        .WithMany()
+                        .HasForeignKey("CityLocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Maydan.Domain.Entities.User", "LocationManager")
                         .WithMany()
                         .HasForeignKey("LocationManagerUserId")
@@ -3091,6 +3131,10 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         .HasForeignKey("ProjectTypeId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("City");
+
+                    b.Navigation("CityLocation");
 
                     b.Navigation("LocationManager");
 

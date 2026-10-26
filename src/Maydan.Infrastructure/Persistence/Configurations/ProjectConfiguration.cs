@@ -18,6 +18,17 @@ public class ProjectConfiguration : IEntityTypeConfiguration<Project>
                 "CK_Projects_Producer_LocationManager",
                 "[ProducerUserId] <> [LocationManagerUserId]");
         });
+        builder.HasOne(p => p.City)
+       .WithMany()
+       .HasForeignKey(p => p.CityId)
+       .IsRequired()
+       .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(p => p.CityLocation)
+               .WithMany()
+               .HasForeignKey(p => p.CityLocationId)
+               .IsRequired()
+               .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasKey(p => p.Id);
 

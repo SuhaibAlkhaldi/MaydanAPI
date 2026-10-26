@@ -26,6 +26,11 @@ public class Project : SharedEntities
 
     // Approval/status remains handled by the Service Request workflow.
 
-    //
+    public int CityId { get; set; }
+    public City City { get; set; } = null!;
+
+    public int CityLocationId { get; set; }
+    public CityLocation CityLocation { get; set; } = null!;
     public ICollection<WorkerProjectLink> WorkerProjectLinks { get; set; } = new List<WorkerProjectLink>();
+
 }
