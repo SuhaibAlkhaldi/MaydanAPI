@@ -502,6 +502,41 @@ public class UserManagementService : IUserManagementService
 
         return await GetUserDetailsAsync(currentUserId, userId, cancellationToken);
     }
+    public async Task<ApiResponse<List<UserSummaryDto>>> GetAllAssociationUsersAsync(int currentUserId, CancellationToken cancellationToken = default)
+    {
+        var (currentUser, error) = await GetCurrentUserAsync<List<UserSummaryDto>>(currentUserId, cancellationToken);
+        if (error != null) return error;
+
+        int? filterEntityId = null;
+
+        if (currentUser!.EntityType == EntityType.Association)
+        {
+
+            filterEntityId = currentUser.EntityId;
+        }
+        else if(currentUser!.EntityType == EntityType.ProductionCompany)
+        {
+
+            filterEntityId = currentUser.EntityId;
+        }
+        else if (currentUser.EntityType != EntityType.BaytAlUrdon &&
+                 currentUser.EntityType != EntityType.Aseza)
+        {
+            // منع أي جهة غير مصرح لها
+            return ApiResponse<List<UserSummaryDto>>.FailureResponse("Unauthorized to view association users.", "غير مصرح لك باستعراض مستخدمي الجمعيات.");
+        }
+
+        // تمرير الفلتر للداتابيس
+        var users = await _unitOfWork.Users.GetAssociationSupervisorsAsync(EntityType.Association, filterEntityId, cancellationToken);
+        if (users.Count == 0)
+        {
+            return ApiResponse<List<UserSummaryDto>>.FailureResponse("Users Not Found", "لا يوجد مسخدمين ");
+        }
+        return ApiResponse<List<UserSummaryDto>>.SuccessResponse(
+            users.Select(MapUserSummary).ToList(),
+            "All association users retrieved successfully.",
+            "تم استرجاع مستخدمي الجمعيات بنجاح.");
+    }
 
     #region Helpers (Refactored to No-Exceptions)
 
