@@ -173,4 +173,5 @@ public class UserRepository : IUserRepository
         await _context.Users.AddAsync(user, cancellationToken);
 
     public void Remove(User user) => _context.Users.Remove(user);
+             .Where(u => u.EntityType == EntityType.Association && allowedRoles.Contains(u.RoleId));
 }
