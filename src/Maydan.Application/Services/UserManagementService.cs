@@ -5,6 +5,7 @@ using Maydan.Domain.Constants;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
 
+
 namespace Maydan.Application.Services;
 
 public class UserManagementService : IUserManagementService
@@ -770,6 +771,7 @@ public class UserManagementService : IUserManagementService
 
     private static ApiResponse<T>? ValidateUserPayload<T>(CreateEntityUserDto dto)
     {
+        // 1. فحص الحقول الفارغة
         if (string.IsNullOrWhiteSpace(dto.FirstNameEn) || string.IsNullOrWhiteSpace(dto.LastNameEn) ||
             string.IsNullOrWhiteSpace(dto.FirstNameAr) || string.IsNullOrWhiteSpace(dto.LastNameAr) ||
             string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.PhoneNumber) ||
@@ -777,6 +779,30 @@ public class UserManagementService : IUserManagementService
         {
             return ApiResponse<T>.FailureResponse("User mandatory fields are required.", "جميع الحقول الأساسية مطلوبة.");
         }
+
+        // 2. فحص صيغة البريد الإلكتروني (استخدام المسار الكامل لمنع التعارض)
+        var emailRegex = new System.Text.RegularExpressions.Regex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$",
+            System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        if (!emailRegex.IsMatch(dto.Email.Trim()))
+        {
+            return ApiResponse<T>.FailureResponse("Invalid email format.", "صيغة البريد الإلكتروني غير صحيحة.");
+        }
+        var phoneRegex = new System.Text.RegularExpressions.Regex(@"^(07[789]\d{7}|\+9627[789]\d{7}|009627[789]\d{7})$",
+        System.Text.RegularExpressions.RegexOptions.Compiled);
+
+        if (!phoneRegex.IsMatch(dto.PhoneNumber.Trim()))
+        {
+            return ApiResponse<T>.FailureResponse(
+                "Invalid phone number. Must be a valid Jordanian mobile number.",
+                "رقم الهاتف غير صحيح، يجب أن يكون رقم هاتف أردني صالح (مثل 0788834444 أو +96278883333).");
+        }
+        // 3. فحص طول كلمة المرور
+        if (dto.InitialPassword.Length < 8)
+        {
+            return ApiResponse<T>.FailureResponse("Password must be at least 8 characters long.", "كلمة المرور يجب أن تتكون من 8 أحرف على الأقل.");
+        }
+
         return null;
     }
 
