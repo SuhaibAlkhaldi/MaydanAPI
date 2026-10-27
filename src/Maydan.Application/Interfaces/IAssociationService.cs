@@ -14,7 +14,7 @@ public interface IAssociationService
     Task<ApiResponse<List<AssociationDto>>> SearchDeletedByNameAsync(int currentUserId, string name, CancellationToken cancellationToken = default);
 
     Task<ApiResponse<AssociationDto>> CreateAsync(int currentUserId, CreateAssociationDto dto, CancellationToken cancellationToken = default);
-    Task<ApiResponse<AssociationDto>> UpdateAsync(int currentUserId, UpdateAssociationDto dto, CancellationToken cancellationToken = default);
+    Task<ApiResponse<AssociationUpdateResponseDto>> UpdateAsync(int currentUserId,UpdateAssociationDto dto,CancellationToken cancellationToken = default);
     Task<ApiResponse<bool>> DeleteAsync(int currentUserId, int associationId, CancellationToken cancellationToken = default);
     Task<ApiResponse<AssociationDto>> RestoreAsync(int currentUserId, int associationId, CancellationToken cancellationToken = default);
 }

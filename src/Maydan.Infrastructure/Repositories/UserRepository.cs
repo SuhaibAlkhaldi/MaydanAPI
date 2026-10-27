@@ -94,6 +94,22 @@ public class UserRepository : IUserRepository
         return (users, totalCount);
     }
 
+
+    public async Task<User?> GetAssociationAdminForUpdateAsync(
+        int associationId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Users
+            .AsTracking()
+            .SingleOrDefaultAsync(
+                u => u.EntityType == EntityType.Association &&
+                     u.EntityId == associationId &&
+                     u.RoleId == 4 &&
+                     !u.IsDeleted,
+                cancellationToken);
+    }
+
+
     public Task<User?> GetDetailsAsync(int userId, CancellationToken cancellationToken = default) =>
         _context.Users
             .Include(u => u.Role)
@@ -179,4 +195,57 @@ public class UserRepository : IUserRepository
         await _context.Users.AddAsync(user, cancellationToken);
 
     public void Remove(User user) => _context.Users.Remove(user);
+
+
+
+    public async Task<bool> EmailExistsForAnotherUserAsync(
+        string email,
+        int excludedUserId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Users.AnyAsync(
+            u => u.Email == email &&
+                 u.UserId != excludedUserId,
+            cancellationToken);
+    }
+
+    public async Task<bool> PhoneExistsForAnotherUserAsync(
+        string phoneNumber,
+        int excludedUserId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Users.AnyAsync(
+            u => u.PhoneNumber == phoneNumber &&
+                 u.UserId != excludedUserId,
+            cancellationToken);
+    }
+
+
+    public async Task<List<User>> GetAssociationUsersForUpdateAsync(
+        int associationId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Users
+            .AsTracking()
+            .Where(u =>
+                u.EntityType == EntityType.Association &&
+                u.EntityId == associationId)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<User>> GetDeletedAssociationUsersForUpdateAsync(
+        int associationId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Users
+            .IgnoreQueryFilters()
+            .AsTracking()
+            .Where(u =>
+                u.EntityType == EntityType.Association &&
+                u.EntityId == associationId &&
+                u.IsDeleted)
+            .ToListAsync(cancellationToken);
+    }
+
+
 }

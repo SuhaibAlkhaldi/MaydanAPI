@@ -527,6 +527,10 @@ public class AssociationServiceTests
             _users = (users ?? Enumerable.Empty<User>()).ToList();
         }
 
+        public FakeUserRepository()
+        {
+        }
+
         public Task<User?> GetByIdAsync(int userId, CancellationToken cancellationToken = default) =>
             Task.FromResult(userId == _currentUser.UserId ? _currentUser : null);
 
@@ -574,6 +578,31 @@ public class AssociationServiceTests
         }
 
         public Task<bool> PhoneExistsAsync(string phoneNumber, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<User?> GetAssociationAdminForUpdateAsync(int associationId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<bool> EmailExistsForAnotherUserAsync(string email, int excludedUserId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<bool> PhoneExistsForAnotherUserAsync(string phoneNumber, int excludedUserId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<List<User>> GetAssociationUsersForUpdateAsync(int associationId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<List<User>> GetDeletedAssociationUsersForUpdateAsync(int associationId, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
@@ -652,6 +681,11 @@ public class AssociationServiceTests
         }
 
         public Task<List<Worker>> QueryAsync(bool isDeleted, int? associationId = null, bool? orderByYearsOfExperienceAscending = null, bool? orderByNameEnAscending = null, bool? orderByNameArAscending = null, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<List<Worker>> GetByAssociationIdForUpdateAsync(int associationId, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
@@ -763,6 +797,11 @@ public class AssociationServiceTests
             }
 
             _pendingRemovals.Clear();
+        }
+
+        public Task<Association?> GetByIdForUpdateAsync(int associationId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
         }
     }
 

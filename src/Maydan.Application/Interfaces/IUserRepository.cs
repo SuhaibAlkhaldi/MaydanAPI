@@ -28,6 +28,7 @@ public interface IUserRepository
 
     // Loads Role, Groups and direct UserPermissions so the effective-permissions union (section 4) can be computed.
     Task<User?> GetWithPermissionsAsync(int userId, CancellationToken cancellationToken = default);
+    Task<User?> GetAssociationAdminForUpdateAsync( int associationId,CancellationToken cancellationToken = default);
     Task<List<User>> GetByIdsInEntityAsync(IEnumerable<int> userIds, EntityType entityType, int entityId, CancellationToken cancellationToken = default);
 
     // MAYD-51 (Association Management, Phase 2c): the mirror image of GetByEntityAsync above —
@@ -41,4 +42,23 @@ public interface IUserRepository
 
     Task AddAsync(User user, CancellationToken cancellationToken = default);
     void Remove(User user);
+
+    Task<bool> EmailExistsForAnotherUserAsync(
+        string email,
+        int excludedUserId,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> PhoneExistsForAnotherUserAsync(
+        string phoneNumber,
+        int excludedUserId,
+        CancellationToken cancellationToken = default);
+
+    Task<List<User>> GetAssociationUsersForUpdateAsync(
+int associationId,
+CancellationToken cancellationToken = default);
+
+    Task<List<User>> GetDeletedAssociationUsersForUpdateAsync(
+        int associationId,
+        CancellationToken cancellationToken = default);
+
 }

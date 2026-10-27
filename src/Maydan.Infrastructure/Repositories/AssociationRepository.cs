@@ -13,7 +13,15 @@ public class AssociationRepository : IAssociationRepository
     {
         _context = context;
     }
-
+    public async Task<Association?> GetByIdForUpdateAsync(
+    int associationId,
+    CancellationToken cancellationToken = default)
+    {
+        return await _context.Associations
+            .FirstOrDefaultAsync(
+                a => a.Id == associationId,
+                cancellationToken);
+    }
     public async Task<Association?> GetByIdAsync(int associationId, CancellationToken cancellationToken = default) =>
       await _context.Associations
             .AsNoTracking()
@@ -82,103 +90,128 @@ public class AssociationRepository : IAssociationRepository
 
     public void Remove(Association association) => _context.Associations.Remove(association);
 
-    public async Task<Association?> GetByIdIncludingDeletedAsync(int associationId, CancellationToken cancellationToken = default) =>
-        await _context.Associations
-             .IgnoreQueryFilters()
+
+
+    public async Task<Association?> GetByIdIncludingDeletedAsync(
+        int associationId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Associations
+            .IgnoreQueryFilters()
+            .AsTracking()
+            .FirstOrDefaultAsync(
+                a => a.Id == associationId,
+                cancellationToken);
+    }
+
+
+
+
+
+    public async Task<Association?> GetByIdWithWorkersAsync(
+        int associationId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Associations
             .AsNoTracking()
+            .Where(a => a.Id == associationId)
             .Select(a => new Association
             {
                 Id = a.Id,
                 ArabicName = a.ArabicName,
                 EnglishName = a.EnglishName,
-                City = new City
-                {
-                    ArabicName = a.City.ArabicName,
-                    EnglishName = a.City.EnglishName,
-                    Country = new Country
+                CityId = a.CityId,
+                IsDeleted = a.IsDeleted,
+                DeletedAt = a.DeletedAt,
+
+                Workers = a.Workers
+                    .Where(w => !w.IsDeleted)
+                    .Select(w => new Worker
                     {
-                        ArabicName = a.City.Country.ArabicName,
-                        EnglishName = a.City.Country.EnglishName
-                    }
-                },
-                LocationOnGoogleMaps = a.LocationOnGoogleMaps,
-                Latitude = a.Latitude,
-                Longitude = a.Longitude,
-                ContactPhone = a.ContactPhone,
-                ContactEmail = a.ContactEmail
+                        Id = w.Id,
+                        AssociationId = w.AssociationId,
+                        IsDeleted = w.IsDeleted,
+                        DeletedAt = w.DeletedAt
+                    })
+                    .ToList()
             })
-            //.Include(a => a.City).ThenInclude(c => c.Country)
-            .FirstOrDefaultAsync(a => a.Id == associationId, cancellationToken);
+            .FirstOrDefaultAsync(cancellationToken);
+    }
 
 
-    public async Task<Association?> GetByIdWithWorkersAsync(int associationId, CancellationToken cancellationToken = default) =>
-        await  _context.Associations
-            .Select(a => new Association
-            {
-                Id = a.Id,
-                ArabicName = a.ArabicName,
-                EnglishName = a.EnglishName,
-                City = new City
-                {
-                    ArabicName = a.City.ArabicName,
-                    EnglishName = a.City.EnglishName,
-                    Country = new Country
-                    {
-                        ArabicName = a.City.Country.ArabicName,
-                        EnglishName = a.City.Country.EnglishName
-                    }
-                },
-                LocationOnGoogleMaps = a.LocationOnGoogleMaps,
-                Latitude = a.Latitude,
-                Longitude = a.Longitude,
-                ContactPhone = a.ContactPhone,
-                ContactEmail = a.ContactEmail,
-                Workers = a.Workers.Select(w => new Worker
-                {
-                    Id = w.Id,
-                    FirstName = w.FirstName,
-                    MiddleName = w.MiddleName,
-                    LastName = w.LastName,
-                    AssociationId = w.AssociationId
-                }).ToList()
-            })
-        //.Include(a => a.City).ThenInclude(c => c.Country)
-        //.Include(a => a.Workers)
-        .FirstOrDefaultAsync(a => a.Id == associationId, cancellationToken);
 
-    public async Task<(Association Association, int WorkersCount)?> GetByIdWithWorkersCountAsync(int associationId, CancellationToken cancellationToken = default)
+    public async Task<(Association Association, int WorkersCount)?>
+        GetByIdWithWorkersCountAsync(
+            int associationId,
+            CancellationToken cancellationToken = default)
     {
         var result = await _context.Associations
-               .AsNoTracking()
-                .AsNoTracking()
-                   .Select(a => new Association
-                   {
-                       Id = a.Id,
-                       ArabicName = a.ArabicName,
-                       EnglishName = a.EnglishName,
-                       City = new City
-                       {
-                           ArabicName = a.City.ArabicName,
-                           EnglishName = a.City.EnglishName,
-                           Country = new Country
-                           {
-                               ArabicName = a.City.Country.ArabicName,
-                               EnglishName = a.City.Country.EnglishName
-                           }
-                       },
-                       LocationOnGoogleMaps = a.LocationOnGoogleMaps,
-                       Latitude = a.Latitude,
-                       Longitude = a.Longitude,
-                       ContactPhone = a.ContactPhone,
-                       ContactEmail = a.ContactEmail
-                   })
-                   //.Include(a => a.City).ThenInclude(c => c.Country)
-                   .Where(a => a.Id == associationId)
-                   .Select(a => new { Association = a, WorkersCount = a.Workers.Count() })
-                   .FirstOrDefaultAsync(cancellationToken);
+            .AsNoTracking()
+            .Where(a => a.Id == associationId)
+            .Select(a => new
+            {
+                a.Id,
+                a.ArabicName,
+                a.EnglishName,
+                a.CityId,
 
-        return result is null ? null : (result.Association, result.WorkersCount);
+                CityArabicName = a.City.ArabicName,
+                CityEnglishName = a.City.EnglishName,
+
+                CountryId = a.City.CountryId,
+                CountryArabicName = a.City.Country.ArabicName,
+                CountryEnglishName = a.City.Country.EnglishName,
+
+                a.LocationOnGoogleMaps,
+                a.Latitude,
+                a.Longitude,
+                a.ContactPhone,
+                a.ContactEmail,
+                a.IsDeleted,
+
+                WorkersCount = a.Workers.Count(w => !w.IsDeleted)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (result is null)
+            return null;
+
+        var association = new Association
+        {
+            Id = result.Id,
+            ArabicName = result.ArabicName,
+            EnglishName = result.EnglishName,
+
+            CityId = result.CityId,
+
+            City = new City
+            {
+                Id = result.CityId,
+                ArabicName = result.CityArabicName,
+                EnglishName = result.CityEnglishName,
+
+                CountryId = result.CountryId,
+
+                Country = new Country
+                {
+                    Id = result.CountryId,
+                    ArabicName = result.CountryArabicName,
+                    EnglishName = result.CountryEnglishName
+                }
+            },
+
+            LocationOnGoogleMaps = result.LocationOnGoogleMaps,
+            Latitude = result.Latitude,
+            Longitude = result.Longitude,
+            ContactPhone = result.ContactPhone,
+            ContactEmail = result.ContactEmail,
+            IsDeleted = result.IsDeleted
+        };
+
+        return (association, result.WorkersCount);
     }
+
+    
 
 
 

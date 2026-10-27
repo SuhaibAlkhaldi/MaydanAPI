@@ -232,6 +232,18 @@ public class WorkerRepository : IWorkerRepository
             .ToListAsync(cancellationToken);
     }
 
+
+    public async Task<List<Worker>> GetByAssociationIdForUpdateAsync(
+        int associationId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Workers
+            .AsTracking()
+            .Where(w => w.AssociationId == associationId)
+            .ToListAsync(cancellationToken);
+    }
+
+
     // Retain the current branch's worker query/sort API.
     public async Task<List<Worker>> QueryAsync(
         bool isDeleted,

@@ -1,4 +1,3 @@
-using Azure.Core;
 using Maydan.API.Models.Workers;
 using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.Workers;
@@ -284,6 +283,39 @@ public class WorkersController : ApiControllerBase
             return HandleException(ex);
         }
     }
+
+
+    [HttpDelete("{id:int}")]
+    public async Task<ActionResult> Delete(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized(
+                new ApiResponse<object?>(
+                    false,
+                    "المستخدم غير مصرح له.",
+                    "Unauthorized.",
+                    null,
+                    401));
+        }
+
+        try
+        {
+            var response = await _workerService.DeleteAsync(
+                currentUserId,
+                id,
+                cancellationToken);
+
+            return StatusCode(response.StatusCode, response);
+        }
+        catch (Exception ex)
+        {
+            return HandleException(ex);
+        }
+    }
+
 
 }
 

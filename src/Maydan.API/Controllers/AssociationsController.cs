@@ -181,7 +181,7 @@ public class AssociationsController : ApiControllerBase
     }
 
     [HttpPut]
-    public async Task<ActionResult> Update([FromBody] UpdateAssociationDto dto, CancellationToken cancellationToken)
+    public async Task<ActionResult> Update([FromForm] UpdateAssociationDto dto, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
             return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));

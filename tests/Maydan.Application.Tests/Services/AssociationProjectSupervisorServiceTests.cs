@@ -264,6 +264,31 @@ public class AssociationProjectSupervisorServiceTests
         {
             throw new NotImplementedException();
         }
+
+        public Task<User?> GetAssociationAdminForUpdateAsync(int associationId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<bool> EmailExistsForAnotherUserAsync(string email, int excludedUserId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<bool> PhoneExistsForAnotherUserAsync(string phoneNumber, int excludedUserId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<List<User>> GetAssociationUsersForUpdateAsync(int associationId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<List<User>> GetDeletedAssociationUsersForUpdateAsync(int associationId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     private sealed class FakeProjectRepository : IProjectRepository
@@ -345,6 +370,11 @@ public class AssociationProjectSupervisorServiceTests
         public Task<List<(Association Association, int WorkersCount)>> QueryAsync(bool isDeleted, string? searchTerm = null, bool? orderByWorkersCountAscending = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task AddAsync(Association association, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public void Remove(Association association) => throw new NotSupportedException();
+
+        public Task<Association?> GetByIdForUpdateAsync(int associationId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     // Applies the exact same nullable-filter semantics IAssociationProjectSupervisorRepository's

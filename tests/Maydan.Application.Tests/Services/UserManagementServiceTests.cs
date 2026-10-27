@@ -289,6 +289,11 @@ public class UserManagementServiceTests
         public Task<List<Association>> GetAllAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task AddAsync(Association association, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public void Remove(Association association) => throw new NotSupportedException();
+
+        public Task<Association?> GetByIdForUpdateAsync(int associationId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     private sealed class FakeUserRepository : IUserRepository
@@ -357,6 +362,31 @@ public class UserManagementServiceTests
         public void Remove(User user) => throw new NotSupportedException();
 
         public Task<bool> PhoneExistsAsync(string phoneNumber, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<User?> GetAssociationAdminForUpdateAsync(int associationId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<bool> EmailExistsForAnotherUserAsync(string email, int excludedUserId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<bool> PhoneExistsForAnotherUserAsync(string phoneNumber, int excludedUserId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<List<User>> GetAssociationUsersForUpdateAsync(int associationId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<List<User>> GetDeletedAssociationUsersForUpdateAsync(int associationId, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }

@@ -54,9 +54,21 @@ public class CreateAssociationDto
     public OnboardAssociationAdminDto? Admin { get; set; }
 }
 
-public class UpdateAssociationDto : CreateAssociationDto
+public class UpdateAssociationDto
 {
     public int Id { get; set; }
+
+    public string? EnglishName { get; set; }
+    public string? ArabicName { get; set; }
+    public string? LocationOnGoogleMaps { get; set; }
+    public string? Latitude { get; set; }
+    public string? Longitude { get; set; }
+    public string? ContactPhone { get; set; }
+    public string? ContactEmail { get; set; }
+
+    public int? CityId { get; set; }
+
+    public UpdateAssociationAdminDto? Admin { get; set; }
 }
 
 // Association Users/Details gap (2026-09-29): AssociationDto itself is deliberately left unchanged
@@ -73,4 +85,29 @@ public class AssociationDetailsDto : AssociationDto
 {
     public List<UserSummaryDto> Users { get; set; } = new();
     public List<WorkerSummaryDto> Workers { get; set; } = new();
+}
+
+public class UpdateAssociationAdminDto
+{
+    public string? FirstNameEn { get; set; }
+    public string? LastNameEn { get; set; }
+    public string? FirstNameAr { get; set; }
+    public string? LastNameAr { get; set; }
+    public string? Email { get; set; }
+    public string? PhoneNumber { get; set; }
+}
+
+public class AssociationAdminResponseDto
+{
+    public int UserId { get; set; }
+    public string FirstNameEn { get; set; } = string.Empty;
+    public string LastNameEn { get; set; } = string.Empty;
+    public string FirstNameAr { get; set; } = string.Empty;
+    public string LastNameAr { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string PhoneNumber { get; set; } = string.Empty;
+}
+public class AssociationUpdateResponseDto : AssociationDto
+{
+    public AssociationAdminResponseDto? Admin { get; set; }
 }

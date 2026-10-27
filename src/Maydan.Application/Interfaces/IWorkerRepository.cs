@@ -13,6 +13,8 @@ public interface IWorkerRepository
     Task<List<Worker>> GetByAssociationIdAsync(int associationId, CancellationToken cancellationToken = default);
     Task<List<Worker>> GetDeletedByAssociationIdAsync(int associationId, CancellationToken cancellationToken = default);
 
+    Task<List<Worker>> GetByAssociationIdForUpdateAsync(int associationId,CancellationToken cancellationToken = default);
+
 
     Task<bool> Remove(
         Worker worker,

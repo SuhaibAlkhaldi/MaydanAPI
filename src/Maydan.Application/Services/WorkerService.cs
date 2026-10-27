@@ -669,7 +669,7 @@ public class WorkerService : IWorkerService
 
         if (!requestedAssociationId.HasValue)
         {
-            return (0, ApiResponse<T>.FailureResponse("You must select an association.", "يجب اختيار الجمعية عند إضافة عامل."));
+            return (0, ApiResponse<T>.FailureResponse("You must select an association.", "يجب اختيار جمعية."));
         }
 
         var association = await _unitOfWork.Associations.GetByIdAsync(requestedAssociationId.Value, cancellationToken);
