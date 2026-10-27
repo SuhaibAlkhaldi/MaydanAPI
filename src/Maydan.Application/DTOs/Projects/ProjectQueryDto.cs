@@ -11,4 +11,6 @@ public class ProjectQueryDto
     public int? SearchByProductionCompanyId { get; set; }
     public int? CityId { get; set; }
     public int? CityLocationId { get; set; }
+    
+    public bool? IsActive { get; set; }
 }

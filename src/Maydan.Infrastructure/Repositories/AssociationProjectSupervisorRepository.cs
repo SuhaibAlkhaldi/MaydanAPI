@@ -15,7 +15,8 @@ public class AssociationProjectSupervisorRepository : IAssociationProjectSupervi
         _context = context;
     }
 
-    public Task<List<AssociationProjectSupervisor>> GetAllAsync(int? projectId, int? associationId, CancellationToken cancellationToken = default)
+    public async Task<(List<AssociationProjectSupervisor> Items, int TotalCount)> GetAllAsync(
+     int? projectId, int? associationId, int? productionCompanyId, int page, int pageSize, CancellationToken cancellationToken = default)
     {
         var query = _context.AssociationProjectSupervisors
             .Include(s => s.Project)
@@ -31,8 +32,18 @@ public class AssociationProjectSupervisorRepository : IAssociationProjectSupervi
         {
             query = query.Where(s => s.User.EntityType == EntityType.Association && s.User.EntityId == associationId);
         }
+        if (productionCompanyId is not null)
+            query = query.Where(s => s.Project != null && s.Project.ProductionCompanyId == productionCompanyId);
 
-        return query.OrderByDescending(s => s.CreatedAt).ToListAsync(cancellationToken);
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .OrderByDescending(s => s.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
     }
 
     public Task<AssociationProjectSupervisor?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>

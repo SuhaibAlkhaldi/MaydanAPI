@@ -32,4 +32,5 @@ public class ProjectDto
     public int CityLocationId { get; set; }
     public string CityNameAr { get; set;} = string.Empty;
     public string CityLocationName { get; set; } = string.Empty;
+    public bool IsActive { get; init; }
 }
