@@ -189,7 +189,8 @@ public class UserManagementServiceUpdateUserStatusTests
 
         public Task<User?> GetDetailsAsync(int userId, CancellationToken cancellationToken = default) =>
             Task.FromResult(_usersById.GetValueOrDefault(userId));
-
+        public Task<List<User>> GetAssociationSupervisorsAsync(EntityType entityType, int? entityId = null, CancellationToken cancellationToken = default)
+    => Task.FromResult(new List<User>());
         public Task<User?> GetWithPermissionsAsync(int userId, CancellationToken cancellationToken = default) =>
             Task.FromResult(_usersById.GetValueOrDefault(userId));
 

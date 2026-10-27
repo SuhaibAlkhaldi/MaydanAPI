@@ -589,7 +589,8 @@ public class ProjectServiceTests
         private readonly Dictionary<int, User> _usersById;
 
         public FakeUserRepository(Dictionary<int, User> usersById) => _usersById = usersById;
-
+        public Task<List<User>> GetAssociationSupervisorsAsync(EntityType entityType, int? entityId = null, CancellationToken cancellationToken = default)
+    => Task.FromResult(new List<User>());
         public Task<User?> GetByIdAsync(int userId, CancellationToken cancellationToken = default) =>
             Task.FromResult(_usersById.GetValueOrDefault(userId));
 
