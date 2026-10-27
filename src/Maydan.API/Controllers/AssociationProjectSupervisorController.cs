@@ -1,3 +1,4 @@
+using Maydan.Application.Common;
 using Maydan.Application.DTOs.Associations;
 using Maydan.Application.DTOs.Common;
 using Maydan.Application.Interfaces;
@@ -26,15 +27,20 @@ public class AssociationProjectSupervisorController : ApiControllerBase
 
     [HttpGet]
     public async Task<ActionResult> GetAll(
-         [FromQuery] int projectId,
-         [FromQuery] int associationId,
-         CancellationToken cancellationToken)
+        [FromQuery] int projectId,
+        [FromQuery] int associationId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        CancellationToken cancellationToken = default)
     {
         if (!TryGetCurrentUserId(out var currentUserId)) return UnauthorizedResponse();
 
         try
         {
-            var response = await _supervisorService.GetAllAsync(currentUserId, projectId, associationId, cancellationToken);
+
+            var (safePage, safePageSize) = Paging.Normalize(page, pageSize);
+
+            var response = await _supervisorService.GetAllAsync(currentUserId, projectId, associationId, safePage, safePageSize, cancellationToken);
             return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)

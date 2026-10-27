@@ -85,7 +85,7 @@ public class ProjectService : IProjectService
             WorkPermitImagePath = request.WorkPermitImagePath,
             ProductionCompanyId = currentUser.EntityId,
             CreatedBy = currentUser.UserId,
-            IsActive = true,
+            IsActive = false,
             CityId = request.CityId,
             CityLocationId = request.CityLocationId
         };
@@ -99,7 +99,8 @@ public class ProjectService : IProjectService
             return new ApiResponse<ProjectDto>(false, "تعذر تحميل المشروع بعد الإنشاء.", "Project could not be loaded after creation.", default, 500);
         }
 
-        return ApiResponse<ProjectDto>.SuccessResponse(MapToDto(createdProject), "Project created successfully.", "تم إنشاء المشروع بنجاح.", 201);
+        return ApiResponse<ProjectDto>.SuccessResponse(MapToDto(createdProject),
+                             "Project created successfully and is pending approval.", "تم إنشاء المشروع بنجاح وهو بانتظار موافقة جهة الميدان (بيت الأردن).", 201);
     }
 
     public async Task<ApiResponse<List<ProjectDto>>> GetAllAsync(
@@ -122,6 +123,7 @@ public class ProjectService : IProjectService
             query.SearchByProductionCompanyId,
             query.CityId,
             query.CityLocationId,
+            query.IsActive,
             cancellationToken);
 
         var filteredProjects = projects
@@ -131,7 +133,32 @@ public class ProjectService : IProjectService
 
         return ApiResponse<List<ProjectDto>>.SuccessResponse(filteredProjects, "Projects retrieved successfully.", "تم جلب المشاريع بنجاح.");
     }
+    public async Task<ApiResponse<ProjectDto>> ApproveAsync(int id, int currentUserId, CancellationToken cancellationToken = default)
+    {
+        var (currentUser, authError) = await AuthorizeUserAsync<ProjectDto>(currentUserId, cancellationToken);
+        if (authError is not null) return authError;
 
+        if (currentUser!.EntityType != EntityType.BaytAlUrdon)
+        {
+            return new ApiResponse<ProjectDto>(false, "غير مصرح لك باعتماد المشاريع.", "Only Bayt Al Urdon can approve projects.", default, 403);
+        }
+
+        var project = await _unitOfWork.Projects.GetByIdAsync(id, cancellationToken);
+        if (project is null)
+        {
+            return new ApiResponse<ProjectDto>(false, "المشروع غير موجود.", "Project was not found.", default, 404);
+        }
+
+        if (project.IsActive)
+        {
+            return ApiResponse<ProjectDto>.FailureResponse("المشروع مفعل مسبقاً.", "Project is already active.");
+        }
+
+        project.IsActive = true;
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return ApiResponse<ProjectDto>.SuccessResponse(MapToDto(project), "Project approved successfully.", "تم اعتماد وتفعيل المشروع بنجاح.");
+    }
     public async Task<ApiResponse<ProjectDto>> GetByIdAsync(
         int currentUserId,
         int id,
@@ -571,6 +598,7 @@ public class ProjectService : IProjectService
             WorkPermitImagePath = project.WorkPermitImagePath,
             ProductionCompanyId = project.ProductionCompanyId,
             IsDeleted = project.IsDeleted,
+            IsActive = project.IsActive,
             CityId = project.CityId,
             CityName = project.City?.EnglishName ?? string.Empty,
             CityNameAr = project.City?.ArabicName ?? string.Empty,

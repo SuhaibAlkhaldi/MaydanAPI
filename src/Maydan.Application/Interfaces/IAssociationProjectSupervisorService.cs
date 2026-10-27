@@ -15,7 +15,7 @@ public interface IAssociationProjectSupervisorService
     // association-supervisors.service.ts, which always sends both as literal numeric strings
     // (never omitted) and relies on 0 meaning "not selected yet." No real row will ever have
     // ProjectId == 0 or resolve to AssociationId == 0, so treating 0 as null is safe.
-    Task<ApiResponse<List<AssociationProjectSupervisorDto>>> GetAllAsync(int currentUserId, int projectId, int associationId, CancellationToken cancellationToken = default);
+    Task<ApiResponse<PagedAssociationProjectSupervisorDto>> GetAllAsync(int currentUserId, int projectId, int associationId, int page, int pageSize, CancellationToken cancellationToken = default);
 
     Task<ApiResponse<AssociationProjectSupervisorDto>> CreateAsync(CreateAssociationProjectSupervisorDto dto, int currentUserId, CancellationToken cancellationToken = default);
     Task<ApiResponse<object?>> DeleteAsync(int id, int currentUserId, CancellationToken cancellationToken = default);

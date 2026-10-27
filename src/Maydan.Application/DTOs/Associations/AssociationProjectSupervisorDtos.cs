@@ -31,3 +31,8 @@ public class CreateAssociationProjectSupervisorDto
     public int AssociationUserId { get; set; }
     public int ProjectId { get; set; }
 }
+public class PagedAssociationProjectSupervisorDto
+{
+    public List<AssociationProjectSupervisorDto> Items { get; set; } = new();
+    public int TotalCount { get; set; }
+}

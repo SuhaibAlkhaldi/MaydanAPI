@@ -726,6 +726,7 @@ public class ProjectServiceTests
           int? searchByProductionCompanyId,
           int? cityId,
           int? cityLocationId,
+          bool? IsActive,
           CancellationToken cancellationToken = default)
         {
             var results = _projectsById.Values.Where(p => p.IsDeleted == isDeleted);
