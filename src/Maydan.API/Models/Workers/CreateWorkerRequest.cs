@@ -1,4 +1,3 @@
-using Maydan.Domain.Enums;
 using Microsoft.AspNetCore.Http;
 using System.ComponentModel.DataAnnotations;
 
@@ -22,10 +21,10 @@ public class CreateWorkerRequest
     public DateTime DateOfBirth { get; set; }
 
     [Required]
-    public Gender Gender { get; set; }
+    public int GenderId { get; set; }
 
     [Required]
-    public MaritalStatus MaritalStatus { get; set; }
+    public int MaritalStatusId { get; set; }
 
     [Required]
     public string Nationality { get; set; } = string.Empty;

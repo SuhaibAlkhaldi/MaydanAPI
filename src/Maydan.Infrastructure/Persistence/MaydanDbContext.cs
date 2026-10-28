@@ -28,6 +28,8 @@ public class MaydanDbContext : DbContext
     public DbSet<City> Cities => Set<City>();
     public DbSet<CityLocation> CityLocations => Set<CityLocation>();
     public DbSet<ProjectType> ProjectTypes { get; set; }
+    public DbSet<LookupCategory> LookupCategories => Set<LookupCategory>();
+    public DbSet<LookupItem> LookupItems => Set<LookupItem>();
     public DbSet<Association> Associations => Set<Association>();
     public DbSet<AssociationProjectSupervisor> AssociationProjectSupervisors => Set<AssociationProjectSupervisor>();
     public DbSet<ProductionCompany> ProductionCompanies => Set<ProductionCompany>();
@@ -51,6 +53,7 @@ public class MaydanDbContext : DbContext
 
         ProjectTypeSeed.Seed(modelBuilder);
         LocationSeed.Seed(modelBuilder);
+        LookupSeed.Seed(modelBuilder);
 
         // Global soft-delete filter for every SharedEntities (IsDeleted set by SaveChangesAsync below).
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
