@@ -111,18 +111,9 @@ public class AuthController : ApiControllerBase
     {
         try
         {
-            var result = await _productionCompanyOnboardingService.RegisterAsync(dto, cancellationToken);
-            var response = new ApiResponse<RegisterProductionCompanyResponseDto>(
-                success: true,
-                messageAr: "تم تسجيل شركة الإنتاج بنجاح.",
-                messageEn: "Production company registered successfully.",
-                data: result,
-                statusCode: 201
-            );
 
-            // No GET-by-id endpoint exists for production companies yet (no ProductionCompaniesController
-            // at all) — this Location URI is a placeholder for when one is added, not a live route.
-            return Created($"api/production-companies/{result.ProductionCompanyId}", response);
+            var response = await _productionCompanyOnboardingService.RegisterAsync(dto, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
