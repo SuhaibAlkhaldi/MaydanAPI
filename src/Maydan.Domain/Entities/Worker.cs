@@ -1,5 +1,4 @@
 using Maydan.Domain.Common;
-using Maydan.Domain.Enums;
 
 namespace Maydan.Domain.Entities;
 
@@ -9,7 +8,7 @@ public class Worker : SharedEntities
     public string? MiddleName { get; set; }
     public string LastName { get; set; } = string.Empty;
 
-    
+
     public string CivilId { get; set; } = string.Empty;
 
     public string CivilIdHash { get; set; } = string.Empty;
@@ -17,8 +16,12 @@ public class Worker : SharedEntities
     public DateTime? DateOfBirth { get; set; }
     public string? PhoneNumber { get; set; }
 
-    public Gender? Gender { get; set; }
-    public MaritalStatus? MaritalStatus { get; set; }
+    public int? GenderId { get; set; }
+    public LookupItem? Gender { get; set; }
+
+    public int? MaritalStatusId { get; set; }
+    public LookupItem? MaritalStatus { get; set; }
+
     public string? Nationality { get; set; }
 
     public int? YearsOfExperience { get; set; }
@@ -27,14 +30,10 @@ public class Worker : SharedEntities
     public Association Association { get; set; } = null!;
 
     public string QrCode { get; set; } = string.Empty;
-    // Deliberately excluded: DailyWageAmount — belongs on the future ProjectWorker
-    // assignment, not the worker themselves (deferred with the Service Request system).
 
     public ICollection<WorkerServiceLink> WorkerServices { get; set; } = new List<WorkerServiceLink>();
     public ICollection<ServiceRequestWorker> ServiceRequestWorkers {  get; set; } = new HashSet<ServiceRequestWorker>();
 
-    // Required only when one of WorkerServices is flagged Service.RequiresDocuments; enforced
-    // in WorkerService, not here. Capped at 4, no minimum beyond "at least one" (see
-    // WorkerService's own comment on the exact rule).
+
     public ICollection<WorkerDocument> Documents { get; set; } = new List<WorkerDocument>();
 }
