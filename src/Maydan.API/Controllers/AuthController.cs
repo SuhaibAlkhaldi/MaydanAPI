@@ -106,13 +106,18 @@ public class AuthController : ApiControllerBase
     }
 
     [HttpPost("register-production-company", Name = "Register Production Company")]
-    public async Task<ActionResult<ApiResponse<RegisterProductionCompanyResponseDto>>> RegisterProductionCompany(
-         [FromBody] RegisterProductionCompanyDto dto, CancellationToken cancellationToken)
+    public async Task<ActionResult> RegisterProductionCompany(
+    [FromBody] RegisterProductionCompanyDto dto, CancellationToken cancellationToken)
     {
+
+        int? currentUserId = null;
+        if (User.Identity?.IsAuthenticated == true && TryGetCurrentUserId(out var id))
+        {
+            currentUserId = id;
+        }
         try
         {
-
-            var response = await _productionCompanyOnboardingService.RegisterAsync(dto, cancellationToken);
+            var response = await _productionCompanyOnboardingService.RegisterAsync(dto, currentUserId, cancellationToken);
             return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)

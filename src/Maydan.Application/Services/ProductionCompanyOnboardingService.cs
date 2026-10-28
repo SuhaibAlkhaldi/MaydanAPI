@@ -10,7 +10,7 @@ namespace Maydan.Application.Services;
 public class ProductionCompanyOnboardingService : IProductionCompanyOnboardingService
 {
     private const int ProductionHouseRoleId = 3;
-
+    private const int BaytAlUrdonRoleId = 1;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IPasswordHasher _passwordHasher;
 
@@ -20,8 +20,10 @@ public class ProductionCompanyOnboardingService : IProductionCompanyOnboardingSe
         _passwordHasher = passwordHasher;
     }
 
-    public async Task<ApiResponse<RegisterProductionCompanyResponseDto>> RegisterAsync(RegisterProductionCompanyDto dto, CancellationToken cancellationToken = default)
-    {
+   
+
+       public async Task<ApiResponse<RegisterProductionCompanyResponseDto>> RegisterAsync(RegisterProductionCompanyDto dto, int? currentUserId = null, CancellationToken cancellationToken = default)
+         {
         var validationError = ValidatePayload(dto);
         if (validationError != null)
         {
@@ -57,8 +59,23 @@ public class ProductionCompanyOnboardingService : IProductionCompanyOnboardingSe
             return ApiResponse<RegisterProductionCompanyResponseDto>.FailureResponse("ProductionHouse role was not found.", "دور شركة الإنتاج غير موجود بالنظام.");
         }
 
-        var phone = $"{dto.MobileCountryCode.Trim()}{dto.MobileNumber.Trim()}";
+        // --- التعديل الجوهري: فحص من هو منشئ الطلب لتحديد حالة التفعيل ---
+        bool isCompanyActive = false; // افتراضياً غير فعالة (بانتظار الموافقة)
+        bool isSelfRegistered = true; // افتراضياً تسجيل ذاتي من الخارج
 
+        if (currentUserId.HasValue)
+        {
+            var currentUser = await _unitOfWork.Users.GetByIdAsync(currentUserId.Value, cancellationToken);
+            // إذا كان المستخدم الحالي هو غيث (أدمن بيت الأردن)
+            if (currentUser != null && currentUser.RoleId == BaytAlUrdonRoleId)
+            {
+                isCompanyActive = true;     // تتفعل فوراً
+                isSelfRegistered = false;   // ليست تسجيل ذاتي
+            }
+        }
+        // ------------------------------------------------------------------
+
+        var phone = $"{dto.MobileCountryCode.Trim()}{dto.MobileNumber.Trim()}";
         var firstNameEn = dto.AdminFirstName.Trim();
         var lastNameEn = dto.AdminLastName.Trim();
         var firstNameAr = dto.AdminFirstNameAr.Trim();
@@ -72,8 +89,8 @@ public class ProductionCompanyOnboardingService : IProductionCompanyOnboardingSe
             CityId = dto.CityId,
             ContactEmail = email,
             ContactPhone = phone,
-            IsSelfRegistered = true,
-            IsActive = true
+            IsSelfRegistered = isSelfRegistered, // تأخذ القيمة الديناميكية
+            IsActive = isCompanyActive           // تأخذ القيمة الديناميكية
         };
 
         var user = new User
@@ -86,7 +103,7 @@ public class ProductionCompanyOnboardingService : IProductionCompanyOnboardingSe
             PhoneNumber = phone,
             PasswordHash = _passwordHasher.HashPassword(dto.Password),
             MustResetPassword = false,
-            IsActive = true,
+            IsActive = isCompanyActive,          // تأخذ القيمة الديناميكية
             RoleId = role.RoleId,
             EntityType = EntityType.ProductionCompany
         };
@@ -112,13 +129,22 @@ public class ProductionCompanyOnboardingService : IProductionCompanyOnboardingSe
             company.ArabicName,
             user.UserId,
             user.Email,
-            "Production company registered successfully. You can now log in.");
+            isCompanyActive ? "Production company registered and activated successfully." : "Production company registered successfully. Pending admin approval.");
+
+        // تحضير رسائل النجاح بناءً على حالة التفعيل
+        string successMsgEn = isCompanyActive
+            ? "Registration successful. The production company is activated."
+            : "Registration successful. Your account is pending admin approval.";
+
+        string successMsgAr = isCompanyActive
+            ? "تم تسجيل وتفعيل شركة الإنتاج بنجاح."
+            : "تم تسجيل الشركة بنجاح. حسابك بانتظار موافقة الإدارة لتفعيله.";
 
         return ApiResponse<RegisterProductionCompanyResponseDto>.SuccessResponse(
             responseDto,
-            "Production company registered successfully. You can now log in.",
-            "تم تسجيل شركة الإنتاج بنجاح. يمكنك تسجيل الدخول الآن.",
-            201); 
+            successMsgEn,
+            successMsgAr,
+            201);
     }
 
     private static ApiResponse<RegisterProductionCompanyResponseDto>? ValidatePayload(RegisterProductionCompanyDto dto)
