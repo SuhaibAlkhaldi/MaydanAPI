@@ -26,7 +26,7 @@ public class UnitOfWork : IUnitOfWork
     private ISystemConfigurationRepository? _systemConfigurations;
     private IServiceRepository? _services;
     private IServiceRequestRepository? _serviceRequests;
-    private IWorkerProjectLinkRepository? _workerProjectLinks;
+    private ILookupRepository? _lookups;
 
     public UnitOfWork(MaydanDbContext context)
     {
@@ -49,6 +49,7 @@ public class UnitOfWork : IUnitOfWork
     public IRefreshTokenRepository RefreshTokens => _refreshTokens ??= new RefreshTokenRepository(_context);
     public ISystemConfigurationRepository SystemConfigurations => _systemConfigurations ??= new SystemConfigurationRepository(_context);
     public IServiceRepository Services => _services ??= new ServiceRepository(_context);
+    public ILookupRepository Lookups => _lookups ??= new LookupRepository(_context);
     public IServiceRequestRepository ServiceRequests => _serviceRequests ??= new ServiceRequestRepository(_context);
     public IWorkerProjectLinkRepository WorkerProjectLinks => _workerProjectLinks ??= new WorkerProjectLinkRepository(_context);
     public IProjectTypeRepository ProjectTypes =>

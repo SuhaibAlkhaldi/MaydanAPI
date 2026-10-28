@@ -71,6 +71,7 @@ builder.Services.AddSingleton<ISecretProtector, DataProtectionSecretProtector>()
 builder.Services.AddScoped<ISystemConfigurationService, SystemConfigurationService>();
 builder.Services.AddScoped<ISystemConfigurationGateService, SystemConfigurationGateService>();
 builder.Services.AddScoped<IServiceConfigurationService, ServiceConfigurationService>();
+builder.Services.AddScoped<ILookupService, LookupService>();
 builder.Services.AddScoped<IServiceRequestService, ServiceRequestService>();
 builder.Services.AddScoped<IWorkerAttendanceRepository, WorkerAttendanceRepository>();
 builder.Services.AddScoped<IWorkerAttendanceService, WorkerAttendanceService>();

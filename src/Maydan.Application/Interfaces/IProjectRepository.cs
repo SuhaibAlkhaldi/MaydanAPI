@@ -27,6 +27,7 @@ public interface IProjectRepository
         int? searchByProductionCompanyId,
         int? cityId,
         int? cityLocationId,
+        bool?IsActive,
         CancellationToken cancellationToken = default);
 
     Task AddAsync(

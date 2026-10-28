@@ -206,7 +206,8 @@ public class UserManagementServiceDelegatedPermissionsTests
             _usersById = new Dictionary<int, User> { [caller.UserId] = caller };
             _usersById[target.UserId] = target;
         }
-
+        public Task<List<User>> GetAssociationSupervisorsAsync(EntityType entityType, int? entityId = null, CancellationToken cancellationToken = default)
+    => Task.FromResult(new List<User>());
         private User? FixUp(User? user)
         {
             if (user is null)

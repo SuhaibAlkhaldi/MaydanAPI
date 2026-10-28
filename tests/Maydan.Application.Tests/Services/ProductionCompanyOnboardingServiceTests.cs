@@ -176,7 +176,8 @@ public class ProductionCompanyOnboardingServiceTests
 
         public Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken = default) =>
             Task.FromResult(_emailExists);
-
+        public Task<List<User>> GetAssociationSupervisorsAsync(EntityType entityType, int? entityId = null, CancellationToken cancellationToken = default)
+    => Task.FromResult(new List<User>());
         public Task AddAsync(User user, CancellationToken cancellationToken = default)
         {
             user.UserId = 200;

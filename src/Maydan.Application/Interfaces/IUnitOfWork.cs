@@ -21,7 +21,7 @@ public interface IUnitOfWork
     IServiceRepository Services { get; }
     // Optional default implementation so existing test fakes don't need to implement it.
     IServiceRequestRepository ServiceRequests => throw new NotImplementedException();
-    IWorkerProjectLinkRepository WorkerProjectLinks => throw new NotImplementedException();
+    ILookupRepository Lookups => throw new NotImplementedException();
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 

@@ -1,4 +1,4 @@
-﻿namespace Maydan.Domain.Constants // عدل الـ Namespace حسب هيكلية مشروعك
+﻿namespace Maydan.Domain.Constants 
 {
     public static class SystemRoles
     {

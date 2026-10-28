@@ -112,6 +112,18 @@ public class WorkerService : IWorkerService
             return ApiResponse<WorkerDto>.FailureResponse("Phone number is already registered to another worker.", "رقم الهاتف مستخدم مسبقًا لعامل آخر.");
         }
 
+        var genderError = await EnsureLookupItemValidAsync<WorkerDto>("Gender", dto.GenderId, cancellationToken);
+        if (genderError is not null)
+        {
+            return genderError;
+        }
+
+        var maritalStatusError = await EnsureLookupItemValidAsync<WorkerDto>("MaritalStatus", dto.MaritalStatusId, cancellationToken);
+        if (maritalStatusError is not null)
+        {
+            return maritalStatusError;
+        }
+
         var serviceIds = dto.ServiceIds.Distinct().ToList();
         var (requiresDocuments, servicesError) = await EnsureServicesExistAsync<WorkerDto>(serviceIds, cancellationToken);
         if (servicesError is not null)
@@ -139,8 +151,8 @@ public class WorkerService : IWorkerService
             CivilId = civilId,
             CivilIdHash = civilIdHash,
             DateOfBirth = dto.DateOfBirth,
-            Gender = dto.Gender,
-            MaritalStatus = dto.MaritalStatus,
+            GenderId = dto.GenderId,
+            MaritalStatusId = dto.MaritalStatusId,
             Nationality = dto.Nationality.Trim(),
             PhoneNumber = phoneNumber,
             YearsOfExperience = dto.YearsOfExperience,
@@ -256,14 +268,26 @@ public class WorkerService : IWorkerService
             worker.DateOfBirth = dto.DateOfBirth.Value;
         }
 
-        if (dto.Gender is not null)
+        if (dto.GenderId is not null)
         {
-            worker.Gender = dto.Gender.Value;
+            var genderError = await EnsureLookupItemValidAsync<WorkerDto>("Gender", dto.GenderId.Value, cancellationToken);
+            if (genderError is not null)
+            {
+                return genderError;
+            }
+
+            worker.GenderId = dto.GenderId.Value;
         }
 
-        if (dto.MaritalStatus is not null)
+        if (dto.MaritalStatusId is not null)
         {
-            worker.MaritalStatus = dto.MaritalStatus.Value;
+            var maritalStatusError = await EnsureLookupItemValidAsync<WorkerDto>("MaritalStatus", dto.MaritalStatusId.Value, cancellationToken);
+            if (maritalStatusError is not null)
+            {
+                return maritalStatusError;
+            }
+
+            worker.MaritalStatusId = dto.MaritalStatusId.Value;
         }
 
         if (dto.Nationality is not null)
@@ -450,6 +474,22 @@ public class WorkerService : IWorkerService
         // why Enumerable not queryable cause in this momment data in memory not in the database
 
         return rolePermissionIds.Concat(directPermissionIds).Concat(groupPermissionIds).ToHashSet();
+    }
+
+    private async Task<ApiResponse<T>?> EnsureLookupItemValidAsync<T>(string categoryCode, int itemId, CancellationToken cancellationToken)
+    {
+        var exists = await _unitOfWork.Lookups.ExistsInCategoryAsync(categoryCode, itemId, cancellationToken);
+        if (!exists)
+        {
+            return categoryCode switch
+            {
+                "Gender" => ApiResponse<T>.FailureResponse("Gender is invalid.", "الجنس المحدد غير صالح."),
+                "MaritalStatus" => ApiResponse<T>.FailureResponse("Marital status is invalid.", "الحالة الاجتماعية المحددة غير صالحة."),
+                _ => ApiResponse<T>.FailureResponse("Selected value is invalid.", "القيمة المحددة غير صالحة.")
+            };
+        }
+
+        return null;
     }
 
     private async Task<(bool RequiresDocuments, ApiResponse<T>? Error)> EnsureServicesExistAsync<T>(List<int> serviceIds, CancellationToken cancellationToken)

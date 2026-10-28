@@ -1,8 +1,10 @@
 using Maydan.Application.DTOs.Associations;
+using Maydan.Application.DTOs.Common;
 using Maydan.Application.Interfaces;
 using Maydan.Application.Services;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Maydan.Application.Tests.Services;
 
@@ -83,14 +85,14 @@ public class AssociationProjectSupervisorServiceTests
             new CreateAssociationProjectSupervisorDto { ProjectId = project.Id, AssociationUserId = associationUser.UserId },
             caller.UserId);
 
-        Assert.Equal(project.Id, result.ProjectId);
-        Assert.Equal(associationUser.UserId, result.AssociationUserId);
-        Assert.Equal(association.Id, result.AssociationId);
-        Assert.Equal(project.ProjectNameEn, result.ProjectName);
-        Assert.Equal(association.EnglishName, result.AssociationName);
-        Assert.Equal("First30 Last30", result.UserName);
-        Assert.Equal(associationUser.Email, result.Email);
-        Assert.Equal(associationUser.PhoneNumber, result.PhoneNumber);
+        Assert.Equal(project.Id, result.Data!.ProjectId);
+        Assert.Equal(associationUser.UserId, result.Data!.AssociationUserId);
+        Assert.Equal(association.Id, result.Data!.AssociationId);
+        Assert.Equal(project.ProjectNameEn, result.Data!.ProjectName);
+        Assert.Equal(association.EnglishName, result.Data!.AssociationName);
+        Assert.Equal("First30 Last30", result.Data!.UserName);
+        Assert.Equal(associationUser.Email, result.Data!.Email);
+        Assert.Equal(associationUser.PhoneNumber, result.Data!.PhoneNumber);
     }
 
     [Fact]
@@ -145,9 +147,9 @@ public class AssociationProjectSupervisorServiceTests
         repository.Seed(new AssociationProjectSupervisor { Id = 1, ProjectId = projectA.Id, UserId = userA.UserId, Project = projectA, User = userA });
         repository.Seed(new AssociationProjectSupervisor { Id = 2, ProjectId = projectB.Id, UserId = userB.UserId, Project = projectB, User = userB });
 
-        var result = await service.GetAllAsync(projectId: 0, associationId: 0);
+        var result = await service.GetAllAsync(currentUserId: 0, projectId: 0, associationId: 0, page: 1, pageSize: 10);
 
-        Assert.Equal(2, result.Count);
+        Assert.Equal(2, result.Data!.Items.Count);
     }
 
     [Fact]
@@ -166,9 +168,9 @@ public class AssociationProjectSupervisorServiceTests
         repository.Seed(new AssociationProjectSupervisor { Id = 1, ProjectId = projectA.Id, UserId = userA.UserId, Project = projectA, User = userA });
         repository.Seed(new AssociationProjectSupervisor { Id = 2, ProjectId = projectB.Id, UserId = userB.UserId, Project = projectB, User = userB });
 
-        var result = await service.GetAllAsync(projectId: projectA.Id, associationId: 0);
+        var result = await service.GetAllAsync(currentUserId: 0, projectId: projectA.Id, associationId: 0, page: 1, pageSize: 10);
 
-        var dto = Assert.Single(result);
+        var dto = Assert.Single(result.Data!.Items);
         Assert.Equal(projectA.Id, dto.ProjectId);
     }
 
@@ -188,9 +190,9 @@ public class AssociationProjectSupervisorServiceTests
         repository.Seed(new AssociationProjectSupervisor { Id = 1, ProjectId = project.Id, UserId = userA.UserId, Project = project, User = userA });
         repository.Seed(new AssociationProjectSupervisor { Id = 2, ProjectId = project.Id, UserId = userB.UserId, Project = project, User = userB });
 
-        var result = await service.GetAllAsync(projectId: 0, associationId: associationA.Id);
+        var result = await service.GetAllAsync(currentUserId: 0, projectId: 0, associationId: associationA.Id, page: 1, pageSize: 10);
 
-        var dto = Assert.Single(result);
+        var dto = Assert.Single(result.Data!.Items);
         Assert.Equal(associationA.Id, dto.AssociationId);
     }
 
@@ -245,7 +247,7 @@ public class AssociationProjectSupervisorServiceTests
             var user = _usersById.GetValueOrDefault(userId);
             return Task.FromResult(user is { IsDeleted: false } ? user : null);
         }
-
+        public Task<List<User>> GetAssociationSupervisorsAsync(EntityType entityType, int? entityId = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<User?> GetByEmailWithAccessAsync(string email, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<List<User>> GetByEntityAsync(EntityType entityType, int entityId, string? search, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<List<User>> GetDeletedByEntityAsync(EntityType entityType, int entityId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
@@ -275,7 +277,7 @@ public class AssociationProjectSupervisorServiceTests
 
         public Task<Project?> GetByIdIncludingDeletedAsync(int projectId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<List<Project>> GetByProductionCompanyIdAsync(int productionCompanyId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<List<Project>> GetAllAsync(bool isDeleted, string? searchTerm, DateTime? startDate, DateTime? endDate, string? searchByProductionCompanyName, int? searchByProductionCompanyId, int? cityId, int? cityLocationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<List<Project>> GetAllAsync(bool isDeleted, string? searchTerm, DateTime? startDate, DateTime? endDate, string? searchByProductionCompanyName, int? searchByProductionCompanyId, int? cityId, int? cityLocationId, bool? IsActive, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task AddAsync(Project project, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public void Remove(Project project) => throw new NotSupportedException();
         public Task<string?> CheckOverlapConflictsAsync(
@@ -332,7 +334,8 @@ public class AssociationProjectSupervisorServiceTests
 
         public void Seed(AssociationProjectSupervisor supervisor) => _supervisors.Add(supervisor);
 
-        public Task<List<AssociationProjectSupervisor>> GetAllAsync(int? projectId, int? associationId, CancellationToken cancellationToken = default)
+        public Task<(List<AssociationProjectSupervisor> Items, int TotalCount)> GetAllAsync(
+       int? projectId, int? associationId, int? productionCompanyId, int page, int pageSize, CancellationToken cancellationToken = default)
         {
             IEnumerable<AssociationProjectSupervisor> query = _supervisors.Where(s => !s.IsDeleted);
 
@@ -346,7 +349,15 @@ public class AssociationProjectSupervisorServiceTests
                 query = query.Where(s => s.User.EntityType == EntityType.Association && s.User.EntityId == associationId);
             }
 
-            return Task.FromResult(query.ToList());
+            if (productionCompanyId is not null)
+            {
+                query = query.Where(s => s.Project != null && s.Project.ProductionCompanyId == productionCompanyId);
+            }
+
+            var totalCount = query.Count();
+            var items = query.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+
+            return Task.FromResult((items, totalCount));
         }
 
         public Task<AssociationProjectSupervisor?> GetByIdAsync(int id, CancellationToken cancellationToken = default)

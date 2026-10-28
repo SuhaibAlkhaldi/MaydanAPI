@@ -211,4 +211,19 @@ public class UsersController : ApiControllerBase
             return HandleException(exception);
         }
     }
+    [HttpGet("associations/all", Name = "Get All Association Users")]
+    public async Task<ActionResult> GetAllAssociationUsers([FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader, CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId)) return UnauthorizedResponse();
+
+        try
+        {
+            var response = await _userManagementService.GetAllAssociationUsersAsync(currentUserId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
+        }
+        catch (Exception exception)
+        {
+            return HandleException(exception);
+        }
+    }
 }

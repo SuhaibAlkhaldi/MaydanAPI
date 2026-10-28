@@ -222,4 +222,20 @@ public class ProjectsController : ApiControllerBase
             return HandleException(exception);
         }
     }
+    [HttpPut("{id:int}/approve")]
+    public async Task<ActionResult> Approve(int id, CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
+
+        try
+        {
+            var response = await _projectService.ApproveAsync(id, currentUserId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
+        }
+        catch (Exception exception)
+        {
+            return HandleException(exception);
+        }
+    }
 }

@@ -216,7 +216,8 @@ public class ProductionCompanyServiceTests
 
         public Task<User?> GetWithPermissionsAsync(int userId, CancellationToken cancellationToken = default) =>
             Task.FromResult(userId == _currentUser.UserId ? _currentUser : null);
-
+        public Task<List<User>> GetAssociationSupervisorsAsync(EntityType entityType, int? entityId = null, CancellationToken cancellationToken = default)
+    => Task.FromResult(new List<User>());
         public Task<List<User>> GetByEntityAsync(EntityType entityType, int entityId, string? search, CancellationToken cancellationToken = default) =>
             Task.FromResult(_users.Where(u => !u.IsDeleted && u.EntityType == entityType && u.EntityId == entityId).ToList());
 
