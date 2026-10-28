@@ -157,6 +157,9 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Property<int>("ServiceRequestId")
                         .HasColumnType("int");
 
+                    b.Property<int>("SlotNumber")
+                        .HasColumnType("int");
+
                     b.Property<int?>("UpdatedBy")
                         .HasColumnType("int");
 
@@ -165,7 +168,7 @@ namespace Maydan.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ServiceRequestId", "AttendanceDate")
+                    b.HasIndex("ServiceRequestId", "AttendanceDate", "SlotNumber")
                         .IsUnique();
 
                     b.ToTable("AttendanceTimeWindows", (string)null);
@@ -1088,6 +1091,18 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                             PermissionNameAr = "تسجيل العمليات اين ومتى تمت",
                             PermissionNameEn = "View Audit Trail",
                             UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            PermissionId = 43,
+                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Id = 0,
+                            IsActive = true,
+                            IsDeleted = false,
+                            Module = "Attendance",
+                            PermissionNameAr = "اعتماد الوقت الإضافي",
+                            PermissionNameEn = "Approve Overtime",
+                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
                         });
                 });
 
@@ -1915,6 +1930,12 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         {
                             RoleId = 1,
                             PermissionId = 42,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 1,
+                            PermissionId = 43,
                             IsActive = true
                         },
                         new
@@ -2895,6 +2916,78 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.ToTable("WorkerDocuments", (string)null);
                 });
 
+            modelBuilder.Entity("Maydan.Domain.Entities.WorkerOvertime", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ApprovalStatus")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<decimal>("Hours")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int>("HoursPerUnit")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("OvertimeForDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("RecordedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("RecordedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("ReviewedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ReviewedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("UnitWageSnapshot")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("WorkerProjectLinkId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovalStatus");
+
+                    b.HasIndex("WorkerProjectLinkId", "OvertimeForDate")
+                        .IsUnique();
+
+                    b.ToTable("WorkerOvertimes", (string)null);
+                });
+
             modelBuilder.Entity("Maydan.Domain.Entities.WorkerProjectLink", b =>
                 {
                     b.Property<int>("Id")
@@ -2941,7 +3034,7 @@ namespace Maydan.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("WorkerId");
 
-                    b.HasIndex("ProjectId", "WorkerId")
+                    b.HasIndex("ProjectId", "WorkerId", "ServiceRequestId")
                         .IsUnique()
                         .HasFilter("[IsWorkerActive] = 1");
 
@@ -3317,6 +3410,17 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Worker");
+                });
+
+            modelBuilder.Entity("Maydan.Domain.Entities.WorkerOvertime", b =>
+                {
+                    b.HasOne("Maydan.Domain.Entities.WorkerProjectLink", "WorkerProjectLink")
+                        .WithMany()
+                        .HasForeignKey("WorkerProjectLinkId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("WorkerProjectLink");
                 });
 
             modelBuilder.Entity("Maydan.Domain.Entities.WorkerProjectLink", b =>

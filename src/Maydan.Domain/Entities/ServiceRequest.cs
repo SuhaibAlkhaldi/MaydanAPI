@@ -22,15 +22,12 @@ public class ServiceRequest : SharedEntities
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
 
-    
-    /// Time unit for payment calculation (Shift, Day, or Hour).
-    /// Shift = 12 hours, Day = 9 hours, Hour = Direct hourly rate.
-    
-    //public ServiceTimeUnit TimeUnit { get; set; } = ServiceTimeUnit.Shift;
 
-   
-    /// Duration count: number of shifts/days/hours depending on TimeUnit.
-  
+    //Time unit for payment calculation (Shift, Day, or Hour).
+    // Shift = 12 hours, Day = 9 hours, Hour = Direct hourly rate.
+
+    // Duration count(ShiftsCount): number of shifts/days/hours depending on TimeUnit.
+
     public int ShiftsCount { get; set; }
     //DurationCount 
 
@@ -41,9 +38,8 @@ public class ServiceRequest : SharedEntities
     public int AttendanceFrequency { get; set; }
     public string? AdditionalRequirements { get; set; }
 
-    // Financial Related Properties
+    // -----------Financial Related Properties-----------
     
-    /// Service price per hour (captured at request creation time).
     
     public decimal UnitPriceSnapshot { get; set; }
 
@@ -54,17 +50,18 @@ public class ServiceRequest : SharedEntities
     // Status Related Properties
     public ServiceRequestStatus Status { get; set; } = ServiceRequestStatus.PendingWorkerSelection;
 
+    //public int StatusId { get; set; } = ServiceRequestStatusIds.PendingWorkerSelection;
+    //public ServiceRequestStatus Status { get; set; } = null!;
 
 
 
-   
-    /// Tracks whether 6-hour reminder notification has been sent.
-   
+    // Tracks whether 6-hour reminder notification has been sent.
+
     public bool ReminderSent { get; set; } = false;
 
    
-    /// Timestamp when request was cancelled (soft-delete indicator).
-    /// Request is marked as Cancelled status instead of being deleted.
+    // Timestamp when request was cancelled (soft-delete indicator).
+    // Request is marked as Cancelled status instead of being deleted.
    
     public DateTime? CancelledAt { get; set; }
     // Navigation to assigned workers

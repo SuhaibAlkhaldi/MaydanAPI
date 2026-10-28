@@ -602,7 +602,8 @@ public class AssociationServiceTests
         private readonly List<Worker> _pendingRemovals = new();
 
         public FakeWorkerRepository(IEnumerable<Worker>? workers = null) => _workers = (workers ?? Enumerable.Empty<Worker>()).ToList();
-
+        public Task<bool> IsWorkerBusyAsync(int workerId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default)
+    => Task.FromResult(false);
         public Task<List<Worker>> GetByAssociationIdAsync(int associationId, CancellationToken cancellationToken = default) =>
             Task.FromResult(_workers.Where(w => !w.IsDeleted && w.AssociationId == associationId).ToList());
 

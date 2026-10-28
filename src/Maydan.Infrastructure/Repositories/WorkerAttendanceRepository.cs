@@ -1,5 +1,6 @@
 ﻿using Maydan.Application.Interfaces;
 using Maydan.Domain.Entities;
+using Maydan.Domain.Enums;
 using Maydan.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -37,23 +38,53 @@ public class WorkerAttendanceRepository : IWorkerAttendanceRepository
 
     public Task<List<WorkerProjectLink>> ListLinksByServiceRequestAsync(int serviceRequestId, CancellationToken cancellationToken = default) =>
         _db.WorkerProjectLinks
-           .Where(l => l.ServiceRequestId == serviceRequestId && l.IsWorkerActive)
+           .Where(l => l.ServiceRequestId == serviceRequestId)
            .Include(l => l.Worker)
            .ToListAsync(cancellationToken);
 
     public async Task AddAsync(WorkerAttendance attendance, CancellationToken cancellationToken = default) =>
         await _db.WorkerAttendances.AddAsync(attendance, cancellationToken);
 
-    public Task<AttendanceTimeWindow?> GetWindowAsync(int serviceRequestId, DateTime date, CancellationToken cancellationToken = default) =>
+    public Task<List<AttendanceTimeWindow>> ListWindowsForDateAsync(int serviceRequestId, DateTime date, CancellationToken cancellationToken = default) =>
         _db.AttendanceTimeWindows
-           .FirstOrDefaultAsync(w => w.ServiceRequestId == serviceRequestId && w.AttendanceDate == date, cancellationToken);
+           .Where(w => w.ServiceRequestId == serviceRequestId && w.AttendanceDate == date)
+           .OrderBy(w => w.SlotNumber)
+           .ToListAsync(cancellationToken);
 
     public Task<List<AttendanceTimeWindow>> ListWindowsAsync(int serviceRequestId, DateTime from, DateTime to, CancellationToken cancellationToken = default) =>
         _db.AttendanceTimeWindows
            .Where(w => w.ServiceRequestId == serviceRequestId && w.AttendanceDate >= from && w.AttendanceDate <= to)
-           .OrderBy(w => w.AttendanceDate)
+           .OrderBy(w => w.AttendanceDate).ThenBy(w => w.SlotNumber)
            .ToListAsync(cancellationToken);
 
     public async Task AddWindowAsync(AttendanceTimeWindow window, CancellationToken cancellationToken = default) =>
         await _db.AttendanceTimeWindows.AddAsync(window, cancellationToken);
+
+    // Overtime 
+    public Task<WorkerOvertime?> GetOvertimeByIdAsync(int id, CancellationToken cancellationToken = default) =>
+        _db.WorkerOvertimes
+           .Include(o => o.WorkerProjectLink).ThenInclude(l => l.Worker)
+           .FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
+
+    public Task<WorkerOvertime?> GetOvertimeAsync(int workerProjectLinkId, DateTime date, CancellationToken cancellationToken = default) =>
+        _db.WorkerOvertimes
+           .FirstOrDefaultAsync(o => o.WorkerProjectLinkId == workerProjectLinkId && o.OvertimeForDate == date, cancellationToken);
+
+    public Task<List<WorkerOvertime>> ListOvertimeByServiceRequestAsync(int serviceRequestId, DateTime from, DateTime to, CancellationToken cancellationToken = default) =>
+        _db.WorkerOvertimes
+           .Where(o => o.WorkerProjectLink.ServiceRequestId == serviceRequestId
+                    && o.OvertimeForDate >= from && o.OvertimeForDate <= to)
+           .Include(o => o.WorkerProjectLink).ThenInclude(l => l.Worker)
+           .OrderBy(o => o.OvertimeForDate)
+           .ToListAsync(cancellationToken);
+
+    public Task<List<WorkerOvertime>> ListOvertimeByStatusAsync(AttendanceApprovalStatus status, CancellationToken cancellationToken = default) =>
+        _db.WorkerOvertimes
+           .Where(o => o.ApprovalStatus == status)
+           .Include(o => o.WorkerProjectLink).ThenInclude(l => l.Worker)
+           .OrderBy(o => o.OvertimeForDate)
+           .ToListAsync(cancellationToken);
+
+    public async Task AddOvertimeAsync(WorkerOvertime overtime, CancellationToken cancellationToken = default) =>
+        await _db.WorkerOvertimes.AddAsync(overtime, cancellationToken);
 }

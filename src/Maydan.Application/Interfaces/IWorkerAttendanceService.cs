@@ -1,5 +1,6 @@
 ﻿using Maydan.Application.DTOs.Attendance;
 using Maydan.Application.DTOs.Common;
+using Maydan.Domain.Enums;
 
 namespace Maydan.Application.Interfaces;
 
@@ -15,4 +16,11 @@ public interface IWorkerAttendanceService
 
     Task<ApiResponse<DayRosterDto>> GetDayRosterAsync(int currentUserId, int serviceRequestId, DateTime? date, CancellationToken cancellationToken = default);
     Task<ApiResponse<AttendanceSummaryDto>> GetSummaryAsync(int currentUserId, int serviceRequestId, DateTime from, DateTime to, CancellationToken cancellationToken = default);
+
+    //Overtime 
+    Task<ApiResponse<WorkerOvertimeDto>> RecordOvertimeAsync(int currentUserId, RecordOvertimeDto dto, CancellationToken cancellationToken = default);
+    Task<ApiResponse<List<WorkerOvertimeDto>>> GetOvertimeAsync(int currentUserId, int serviceRequestId, DateTime? from, DateTime? to, AttendanceApprovalStatus? status, CancellationToken cancellationToken = default);
+    Task<ApiResponse<List<WorkerOvertimeDto>>> GetPendingOvertimeAsync(int currentUserId, CancellationToken cancellationToken = default);
+    Task<ApiResponse<WorkerOvertimeDto>> ApproveOvertimeAsync(int currentUserId, int overtimeId, CancellationToken cancellationToken = default);
+    Task<ApiResponse<WorkerOvertimeDto>> RejectOvertimeAsync(int currentUserId, int overtimeId, string reason, CancellationToken cancellationToken = default);
 }

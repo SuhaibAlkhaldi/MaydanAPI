@@ -132,7 +132,7 @@ namespace Maydan.Infrastructure.Persistence.Seed
                 SystemPermissions.CreateUsers
             };
             
-            var allPermissionIds = Enumerable.Range(1, 42);
+            var allPermissionIds = Enumerable.Range(1, 43);
 
             var grants = ForRole(BaytAlUrdon, allPermissionIds)
                 .Concat(ForRole(Aseza, asezaPermissions))

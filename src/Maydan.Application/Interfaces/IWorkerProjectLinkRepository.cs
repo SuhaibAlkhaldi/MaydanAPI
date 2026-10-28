@@ -13,4 +13,8 @@ public interface IWorkerProjectLinkRepository
 
     //Soft-deactivates the link (sets IsWorkerActive = false). Does not delete the row.
     Task DeactivateAsync(WorkerProjectLink link, CancellationToken cancellationToken = default);
+    Task<List<WorkerProjectLink>> ListActiveByServiceRequestAsync(int serviceRequestId, CancellationToken cancellationToken = default);
+    Task<WorkerProjectLink?> GetActiveByRequestAndWorkerAsync(int serviceRequestId, int workerId, CancellationToken cancellationToken = default);
+
+
 }

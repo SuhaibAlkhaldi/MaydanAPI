@@ -191,4 +191,10 @@ var serviceRequiresDocs = await _context.Set<Service>()
             ))
             .ToListAsync(cancellationToken);
     }
+    public Task<bool> IsWorkerBusyAsync(int workerId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default) =>
+    _context.Workers.AnyAsync(w => w.Id == workerId &&
+        w.ServiceRequestWorkers.Any(srw =>
+            srw.ServiceRequest.Status == ServiceRequestStatus.InProgress &&
+            srw.ServiceRequest.StartDate <= endDate &&
+            srw.ServiceRequest.EndDate >= startDate), cancellationToken);
 }

@@ -53,6 +53,7 @@ public class AttendanceTimeWindowConfiguration : IEntityTypeConfiguration<Attend
             .HasForeignKey(x => x.ServiceRequestId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasIndex(x => new { x.ServiceRequestId, x.AttendanceDate }).IsUnique();
+        builder.Property(x => x.SlotNumber).IsRequired();
+        builder.HasIndex(x => new { x.ServiceRequestId, x.AttendanceDate, x.SlotNumber }).IsUnique();
     }
 }

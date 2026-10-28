@@ -711,20 +711,25 @@ public class ServiceRequestService : IServiceRequestService
                     $"Worker {workerId} does not belong to the request association.",
                     $"العامل ذو الرقم {workerId} لا يتبع الجمعية المرتبطة بالطلب.");
             }
-
+            if (await _unitOfWork.Workers.IsWorkerBusyAsync(workerId, CurrentRequestToApprove.StartDate, CurrentRequestToApprove.EndDate, cancellationToken))
+            {
+                return ApiResponse<object?>.FailureResponse(
+                    $"Worker {workerId} is already assigned to another request in the same period.",
+                    $"العامل ذو الرقم {workerId} معيّن على طلب آخر في نفس الفترة.");
+            }
             await _unitOfWork.ServiceRequests
             .AssignToServiceRequestAsync(id,workerId,cancellationToken);
-            var existing = await _unitOfWork.WorkerProjectLinks
-    .GetByProjectAndWorkerAsync(CurrentRequestToApprove.ProjectId, workerId, cancellationToken);
+            var existingLink = await _unitOfWork.WorkerProjectLinks
+     .GetActiveByRequestAndWorkerAsync(CurrentRequestToApprove.Id, workerId, cancellationToken);
 
-            if (existing is null || !existing.IsWorkerActive)
+            if (existingLink is null)
             {
                 await _unitOfWork.WorkerProjectLinks.AddAsync(new WorkerProjectLink
                 {
                     ProjectId = CurrentRequestToApprove.ProjectId,
                     WorkerId = workerId,
                     ServiceRequestId = CurrentRequestToApprove.Id,
-                    DailyWageAmount = CurrentRequestToApprove.Service.Price,   // same value as the service price
+                    DailyWageAmount = CurrentRequestToApprove.Service.Price,
                     IsWorkerActive = true,
                     CreatedBy = currentUserId
                 }, cancellationToken);

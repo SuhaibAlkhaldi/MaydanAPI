@@ -45,6 +45,7 @@ public class MaydanDbContext : DbContext
     public DbSet<WorkerProjectLink> WorkerProjectLinks { get; set; } = null!;
     public DbSet<WorkerAttendance> WorkerAttendances { get; set; } = null!;
     public DbSet<AttendanceTimeWindow> AttendanceTimeWindows { get; set; } = null!;
+    public DbSet<WorkerOvertime> WorkerOvertimes { get; set; } = null!;
 
 
 
@@ -54,6 +55,7 @@ public class MaydanDbContext : DbContext
 
         ProjectTypeSeed.Seed(modelBuilder);
         LocationSeed.Seed(modelBuilder);
+
 
         // Global soft-delete filter for every SharedEntities (IsDeleted set by SaveChangesAsync below).
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())

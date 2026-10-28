@@ -49,8 +49,8 @@ public class WorkerProjectLinkConfiguration : IEntityTypeConfiguration<WorkerPro
             .OnDelete(DeleteBehavior.Restrict);
 
         // Unique business constraint: one active link per (project, worker) 
-        builder.HasIndex(x => new { x.ProjectId, x.WorkerId })
-            .IsUnique()
-            .HasFilter("[IsWorkerActive] = 1");
+        builder.HasIndex(x => new { x.ProjectId, x.WorkerId, x.ServiceRequestId })
+      .IsUnique()
+      .HasFilter("[IsWorkerActive] = 1");
     }
 }

@@ -564,13 +564,7 @@ public class WorkerService : IWorkerService
                 "ليس لديك صلاحية لعرض عمال طلب الخدمة هذا.");
         }
 
-        var availableWorkers =
-            await _unitOfWork.Workers.GetAvailableWorkersForRequestAsync(
-                request.AssociationId,
-                request.ServiceId,
-                request.StartDate,
-                request.EndDate,
-                cancellationToken);
+       
 
         var workers = await _unitOfWork.Workers.GetAvailableWorkersForRequestAsync(
      request.AssociationId,

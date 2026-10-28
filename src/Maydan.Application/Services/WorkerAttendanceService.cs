@@ -6,7 +6,7 @@ using Maydan.Domain.Enums;
 
 namespace Maydan.Application.Services;
 
-public class WorkerAttendanceService : IWorkerAttendanceService
+public partial class WorkerAttendanceService : IWorkerAttendanceService
 {
     private const string ViewPermission = "View Attendance";
     private const string ManagePermission = "Manage Attendance";
@@ -27,11 +27,11 @@ public class WorkerAttendanceService : IWorkerAttendanceService
 
     private enum Side { None, Association, ProductionCompany }
 
-    private sealed record Gate(Side Side, string? En = null, string? Ar = null, int Status = 400);
+    private sealed record Gate(Side Side, string? En = null, string? Ar = null, int Status = 400, AttendanceTimeWindow? Slot = null);
 
     
     //  1) Time windows (Production House)
-   
+    
     public async Task<ApiResponse<List<AttendanceTimeWindowDto>>> SetTimeWindowsAsync(
         int currentUserId, int serviceRequestId, SetAttendanceWindowDto dto, CancellationToken ct = default)
     {
@@ -58,36 +58,61 @@ public class WorkerAttendanceService : IWorkerAttendanceService
             return Fail<List<AttendanceTimeWindowDto>>("Dates must be within the service request period.", "يجب أن تكون التواريخ ضمن فترة طلب الخدمة.");
         if (from < today)
             return Fail<List<AttendanceTimeWindowDto>>("A time window cannot be created or changed for a past day.", "لا يمكن إنشاء أو تعديل وقت التسجيل ليوم سابق.");
-        if (dto.OpensAtLocal < TimeSpan.Zero || dto.ClosesAtLocal > TimeSpan.FromHours(24) || dto.ClosesAtLocal <= dto.OpensAtLocal)
-            return Fail<List<AttendanceTimeWindowDto>>("Closing time must be after opening time (same day).", "يجب أن يكون وقت الإغلاق بعد وقت الفتح في نفس اليوم.");
+        // The number of slots must equal the number of check-ins the service requires per day.
+        if (sr.AttendanceFrequency <= 0)
+            return Fail<List<AttendanceTimeWindowDto>>("Attendance frequency is not configured for this service request.", "عدد مرات تسجيل الحضور غير محدد لطلب الخدمة.");
+        if (dto.Slots is null || dto.Slots.Count != sr.AttendanceFrequency)
+            return Fail<List<AttendanceTimeWindowDto>>($"You must define exactly {sr.AttendanceFrequency} time windows (one per check-in).",
+                $"يجب تحديد {sr.AttendanceFrequency} فتحات بالضبط (فتحة لكل مرة تسجيل).");
+
+        var slots = dto.Slots.OrderBy(x => x.OpensAtLocal).ToList();
+        for (var i = 0; i < slots.Count; i++)
+        {
+            if (slots[i].OpensAtLocal < TimeSpan.Zero || slots[i].ClosesAtLocal > TimeSpan.FromHours(24) || slots[i].ClosesAtLocal <= slots[i].OpensAtLocal)
+                return Fail<List<AttendanceTimeWindowDto>>("Each window must close after it opens (same day).", "يجب أن يكون وقت إغلاق كل فتحة بعد وقت فتحها في نفس اليوم.");
+            if (i > 0 && slots[i].OpensAtLocal < slots[i - 1].ClosesAtLocal)
+                return Fail<List<AttendanceTimeWindowDto>>("Time windows must not overlap.", "يجب ألا تتداخل فتحات التسجيل.");
+        }
+
+        // A day that already has recorded attendance can no longer be re-scheduled.
+        var recorded = await _repo.ListByServiceRequestAsync(sr.Id, from, to, ct);
+        if (recorded.Count > 0)
+            return Fail<List<AttendanceTimeWindowDto>>(
+                $"Attendance is already recorded on {recorded.Min(r => r.AttendanceForDate):yyyy-MM-dd}; its windows can no longer be changed.",
+                "تم تسجيل حضور في أحد هذه الأيام، ولا يمكن تغيير فتحاته.");
 
         var now = DateTime.UtcNow;
-        var existing = (await _repo.ListWindowsAsync(sr.Id, from, to, ct)).ToDictionary(w => w.AttendanceDate.Date);
+        var existing = (await _repo.ListWindowsAsync(sr.Id, from, to, ct)).ToDictionary(w => (w.AttendanceDate.Date, w.SlotNumber));
         var result = new List<AttendanceTimeWindow>();
 
         for (var day = from; day <= to; day = day.AddDays(1))
         {
-            var opens = day + dto.OpensAtLocal - LocalOffset;
-            var closes = day + dto.ClosesAtLocal - LocalOffset;
+            for (var i = 0; i < slots.Count; i++)
+            {
+                var number = i + 1;
+                var opens = day + slots[i].OpensAtLocal - LocalOffset;
+                var closes = day + slots[i].ClosesAtLocal - LocalOffset;
 
-            if (existing.TryGetValue(day, out var w))
-            {
-                w.OpensAtUtc = opens; w.ClosesAtUtc = closes;
-                w.UpdatedBy = user.UserId; w.UpdatedDate = now;
-            }
-            else
-            {
-                w = new AttendanceTimeWindow
+                if (existing.TryGetValue((day, number), out var w))
                 {
-                    ServiceRequestId = sr.Id,
-                    AttendanceDate = day,
-                    OpensAtUtc = opens,
-                    ClosesAtUtc = closes,
-                    CreatedBy = user.UserId
-                };
-                await _repo.AddWindowAsync(w, ct);
+                    w.OpensAtUtc = opens; w.ClosesAtUtc = closes;
+                    w.UpdatedBy = user.UserId; w.UpdatedDate = now;
+                }
+                else
+                {
+                    w = new AttendanceTimeWindow
+                    {
+                        ServiceRequestId = sr.Id,
+                        AttendanceDate = day,
+                        SlotNumber = number,
+                        OpensAtUtc = opens,
+                        ClosesAtUtc = closes,
+                        CreatedBy = user.UserId
+                    };
+                    await _repo.AddWindowAsync(w, ct);
+                }
+                result.Add(w);
             }
-            result.Add(w);
         }
 
         await _uow.SaveChangesAsync(ct);
@@ -108,9 +133,9 @@ public class WorkerAttendanceService : IWorkerAttendanceService
             windows.Select(ToDto).ToList(), "Time windows fetched.", "تم جلب أوقات التسجيل.");
     }
 
-   
+    
     //  2) Recording (Association or Production House)
-   
+    
     public async Task<ApiResponse<WorkerAttendanceDto>> CheckInAsync(int currentUserId, RecordAttendanceDto dto, CancellationToken ct = default)
     {
         var user = await GetActiveUserAsync(currentUserId, ct);
@@ -131,22 +156,27 @@ public class WorkerAttendanceService : IWorkerAttendanceService
         var now = DateTime.UtcNow;
         var date = (dto.AttendanceForDate ?? (now + LocalOffset)).Date;
 
-        var gate = await ValidateRecordingAsync(user, sr, date, now, ct);
+        var gate = await ValidateRecordingAsync(user, sr, date, now, true, ct);
         if (gate.En is not null) return Fail<WorkerAttendanceDto>(gate.En, gate.Ar!, gate.Status);
 
         if (sr.AttendanceFrequency <= 0)
             return Fail<WorkerAttendanceDto>("Attendance frequency is not configured for this service request.", "عدد مرات تسجيل الحضور غير محدد لطلب الخدمة.");
 
+        // The scan belongs to the window that is open right now, and a worker can be scanned ONCE per window.
+        var slot = gate.Slot!;
+        if (slot.SlotNumber > sr.AttendanceFrequency)
+            return Fail<WorkerAttendanceDto>("This window exceeds the required number of check-ins.", "هذه الفتحة تتجاوز عدد مرات التسجيل المطلوبة.");
+
         var existing = await _repo.ListByLinkAndDateAsync(link.Id, date, ct);
-        if (existing.Count >= sr.AttendanceFrequency)
-            return Fail<WorkerAttendanceDto>($"All {sr.AttendanceFrequency} check-ins of this day are already recorded for this worker.",
-                $"تم تسجيل جميع مرات الحضور ({sr.AttendanceFrequency}) لهذا العامل في هذا اليوم.");
+        if (existing.Any(a => a.CheckInNumber == slot.SlotNumber))
+            return Fail<WorkerAttendanceDto>($"This worker was already scanned in the current window (#{slot.SlotNumber}). Wait for the next window.",
+                $"تم تسجيل هذا العامل مسبقاً في فتحة التسجيل الحالية (#{slot.SlotNumber}). انتظر الفتحة التالية.", 409);
 
         var entry = new WorkerAttendance
         {
             WorkerProjectLinkId = link.Id,
             AttendanceForDate = date,
-            CheckInNumber = existing.Count + 1,
+            CheckInNumber = slot.SlotNumber,
             EntryType = dto.EntryType,
             CityId = sr.Association.CityId,
             CreatedBy = user.UserId
@@ -194,7 +224,7 @@ public class WorkerAttendanceService : IWorkerAttendanceService
 
         var now = DateTime.UtcNow;
         var date = (dto.AttendanceForDate ?? (now + LocalOffset)).Date;
-        var gate = await ValidateRecordingAsync(user, sr, date, now, ct);
+        var gate = await ValidateRecordingAsync(user, sr, date, now, false, ct);
         if (gate.En is not null) return Fail<WorkerAttendanceDto>(gate.En, gate.Ar!, gate.Status);
 
         // Close the latest check-in of this worker that THIS side opened and has not closed yet.
@@ -220,9 +250,7 @@ public class WorkerAttendanceService : IWorkerAttendanceService
         return ApiResponse<WorkerAttendanceDto>.SuccessResponse(result, "Check-out recorded.", "تم تسجيل الخروج.");
     }
 
-   
     //  3) Approval (Production House, one record = one worker at a time)
-   
     public Task<ApiResponse<WorkerAttendanceDto>> ApproveAsync(int currentUserId, int attendanceId, CancellationToken ct = default) =>
         ReviewAsync(currentUserId, attendanceId, approve: true, reason: null, ct);
 
@@ -266,9 +294,7 @@ public class WorkerAttendanceService : IWorkerAttendanceService
             approve ? "تم اعتماد الحضور." : "تم رفض الحضور.");
     }
 
-   
     //  4) Reads: day roster + summary (final wages preview)
-    
     public async Task<ApiResponse<DayRosterDto>> GetDayRosterAsync(int currentUserId, int serviceRequestId, DateTime? date, CancellationToken ct = default)
     {
         var (_, sr, error) = await LoadForViewAsync(currentUserId, serviceRequestId, ct);
@@ -277,7 +303,7 @@ public class WorkerAttendanceService : IWorkerAttendanceService
         var day = (date ?? (DateTime.UtcNow + LocalOffset)).Date;
         var links = await _repo.ListLinksByServiceRequestAsync(sr!.Id, ct);
         var rows = await _repo.ListByServiceRequestAsync(sr.Id, day, day, ct);
-        var window = await _repo.GetWindowAsync(sr.Id, day, ct);
+        var slots = await _repo.ListWindowsForDateAsync(sr.Id, day, ct);
         var now = DateTime.UtcNow;
 
         var dto = new DayRosterDto
@@ -285,7 +311,8 @@ public class WorkerAttendanceService : IWorkerAttendanceService
             ServiceRequestId = sr.Id,
             Date = day,
             ExpectedCheckInsPerDay = sr.AttendanceFrequency,
-            Window = window is null ? null : ToDto(window)
+            Slots = slots.Select(ToDto).ToList(),
+            CurrentSlotNumber = slots.FirstOrDefault(x => now >= x.OpensAtUtc && now < x.ClosesAtUtc)?.SlotNumber
         };
 
         foreach (var link in links)
@@ -296,7 +323,7 @@ public class WorkerAttendanceService : IWorkerAttendanceService
                 WorkerProjectLinkId = link.Id,
                 WorkerId = link.WorkerId,
                 WorkerName = link.Worker is null ? null : $"{link.Worker.FirstName} {link.Worker.LastName}",
-                DayStatus = ComputeDayStatus(sr.AttendanceFrequency, day, window, mine, now).ToString(),
+                DayStatus = ComputeDayStatus(sr.AttendanceFrequency, day, slots, mine, now).ToString(),
                 ExpectedCheckIns = sr.AttendanceFrequency,
                 RecordedCheckIns = mine.Count,
                 ApprovedCheckIns = mine.Count(r => r.ApprovalStatus == AttendanceApprovalStatus.Approved),
@@ -320,7 +347,8 @@ public class WorkerAttendanceService : IWorkerAttendanceService
 
         var links = await _repo.ListLinksByServiceRequestAsync(sr.Id, ct);
         var rows = (await _repo.ListByServiceRequestAsync(sr.Id, f, t, ct)).ToLookup(r => (r.WorkerProjectLinkId, r.AttendanceForDate.Date));
-        var windows = (await _repo.ListWindowsAsync(sr.Id, f, t, ct)).ToDictionary(w => w.AttendanceDate.Date);
+        var windows = (await _repo.ListWindowsAsync(sr.Id, f, t, ct)).ToLookup(w => w.AttendanceDate.Date);
+        var overtimes = (await _repo.ListOvertimeByServiceRequestAsync(sr.Id, f, t, ct)).ToLookup(o => (o.WorkerProjectLinkId, o.OvertimeForDate.Date));
         var now = DateTime.UtcNow;
 
         var dto = new AttendanceSummaryDto
@@ -346,8 +374,7 @@ public class WorkerAttendanceService : IWorkerAttendanceService
             var start = (link.CreatedDate + LocalOffset).Date;
             for (var day = f > start ? f : start; day <= t; day = day.AddDays(1))
             {
-                windows.TryGetValue(day, out var w);
-                var status = ComputeDayStatus(sr.AttendanceFrequency, day, w, rows[(link.Id, day)].ToList(), now);
+                var status = ComputeDayStatus(sr.AttendanceFrequency, day, windows[day].ToList(), rows[(link.Id, day)].ToList(), now);
                 switch (status)
                 {
                     case AttendanceDayStatus.Present: item.PresentDays++; break;
@@ -356,9 +383,27 @@ public class WorkerAttendanceService : IWorkerAttendanceService
                     case AttendanceDayStatus.Open: item.OpenDays++; break;
                     default: item.NotScheduledDays++; break;
                 }
+
+                // Overtime: pending is only shown; approved counts ONLY on a day the worker was Present; rejected never counts.
+                var overtime = overtimes[(link.Id, day)].FirstOrDefault();
+                if (overtime is not null)
+                {
+                    if (overtime.ApprovalStatus == AttendanceApprovalStatus.Pending)
+                    {
+                        item.PendingOvertimeAmount += overtime.Amount;
+                    }
+                    else if (overtime.ApprovalStatus == AttendanceApprovalStatus.Approved && status == AttendanceDayStatus.Present)
+                    {
+                        item.ApprovedOvertimeHours += overtime.Hours;
+                        item.ApprovedOvertimeAmount += overtime.Amount;
+                    }
+                }
             }
 
-            item.PayableAmount = item.PresentDays * item.DailyWageAmount;   // unapproved attendance never counts
+            item.AttendanceAmount = item.PresentDays * item.DailyWageAmount;                 // unapproved attendance never counts
+            item.PayableAmount = item.AttendanceAmount + item.ApprovedOvertimeAmount;        // unapproved overtime never counts
+            dto.TotalApprovedOvertimeAmount += item.ApprovedOvertimeAmount;
+            dto.TotalPendingOvertimeAmount += item.PendingOvertimeAmount;
             dto.TotalPayableAmount += item.PayableAmount;
             dto.Workers.Add(item);
         }
@@ -370,15 +415,13 @@ public class WorkerAttendanceService : IWorkerAttendanceService
     //  Business rules
     
 
-
     // Day outcome. Present only if ALL required check-ins are recorded AND approved.
-    // Otherwise, once the day is over (window closed) the worker is automatically Absent for the whole day.
-    // Computed on read, so nothing needs a background job and approvals made later are picked up automatically.
-
-    private static AttendanceDayStatus ComputeDayStatus(int frequency, DateTime date, AttendanceTimeWindow? window,
+    //Otherwise, once the day is over (window closed) the worker is automatically Absent for the whole day.
+    //Computed on read, so nothing needs a background job and approvals made later are picked up automatically.
+    private static AttendanceDayStatus ComputeDayStatus(int frequency, DateTime date, IReadOnlyList<AttendanceTimeWindow> slots,
         IReadOnlyList<WorkerAttendance> rows, DateTime nowUtc)
     {
-        if (window is null && rows.Count == 0) return AttendanceDayStatus.NotScheduled;
+        if (slots.Count == 0 && rows.Count == 0) return AttendanceDayStatus.NotScheduled;
 
         var approvedPresent = rows.Count(r => r.EntryType == AttendanceEntryType.Present && r.ApprovalStatus == AttendanceApprovalStatus.Approved);
         if (frequency > 0 && approvedPresent >= frequency) return AttendanceDayStatus.Present;
@@ -388,7 +431,7 @@ public class WorkerAttendanceService : IWorkerAttendanceService
                           (r.EntryType == AttendanceEntryType.Absent && r.ApprovalStatus == AttendanceApprovalStatus.Approved)))
             return AttendanceDayStatus.Absent;
 
-        var closesAt = window?.ClosesAtUtc ?? (date.AddDays(1) - LocalOffset);
+        var closesAt = slots.Count > 0 ? slots.Max(x => x.ClosesAtUtc) : date.AddDays(1) - LocalOffset;   // day ends when its LAST window closes
         if (nowUtc <= closesAt)
             return rows.Any(r => r.ApprovalStatus == AttendanceApprovalStatus.Pending)
                 ? AttendanceDayStatus.PendingApproval
@@ -397,7 +440,7 @@ public class WorkerAttendanceService : IWorkerAttendanceService
         return AttendanceDayStatus.Absent;   // automatic absence for the entire day
     }
 
-    private async Task<Gate> ValidateRecordingAsync(User user, ServiceRequest sr, DateTime date, DateTime nowUtc, CancellationToken ct)
+    private async Task<Gate> ValidateRecordingAsync(User user, ServiceRequest sr, DateTime date, DateTime nowUtc, bool requireOpenSlot, CancellationToken ct)
     {
         if (!Permissions(user).Contains(ManagePermission))
             return new Gate(Side.None, "You do not have permission to record attendance.", "ليس لديك صلاحية تسجيل الحضور.", 403);
@@ -413,13 +456,18 @@ public class WorkerAttendanceService : IWorkerAttendanceService
         if (side == Side.None)
             return new Gate(Side.None, "You are not allowed to record attendance for this service request.", "غير مصرح لك بتسجيل الحضور لهذا الطلب.", 403);
 
-        var window = await _repo.GetWindowAsync(sr.Id, date, ct);
-        if (window is null)
-            return new Gate(Side.None, "The Production House has not defined a time window for this day.", "لم يحدد بيت الإنتاج وقت التسجيل لهذا اليوم.");
-        if (nowUtc < window.OpensAtUtc || nowUtc > window.ClosesAtUtc)
-            return new Gate(Side.None, "Attendance can only be recorded inside the allowed time window.", "يمكن تسجيل الحضور فقط خلال الوقت المسموح.");
+        // Check-out happens at the end of the shift, so it is not tied to a scan window.
+        if (!requireOpenSlot) return new Gate(side);
 
-        return new Gate(side);
+        var daySlots = await _repo.ListWindowsForDateAsync(sr.Id, date, ct);
+        if (daySlots.Count == 0)
+            return new Gate(Side.None, "The Production House has not defined time windows for this day.", "لم يحدد بيت الإنتاج فتحات التسجيل لهذا اليوم.");
+
+        var open = daySlots.FirstOrDefault(x => nowUtc >= x.OpensAtUtc && nowUtc < x.ClosesAtUtc);
+        if (open is null)
+            return new Gate(Side.None, "Attendance can only be recorded inside an open time window.", "يمكن تسجيل الحضور فقط خلال فتحة تسجيل مفتوحة.");
+
+        return new Gate(side, Slot: open);
     }
 
     private async Task<Side> ResolveSideAsync(User user, ServiceRequest sr, CancellationToken ct)
@@ -462,7 +510,7 @@ public class WorkerAttendanceService : IWorkerAttendanceService
 
     
     //  Helpers
-   
+    
     private async Task<User?> GetActiveUserAsync(int id, CancellationToken ct)
     {
         var u = await _uow.Users.GetWithPermissionsAsync(id, ct);
@@ -494,6 +542,7 @@ public class WorkerAttendanceService : IWorkerAttendanceService
     private static AttendanceTimeWindowDto ToDto(AttendanceTimeWindow w) => new()
     {
         Date = w.AttendanceDate.Date,
+        SlotNumber = w.SlotNumber,
         OpensAtUtc = w.OpensAtUtc,
         ClosesAtUtc = w.ClosesAtUtc,
         OpensAtLocal = (w.OpensAtUtc + LocalOffset).TimeOfDay,
