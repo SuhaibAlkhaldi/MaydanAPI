@@ -30,7 +30,9 @@ public class LocationService : ILocationService
     public async Task<List<CountryDto>> GetCountriesAsync(CancellationToken cancellationToken = default)
     {
         var countries = await _unitOfWork.Countries.GetAllAsync(cancellationToken);
-        return countries.Select(MapCountry).ToList();
+        return countries
+            .DistinctBy(x=>(x.ArabicName,x.EnglishName))
+            .Select(MapCountry).ToList();
     }
 
     public async Task<CountryDto> GetCountryByIdAsync(int countryId, CancellationToken cancellationToken = default)
