@@ -279,8 +279,8 @@ public class UserManagementServiceTests
 
         public Task<Association?> GetByIdAsync(int associationId, CancellationToken cancellationToken = default) =>
             Task.FromResult(_associationsById.TryGetValue(associationId, out var association) ? association : null);
-
-        // Not exercised by CreateUserAsync's entityId-override path.
+        public async Task<List<Association>> GetByIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        // Not exercised by CreateUserAsync's entityId-override path.new NotSupportedException();
         public Task<Association?> GetByIdIncludingDeletedAsync(int associationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Association?> GetByCityIdAsync(int cityId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Association?> GetByIdWithWorkersAsync(int associationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();

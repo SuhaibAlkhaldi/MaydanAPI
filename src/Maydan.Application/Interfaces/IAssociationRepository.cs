@@ -7,7 +7,11 @@ public interface IAssociationRepository
     // Unchanged signatures — EntityOnboardingService (the real, already-built associations/
     // without-admin + associations/{id}/admin flow) already depends on these exact shapes; Phase 2a
     // only adds to this interface, never changes what's already here.
-    Task<Association?> GetByIdAsync(int associationId, CancellationToken cancellationToken = default);
+    // دالة المفرد (تُستخدم في UserManagement و AssociationService)
+    Task<Association?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
+
+    // دالة الجمع (تُستخدم في AssociationProjectSupervisorService للـ Performance)
+    Task<List<Association>> GetByIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default);
     Task<List<Association>> GetAllAsync(CancellationToken cancellationToken = default);
     Task<Association?> GetByCityIdAsync(int cityId, CancellationToken cancellationToken = default);
     Task AddAsync(Association association, CancellationToken cancellationToken = default);

@@ -1564,7 +1564,7 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                             IsActive = true,
                             IsDeleted = false,
                             RoleNameAr = "مدير العمال",
-                            RoleNameEn = "WorkerManager",
+                            RoleNameEn = "Admin-Association",
                             TargetEntityType = 3,
                             UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
                         },
@@ -1587,8 +1587,8 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                             Id = 0,
                             IsActive = true,
                             IsDeleted = false,
-                            RoleNameAr = "مسؤول الحضور",
-                            RoleNameEn = "AttendanceOfficer",
+                            RoleNameAr = "مندوب الجمعية",
+                            RoleNameEn = "Association Representative",
                             TargetEntityType = 3,
                             UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
                         },
