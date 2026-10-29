@@ -67,7 +67,7 @@ public class ProductionCompanyService : IProductionCompanyService
     }
 
     public async Task<ApiResponse<ProductionCompanyDto>> UpdateStatusAsync(int currentUserId, int productionCompanyId, UpdateProductionCompanyStatusDto dto, CancellationToken cancellationToken = default)
-    {
+        {
         var (currentUser, authError) = await AuthorizeAsync<ProductionCompanyDto>(currentUserId, ManageProductionCompaniesPermissionId, cancellationToken);
         if (authError is not null)
         {
