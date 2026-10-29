@@ -5,7 +5,6 @@ using Maydan.Domain.Constants;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
 
-
 namespace Maydan.Application.Services;
 
 public class UserManagementService : IUserManagementService
@@ -87,13 +86,15 @@ public class UserManagementService : IUserManagementService
         var role = await _unitOfWork.Roles.GetWithPermissionsAsync(dto.RoleId, cancellationToken);
         if (role == null)
             return ApiResponse<UserDetailsDto>.FailureResponse("Role was not found.", "الدور غير موجود.");
-        if (role.RoleId == ProductionHouseRoleId || role.RoleId == AssociationRoleId ||role.RoleId==BaytAlUrdonRoleId ||role.RoleId==AsezaRoleId)
+
+        if (role.RoleId == ProductionHouseRoleId || role.RoleId == AssociationRoleId || role.RoleId == BaytAlUrdonRoleId || role.RoleId == AsezaRoleId)
         {
             return ApiResponse<UserDetailsDto>.FailureResponse(
-         "Cannot assign root entity roles (Production House, Association, ASEZA, or Bayt Al-Urdon) from this screen. These roles are assigned automatically when creating the entity.",
-         "لا يمكن إنشاء مستخدم بأحد أدوار الكيانات الأساسية (شركة إنتاج، جمعية، سلطة العقبة، أو بيت الأردن) من هذه الشاشة. يتم تعيين هذه الأدوار تلقائياً عند إضافة الجهة في النظام."
-     );
+                "Cannot assign root entity roles (Production House, Association, ASEZA, or Bayt Al-Urdon) from this screen. These roles are assigned automatically when creating the entity.",
+                "لا يمكن إنشاء مستخدم بأحد أدوار الكيانات الأساسية (شركة إنتاج، جمعية، سلطة العقبة، أو بيت الأردن) من هذه الشاشة. يتم تعيين هذه الأدوار تلقائياً عند إضافة الجهة في النظام."
+            );
         }
+
         var creationError = EnsureEntityCreationAllowed<UserDetailsDto>(currentUser!, role);
         if (creationError != null) return creationError;
 
@@ -103,14 +104,28 @@ public class UserManagementService : IUserManagementService
 
         if (currentUser!.RoleId != BaytAlUrdonRoleId)
         {
-            var roleAllowError = EnsurePermissionsAllowedForRole<UserDetailsDto>(role, permissionIds, GetCallerDelegatablePermissionIds(currentUser, role));
+            var delegatableIds = await GetCallerDelegatablePermissionIdsAsync(currentUser, role, cancellationToken);
+            var roleAllowError = EnsurePermissionsAllowedForRole<UserDetailsDto>(role, permissionIds, delegatableIds);
             if (roleAllowError != null) return roleAllowError;
         }
 
+        // 1. تحديد الجهة بناءً على الرول
         var (targetEntityType, targetEntityId, entityError) = (role.RoleId == currentUser!.RoleId || role.RoleId == 10)
                     ? (currentUser.EntityType, currentUser.EntityId, null)
                     : await ResolveEntityForRoleAsync<UserDetailsDto>(role.RoleId, dto.EntityId, cancellationToken);
+
         if (entityError != null) return entityError;
+
+        // 2. الفاليديشن الأمني الشامل لمنع اختراق الـ EntityId
+        if (currentUser.RoleId != BaytAlUrdonRoleId)
+        {
+            if (targetEntityId != currentUser.EntityId || targetEntityType != currentUser.EntityType)
+            {
+                return ApiResponse<UserDetailsDto>.FailureResponse(
+                    "You cannot create users outside your own entity.",
+                    "لا يمكنك إنشاء مستخدمين لجهة أخرى من خارج نطاق جهتك.");
+            }
+        }
 
         var groupIds = NormalizeIds(dto.GroupIds);
         var (groups, groupError) = await EnsureGroupsInEntityAsync<UserDetailsDto>(groupIds, targetEntityType!.Value, targetEntityId!.Value, cancellationToken);
@@ -155,7 +170,6 @@ public class UserManagementService : IUserManagementService
 
         var allRoles = await _unitOfWork.Roles.GetAllAsync(cancellationToken);
 
-       
         var isCrossEntityAdmin = currentUser!.RoleId == BaytAlUrdonRoleId || currentUser.RoleId == AsezaRoleId;
         var effectiveEntityType = (isCrossEntityAdmin && targetEntityType.HasValue)
                                   ? targetEntityType.Value
@@ -165,32 +179,18 @@ public class UserManagementService : IUserManagementService
 
         if (effectiveEntityType == EntityType.BaytAlUrdon)
         {
-            entityRoles = allRoles.Where(r => r.TargetEntityType == effectiveEntityType
-                                                                 && r.RoleId != BaytAlUrdonRoleId).ToList();
-
-           
+            entityRoles = allRoles.Where(r => r.TargetEntityType == effectiveEntityType && r.RoleId != BaytAlUrdonRoleId).ToList();
         }
         else if (effectiveEntityType == EntityType.Aseza)
         {
-
-            entityRoles = allRoles.Where(r => r.TargetEntityType == effectiveEntityType  
-                                          && r.RoleId != AsezaRoleId).ToList();
-
-           
+            entityRoles = allRoles.Where(r => r.TargetEntityType == effectiveEntityType && r.RoleId != AsezaRoleId).ToList();
         }
         else
         {
-
-            entityRoles = allRoles.Where(r => r.TargetEntityType == effectiveEntityType
-                                            && r.RoleId != ProductionHouseRoleId
-                                            && r.RoleId != AssociationRoleId
-                                                                            ).ToList();
-
-
+            entityRoles = allRoles.Where(r => r.TargetEntityType == effectiveEntityType && r.RoleId != ProductionHouseRoleId && r.RoleId != AssociationRoleId).ToList();
         }
 
-
-        if (currentUser.RoleId == BaytAlUrdonRoleId && effectiveEntityType == EntityType.BaytAlUrdon ||currentUser.RoleId==AsezaRoleId&& effectiveEntityType==EntityType.Aseza)
+        if (currentUser.RoleId == BaytAlUrdonRoleId && effectiveEntityType == EntityType.BaytAlUrdon || currentUser.RoleId == AsezaRoleId && effectiveEntityType == EntityType.Aseza)
         {
             var systemAdminRole = allRoles.FirstOrDefault(r => r.RoleId == 10);
             if (systemAdminRole != null && !entityRoles.Any(r => r.RoleId == 10))
@@ -208,13 +208,11 @@ public class UserManagementService : IUserManagementService
         return ApiResponse<List<RoleDto>>.SuccessResponse(result, "Roles retrieved successfully.", "تم استرجاع الأدوار بنجاح.");
     }
 
-    
     public async Task<ApiResponse<List<PermissionDto>>> GetAvailablePermissionsAsync(int currentUserId, int? roleId, CancellationToken cancellationToken = default)
     {
         var (caller, error) = await GetCurrentUserAsync<List<PermissionDto>>(currentUserId, cancellationToken);
         if (error != null) return error;
 
-        // التعديل هون: إذا ما انبعت roleId أو كان اليوزر هو أدمن بيت الأردن، رجع كل صلاحيات النظام الفعالة مرتبة
         if (!roleId.HasValue || caller!.RoleId == BaytAlUrdonRoleId)
         {
             var allPermissions = await _unitOfWork.Permissions.GetAllAsync(cancellationToken);
@@ -232,7 +230,8 @@ public class UserManagementService : IUserManagementService
         if (role == null)
             return ApiResponse<List<PermissionDto>>.FailureResponse("Role was not found.", "الدور غير موجود.");
 
-        var delegatableIds = GetCallerDelegatablePermissionIds(caller!, role);
+        var delegatableIds = await GetCallerDelegatablePermissionIdsAsync(caller!, role, cancellationToken);
+
         var delegatablePermissions = caller!.UserPermissions
             .Where(up => up.IsActive && up.Permission.IsActive && delegatableIds.Contains(up.PermissionId))
             .Select(up => up.Permission)
@@ -503,6 +502,7 @@ public class UserManagementService : IUserManagementService
 
         return await GetUserDetailsAsync(currentUserId, userId, cancellationToken);
     }
+
     public async Task<ApiResponse<List<UserSummaryDto>>> GetAllAssociationUsersAsync(int currentUserId, CancellationToken cancellationToken = default)
     {
         var (currentUser, error) = await GetCurrentUserAsync<List<UserSummaryDto>>(currentUserId, cancellationToken);
@@ -512,22 +512,17 @@ public class UserManagementService : IUserManagementService
 
         if (currentUser!.EntityType == EntityType.Association)
         {
-
             filterEntityId = currentUser.EntityId;
         }
-        else if(currentUser!.EntityType == EntityType.ProductionCompany)
+        else if (currentUser!.EntityType == EntityType.ProductionCompany)
         {
-
             filterEntityId = currentUser.EntityId;
         }
-        else if (currentUser.EntityType != EntityType.BaytAlUrdon &&
-                 currentUser.EntityType != EntityType.Aseza)
+        else if (currentUser.EntityType != EntityType.BaytAlUrdon && currentUser.EntityType != EntityType.Aseza)
         {
-            // منع أي جهة غير مصرح لها
             return ApiResponse<List<UserSummaryDto>>.FailureResponse("Unauthorized to view association users.", "غير مصرح لك باستعراض مستخدمي الجمعيات.");
         }
 
-        // تمرير الفلتر للداتابيس
         var users = await _unitOfWork.Users.GetAssociationSupervisorsAsync(EntityType.Association, filterEntityId, cancellationToken);
         if (users.Count == 0)
         {
@@ -553,21 +548,30 @@ public class UserManagementService : IUserManagementService
         return (user, null);
     }
 
-    private static HashSet<int> GetCallerDelegatablePermissionIds(User caller, Role targetRole)
+    private async Task<HashSet<int>> GetCallerDelegatablePermissionIdsAsync(User caller, Role targetRole, CancellationToken cancellationToken)
     {
-        if (caller.RoleId != targetRole.RoleId) return new HashSet<int>();
+        if (caller.EntityType != targetRole.TargetEntityType && targetRole.TargetEntityType != null)
+        {
+            return new HashSet<int>();
+        }
 
-        var directIds = caller.UserPermissions
-            .Where(up => up.IsActive && up.Permission.IsActive)
-            .Select(up => up.PermissionId);
+        var callerRole = await _unitOfWork.Roles.GetWithPermissionsAsync(caller.RoleId, cancellationToken);
 
-        var groupIds = caller.UserGroups
-            .Where(ug => ug.Group.IsActive)
-            .SelectMany(ug => ug.Group.GroupPermissions)
-            .Where(gp => gp.IsActive && gp.Permission.IsActive)
-            .Select(gp => gp.PermissionId);
+        var roleIds = callerRole?.RolePermissions?
+            .Where(rp => rp.IsActive && (rp.Permission == null || rp.Permission.IsActive))
+            .Select(rp => rp.PermissionId) ?? Enumerable.Empty<int>();
 
-        return directIds.Concat(groupIds).ToHashSet();
+        var directIds = caller.UserPermissions?
+            .Where(up => up.IsActive && (up.Permission == null || up.Permission.IsActive))
+            .Select(up => up.PermissionId) ?? Enumerable.Empty<int>();
+
+        var groupIds = caller.UserGroups?
+            .Where(ug => ug.Group != null && ug.Group.IsActive)
+            .SelectMany(ug => ug.Group.GroupPermissions ?? new List<GroupPermission>())
+            .Where(gp => gp.IsActive && (gp.Permission == null || gp.Permission.IsActive))
+            .Select(gp => gp.PermissionId) ?? Enumerable.Empty<int>();
+
+        return roleIds.Concat(directIds).Concat(groupIds).ToHashSet();
     }
 
     private const int ViewUsersPermissionId = 1;
@@ -582,7 +586,6 @@ public class UserManagementService : IUserManagementService
     private async Task<(EntityType? EntityType, int? EntityId, ApiResponse<T>? Error)> ResolveEntityForRoleAsync<T>(
       int roleId, int? requestedEntityId, CancellationToken cancellationToken)
     {
-
         if (roleId == SystemRoles.BaytAlUrdon) return (EntityType.BaytAlUrdon, 1, null);
         if (roleId == SystemRoles.Aseza) return (EntityType.Aseza, 1, null);
 
@@ -704,30 +707,36 @@ public class UserManagementService : IUserManagementService
     {
         if (permissionIds.Count == 0) return null;
 
-        // التعديل هون: أدمن بيت الأردن مسموح له يعطي أي صلاحية لأي يوزر حتى لو خارج نطاق دوره
         if (caller.RoleId == BaytAlUrdonRoleId) return null;
 
         var role = await _unitOfWork.Roles.GetWithPermissionsAsync(roleId, cancellationToken);
         if (role == null)
             return ApiResponse<T>.FailureResponse("Role was not found.", "الدور غير موجود.");
 
-        return EnsurePermissionsAllowedForRole<T>(role, permissionIds, GetCallerDelegatablePermissionIds(caller, role));
+        var delegatableIds = await GetCallerDelegatablePermissionIdsAsync(caller, role, cancellationToken);
+        return EnsurePermissionsAllowedForRole<T>(role, permissionIds, delegatableIds);
     }
 
     private static ApiResponse<T>? EnsurePermissionsAllowedForRole<T>(Role role, List<int> permissionIds, HashSet<int>? callerDelegatableIds = null)
     {
         if (permissionIds.Count == 0) return null;
 
-        var allowedPermissionIds = role.RolePermissions
-            .Where(rp => rp.IsActive && rp.Permission.IsActive)
+        var allowedPermissionIds = role.RolePermissions?
+            .Where(rp => rp.IsActive && (rp.Permission == null || rp.Permission.IsActive))
             .Select(rp => rp.PermissionId)
-            .ToHashSet();
+            .ToHashSet() ?? new HashSet<int>();
 
-        if (callerDelegatableIds is not null)
+        if (callerDelegatableIds != null)
+        {
             allowedPermissionIds.UnionWith(callerDelegatableIds);
+        }
 
         if (permissionIds.Any(permissionId => !allowedPermissionIds.Contains(permissionId)))
-            return ApiResponse<T>.FailureResponse("One or more permissions are not available for the selected role.", "بعض الصلاحيات غير متاحة لهذا الدور.");
+        {
+            return ApiResponse<T>.FailureResponse(
+                "One or more permissions are not available for the selected role or entity.",
+                "بعض الصلاحيات غير متاحة لهذا الدور أو الجهة.");
+        }
 
         return null;
     }
@@ -758,9 +767,7 @@ public class UserManagementService : IUserManagementService
     {
         if (currentUser.RoleId == BaytAlUrdonRoleId) return null;
 
-
         if (role.TargetEntityType.HasValue && role.TargetEntityType == currentUser.EntityType) return null;
-
 
         if (currentUser.EntityType == EntityType.BaytAlUrdon && role.RoleId == SystemRoles.BaytAlUrdon) return null;
         if (currentUser.EntityType == EntityType.Aseza && role.RoleId == 10) return null;
@@ -771,7 +778,6 @@ public class UserManagementService : IUserManagementService
 
     private static ApiResponse<T>? ValidateUserPayload<T>(CreateEntityUserDto dto)
     {
-        // 1. فحص الحقول الفارغة
         if (string.IsNullOrWhiteSpace(dto.FirstNameEn) || string.IsNullOrWhiteSpace(dto.LastNameEn) ||
             string.IsNullOrWhiteSpace(dto.FirstNameAr) || string.IsNullOrWhiteSpace(dto.LastNameAr) ||
             string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.PhoneNumber) ||
@@ -780,7 +786,6 @@ public class UserManagementService : IUserManagementService
             return ApiResponse<T>.FailureResponse("User mandatory fields are required.", "جميع الحقول الأساسية مطلوبة.");
         }
 
-        // 2. فحص صيغة البريد الإلكتروني (استخدام المسار الكامل لمنع التعارض)
         var emailRegex = new System.Text.RegularExpressions.Regex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$",
             System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
@@ -788,6 +793,7 @@ public class UserManagementService : IUserManagementService
         {
             return ApiResponse<T>.FailureResponse("Invalid email format.", "صيغة البريد الإلكتروني غير صحيحة.");
         }
+
         var phoneRegex = new System.Text.RegularExpressions.Regex(@"^(07[789]\d{7}|\+9627[789]\d{7}|009627[789]\d{7})$",
         System.Text.RegularExpressions.RegexOptions.Compiled);
 
@@ -797,7 +803,7 @@ public class UserManagementService : IUserManagementService
                 "Invalid phone number. Must be a valid Jordanian mobile number.",
                 "رقم الهاتف غير صحيح، يجب أن يكون رقم هاتف أردني صالح (مثل 0788834444 أو +96278883333).");
         }
-        // 3. فحص طول كلمة المرور
+
         if (dto.InitialPassword.Length < 8)
         {
             return ApiResponse<T>.FailureResponse("Password must be at least 8 characters long.", "كلمة المرور يجب أن تتكون من 8 أحرف على الأقل.");
