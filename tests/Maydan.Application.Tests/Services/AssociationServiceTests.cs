@@ -681,6 +681,8 @@ public class AssociationServiceTests
             return Task.FromResult(association is { IsDeleted: false } ? association : null);
         }
 
+        public async Task<List<Association>> GetByIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
         public Task<Association?> GetByIdIncludingDeletedAsync(int associationId, CancellationToken cancellationToken = default) =>
             Task.FromResult(_associationsById.GetValueOrDefault(associationId));
 

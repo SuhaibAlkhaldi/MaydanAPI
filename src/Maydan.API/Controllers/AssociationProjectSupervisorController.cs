@@ -41,6 +41,7 @@ public class AssociationProjectSupervisorController : ApiControllerBase
             var (safePage, safePageSize) = Paging.Normalize(page, pageSize);
 
             var response = await _supervisorService.GetAllAsync(currentUserId, projectId, associationId, safePage, safePageSize, cancellationToken);
+          
             return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)

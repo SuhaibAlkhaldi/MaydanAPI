@@ -14,10 +14,20 @@ public class AssociationRepository : IAssociationRepository
         _context = context;
     }
 
-    public Task<Association?> GetByIdAsync(int associationId, CancellationToken cancellationToken = default) =>
-        _context.Associations
-            .Include(a => a.City).ThenInclude(c => c.Country)
-            .FirstOrDefaultAsync(a => a.Id == associationId, cancellationToken);
+    // تطبيق دالة المفرد
+    public async Task<Association?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    {
+        return await _context.Associations
+            .FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
+    }
+
+    // تطبيق دالة الجمع
+    public async Task<List<Association>> GetByIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default)
+    {
+        return await _context.Associations
+            .Where(a => ids.Contains(a.Id))
+            .ToListAsync(cancellationToken);
+    }
 
     public Task<List<Association>> GetAllAsync(CancellationToken cancellationToken = default) =>
         _context.Associations
