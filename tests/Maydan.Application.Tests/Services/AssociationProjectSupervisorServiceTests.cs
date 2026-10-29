@@ -360,6 +360,12 @@ public class AssociationProjectSupervisorServiceTests
             return Task.FromResult((items, totalCount));
         }
 
+        public Task<List<AssociationProjectSupervisor>> GetByProjectIdAsync(int projectId, CancellationToken cancellationToken = default)
+        {
+            var items = _supervisors.Where(s => !s.IsDeleted && s.ProjectId == projectId).ToList();
+            return Task.FromResult(items);
+        }
+
         public Task<AssociationProjectSupervisor?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
         {
             var supervisor = _supervisors.FirstOrDefault(s => s.Id == id);

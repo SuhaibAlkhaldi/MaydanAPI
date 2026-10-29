@@ -1,4 +1,5 @@
 using Maydan.Application.Interfaces;
+using Maydan.Domain.Common;
 using Maydan.Domain.Entities;
 using Maydan.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -16,6 +17,7 @@ public class ServiceRequestRepository : IServiceRequestRepository
 
     public Task<ServiceRequest?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
      _context.Set<ServiceRequest>()
+        .Include(r => r.Status)
          .Include(r => r.Service)
          .Include(r => r.Project)
          .Include(r => r.Association)
@@ -39,11 +41,16 @@ public class ServiceRequestRepository : IServiceRequestRepository
         _context.Set<ServiceRequest>().Where(s => s.AssociationId == associationId).ToListAsync(cancellationToken);
 
     public Task<List<ServiceRequest>> GetAllAsync(CancellationToken cancellationToken = default) =>
-        _context.Set<ServiceRequest>().ToListAsync(cancellationToken);
+       _context.Set<ServiceRequest>()
+        .Include(sr => sr.Service)
+        .Include(sr => sr.Association)
+        .Include(sr => sr.ServiceRequestWorkers)
+            .ThenInclude(srw => srw.Worker)
+        .ToListAsync(cancellationToken);
 
     public Task<List<ServiceRequest>> GetPendingOlderThanAsync(DateTime threshold, CancellationToken cancellationToken = default) =>
         _context.Set<ServiceRequest>()
-            .Where(r => r.Status == Domain.Enums.ServiceRequestStatus.PendingWorkerSelection && !r.ReminderSent && r.CreatedAt <= threshold)
+            .Where(r => r.StatusId == LookupConstants.ServiceRequestStatus.PendingWorkerSelection && !r.ReminderSent && r.CreatedAt <= threshold)
             .Include(r => r.Association)
             .ToListAsync(cancellationToken);
 
@@ -54,7 +61,7 @@ public class ServiceRequestRepository : IServiceRequestRepository
     {
         var assignment = new ServiceRequestWorker
         {
-            
+
             ServiceRequestId = serviceRequestId,
             WorkerId = workerId
         };
@@ -62,5 +69,15 @@ public class ServiceRequestRepository : IServiceRequestRepository
         await _context.ServiceRequestWorkers.AddAsync(
             assignment,
             cancellationToken);
+    }
+    public async Task<List<ServiceRequest>> GetByProjectIdAsync(
+      int projectId,
+      CancellationToken cancellationToken = default)
+    {
+        return await _context.ServiceRequestWorkers
+            .Where(srw => srw.ServiceRequest.ProjectId == projectId)
+            .Select(srw => srw.ServiceRequest)
+            .Distinct()
+            .ToListAsync(cancellationToken);
     }
 }

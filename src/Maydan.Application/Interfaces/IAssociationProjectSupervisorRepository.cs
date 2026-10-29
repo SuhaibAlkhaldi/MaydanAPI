@@ -20,6 +20,8 @@ public interface IAssociationProjectSupervisorRepository
         CancellationToken cancellationToken = default);
     Task<AssociationProjectSupervisor?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
 
+    Task<List<AssociationProjectSupervisor>> GetByProjectIdAsync(int projectId, CancellationToken cancellationToken = default);
+
     Task AddAsync(AssociationProjectSupervisor supervisor, CancellationToken cancellationToken = default);
     void Remove(AssociationProjectSupervisor supervisor);
 }

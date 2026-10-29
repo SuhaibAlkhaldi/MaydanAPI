@@ -20,13 +20,15 @@ public class WorkersController : ApiControllerBase
 {
     private readonly IWorkerService _workerService;
     private readonly IFileStorageService _fileStorageService;
+    private readonly IWorkerProjectLinkRepository _linkRepo;
 
     private const string WorkerDocumentsSubfolder = "worker-documents";
 
-    public WorkersController(IWorkerService workerService, IFileStorageService fileStorageService)
+    public WorkersController(IWorkerService workerService, IFileStorageService fileStorageService, IWorkerProjectLinkRepository linkRepo)
     {
         _workerService = workerService;
         _fileStorageService = fileStorageService;
+        _linkRepo = linkRepo;
     }
 
     [HttpGet]
@@ -205,4 +207,6 @@ public class WorkersController : ApiControllerBase
 
         return StatusCode(response.StatusCode, response);
     }
+
+
 }

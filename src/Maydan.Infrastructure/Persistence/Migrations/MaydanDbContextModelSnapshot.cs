@@ -129,6 +129,51 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.ToTable("AssociationProjectSupervisors", (string)null);
                 });
 
+            modelBuilder.Entity("Maydan.Domain.Entities.AttendanceTimeWindow", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AttendanceDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("ClosesAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<DateTime>("OpensAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ServiceRequestId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SlotNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServiceRequestId", "AttendanceDate", "SlotNumber")
+                        .IsUnique();
+
+                    b.ToTable("AttendanceTimeWindows", (string)null);
+                });
+
             modelBuilder.Entity("Maydan.Domain.Entities.City", b =>
                 {
                     b.Property<int>("Id")
@@ -524,6 +569,33 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                             EnglishName = "Marital Status",
                             IsActive = true,
                             IsDeleted = false
+                        },
+                        new
+                        {
+                            Id = 3,
+                            ArabicName = "حالة طلب الخدمة",
+                            Code = "ServiceRequestStatus",
+                            EnglishName = "Service Request Status",
+                            IsActive = true,
+                            IsDeleted = false
+                        },
+                        new
+                        {
+                            Id = 4,
+                            ArabicName = "حالة اعتماد الحضور",
+                            Code = "AttendanceApprovalStatus",
+                            EnglishName = "Attendance Approval Status",
+                            IsActive = true,
+                            IsDeleted = false
+                        },
+                        new
+                        {
+                            Id = 5,
+                            ArabicName = "نوع تسجيل الحضور",
+                            Code = "AttendanceEntryType",
+                            EnglishName = "Attendance Entry Type",
+                            IsActive = true,
+                            IsDeleted = false
                         });
                 });
 
@@ -647,6 +719,116 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                             IsActive = true,
                             IsDeleted = false,
                             SortOrder = 4
+                        },
+                        new
+                        {
+                            Id = 7,
+                            ArabicName = "بانتظار ترشيح العمال",
+                            CategoryId = 3,
+                            Code = "PendingWorkerSelection",
+                            EnglishName = "Pending Worker Selection",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = 8,
+                            ArabicName = "قيد التنفيذ",
+                            CategoryId = 3,
+                            Code = "InProgress",
+                            EnglishName = "In Progress",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            Id = 9,
+                            ArabicName = "مكتمل",
+                            CategoryId = 3,
+                            Code = "Completed",
+                            EnglishName = "Completed",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 3
+                        },
+                        new
+                        {
+                            Id = 10,
+                            ArabicName = "ملغي",
+                            CategoryId = 3,
+                            Code = "Cancelled",
+                            EnglishName = "Cancelled",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 4
+                        },
+                        new
+                        {
+                            Id = 11,
+                            ArabicName = "مرفوض",
+                            CategoryId = 3,
+                            Code = "Rejected",
+                            EnglishName = "Rejected",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 5
+                        },
+                        new
+                        {
+                            Id = 12,
+                            ArabicName = "قيد المراجعة",
+                            CategoryId = 4,
+                            Code = "Pending",
+                            EnglishName = "Pending",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = 13,
+                            ArabicName = "معتمد",
+                            CategoryId = 4,
+                            Code = "Approved",
+                            EnglishName = "Approved",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            Id = 14,
+                            ArabicName = "مرفوض",
+                            CategoryId = 4,
+                            Code = "Rejected",
+                            EnglishName = "Rejected",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 3
+                        },
+                        new
+                        {
+                            Id = 15,
+                            ArabicName = "حاضر",
+                            CategoryId = 5,
+                            Code = "Present",
+                            EnglishName = "Present",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = 16,
+                            ArabicName = "غائب",
+                            CategoryId = 5,
+                            Code = "Absent",
+                            EnglishName = "Absent",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 2
                         });
                 });
 
@@ -1237,6 +1419,18 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                             Module = "Aseza,BaytAlUrdon",
                             PermissionNameAr = "تسجيل العمليات اين ومتى تمت",
                             PermissionNameEn = "View Audit Trail",
+                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            PermissionId = 43,
+                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Id = 0,
+                            IsActive = true,
+                            IsDeleted = false,
+                            Module = "Attendance",
+                            PermissionNameAr = "اعتماد الوقت الإضافي",
+                            PermissionNameEn = "Approve Overtime",
                             UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
                         });
                 });
@@ -2069,6 +2263,12 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
+                            RoleId = 1,
+                            PermissionId = 43,
+                            IsActive = true
+                        },
+                        new
+                        {
                             RoleId = 2,
                             PermissionId = 1,
                             IsActive = true
@@ -2447,8 +2647,10 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
+                    b.Property<int>("StatusId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(7);
 
                     b.Property<decimal>("UnitPriceSnapshot")
                         .HasPrecision(18, 2)
@@ -2466,6 +2668,8 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.HasIndex("ProjectId");
 
                     b.HasIndex("ServiceId");
+
+                    b.HasIndex("StatusId");
 
                     b.ToTable("ServiceRequests", (string)null);
                 });
@@ -2928,6 +3132,94 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.ToTable("Workers", (string)null);
                 });
 
+            modelBuilder.Entity("Maydan.Domain.Entities.WorkerAttendance", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ApprovalStatusId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(12);
+
+                    b.Property<DateTime?>("AssociationCheckInDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("AssociationCheckOutDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("AssociationUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("AttendanceForDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("CheckInNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CityId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<int>("EntryTypeId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(15);
+
+                    b.Property<DateTime?>("ProductionCompanyCheckInDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ProductionCompanyCheckOutDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ProductionCompanyUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("ReviewedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ReviewedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("WorkerProjectLinkId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovalStatusId");
+
+                    b.HasIndex("AttendanceForDate");
+
+                    b.HasIndex("CityId");
+
+                    b.HasIndex("EntryTypeId");
+
+                    b.HasIndex("WorkerProjectLinkId", "AttendanceForDate", "CheckInNumber")
+                        .IsUnique();
+
+                    b.ToTable("WorkerAttendances", (string)null);
+                });
+
             modelBuilder.Entity("Maydan.Domain.Entities.WorkerDocument", b =>
                 {
                     b.Property<int>("Id")
@@ -2967,6 +3259,133 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.HasIndex("WorkerId");
 
                     b.ToTable("WorkerDocuments", (string)null);
+                });
+
+            modelBuilder.Entity("Maydan.Domain.Entities.WorkerOvertime", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ApprovalStatusId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(12);
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<decimal>("Hours")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int>("HoursPerUnit")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("OvertimeForDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("RecordedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("RecordedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("ReviewedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ReviewedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("UnitWageSnapshot")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("WorkerProjectLinkId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovalStatusId");
+
+                    b.HasIndex("WorkerProjectLinkId", "OvertimeForDate")
+                        .IsUnique();
+
+                    b.ToTable("WorkerOvertimes", (string)null);
+                });
+
+            modelBuilder.Entity("Maydan.Domain.Entities.WorkerProjectLink", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<decimal>("DailyWageAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("IsWorkerActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<int>("ProjectId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ServiceRequestId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("WorkerId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServiceRequestId");
+
+                    b.HasIndex("WorkerId");
+
+                    b.HasIndex("ProjectId", "WorkerId", "ServiceRequestId")
+                        .IsUnique()
+                        .HasFilter("[IsWorkerActive] = 1");
+
+                    b.ToTable("WorkerProjectLinks", (string)null);
                 });
 
             modelBuilder.Entity("Maydan.Domain.Entities.WorkerServiceLink", b =>
@@ -3039,6 +3458,17 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Navigation("Project");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Maydan.Domain.Entities.AttendanceTimeWindow", b =>
+                {
+                    b.HasOne("Maydan.Domain.Entities.ServiceRequest", "ServiceRequest")
+                        .WithMany()
+                        .HasForeignKey("ServiceRequestId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ServiceRequest");
                 });
 
             modelBuilder.Entity("Maydan.Domain.Entities.City", b =>
@@ -3222,6 +3652,12 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Maydan.Domain.Entities.LookupItem", "Status")
+                        .WithMany()
+                        .HasForeignKey("StatusId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.Navigation("Association");
 
                     b.Navigation("ProductionCompany");
@@ -3229,6 +3665,8 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Navigation("Project");
 
                     b.Navigation("Service");
+
+                    b.Navigation("Status");
                 });
 
             modelBuilder.Entity("Maydan.Domain.Entities.ServiceRequestWorker", b =>
@@ -3324,6 +3762,41 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Navigation("MaritalStatus");
                 });
 
+            modelBuilder.Entity("Maydan.Domain.Entities.WorkerAttendance", b =>
+                {
+                    b.HasOne("Maydan.Domain.Entities.LookupItem", "ApprovalStatus")
+                        .WithMany()
+                        .HasForeignKey("ApprovalStatusId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Maydan.Domain.Entities.City", "City")
+                        .WithMany()
+                        .HasForeignKey("CityId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Maydan.Domain.Entities.LookupItem", "EntryType")
+                        .WithMany()
+                        .HasForeignKey("EntryTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Maydan.Domain.Entities.WorkerProjectLink", "WorkerProjectLink")
+                        .WithMany()
+                        .HasForeignKey("WorkerProjectLinkId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ApprovalStatus");
+
+                    b.Navigation("City");
+
+                    b.Navigation("EntryType");
+
+                    b.Navigation("WorkerProjectLink");
+                });
+
             modelBuilder.Entity("Maydan.Domain.Entities.WorkerDocument", b =>
                 {
                     b.HasOne("Maydan.Domain.Entities.Worker", "Worker")
@@ -3331,6 +3804,52 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         .HasForeignKey("WorkerId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Worker");
+                });
+
+            modelBuilder.Entity("Maydan.Domain.Entities.WorkerOvertime", b =>
+                {
+                    b.HasOne("Maydan.Domain.Entities.LookupItem", "ApprovalStatus")
+                        .WithMany()
+                        .HasForeignKey("ApprovalStatusId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Maydan.Domain.Entities.WorkerProjectLink", "WorkerProjectLink")
+                        .WithMany()
+                        .HasForeignKey("WorkerProjectLinkId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ApprovalStatus");
+
+                    b.Navigation("WorkerProjectLink");
+                });
+
+            modelBuilder.Entity("Maydan.Domain.Entities.WorkerProjectLink", b =>
+                {
+                    b.HasOne("Maydan.Domain.Entities.Project", "Project")
+                        .WithMany("WorkerProjectLinks")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Maydan.Domain.Entities.ServiceRequest", "ServiceRequest")
+                        .WithMany()
+                        .HasForeignKey("ServiceRequestId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Maydan.Domain.Entities.Worker", "Worker")
+                        .WithMany("WorkerProjectLinks")
+                        .HasForeignKey("WorkerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+
+                    b.Navigation("ServiceRequest");
 
                     b.Navigation("Worker");
                 });
@@ -3395,6 +3914,11 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Navigation("Projects");
                 });
 
+            modelBuilder.Entity("Maydan.Domain.Entities.Project", b =>
+                {
+                    b.Navigation("WorkerProjectLinks");
+                });
+
             modelBuilder.Entity("Maydan.Domain.Entities.ProjectType", b =>
                 {
                     b.Navigation("Projects");
@@ -3429,6 +3953,8 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Navigation("Documents");
 
                     b.Navigation("ServiceRequestWorkers");
+
+                    b.Navigation("WorkerProjectLinks");
 
                     b.Navigation("WorkerServices");
                 });

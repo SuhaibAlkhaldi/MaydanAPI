@@ -48,5 +48,6 @@ namespace Maydan.Infrastructure.Persistence.Seed
         public const int ManageProductionCompanyUsers = 40;
         public const int ViewTotalAmountForServiceRequest = 41;
         public const int ViewAuditTrail = 42;
+        public const int ApproveOvertime = 43;
     }
 }

@@ -1,21 +1,20 @@
-using System.Text;
 using FluentValidation;
 using Maydan.API.Filters;
 using Maydan.API.Security;
 using Maydan.Application.Interfaces;
 using Maydan.Application.Services;
+using Maydan.Domain.Entities;
 using Maydan.Infrastructure.Email;
 using Maydan.Infrastructure.Persistence;
 using Maydan.Infrastructure.Repositories;
 using Maydan.Infrastructure.Security;
 using Maydan.Infrastructure.Storage;
-
 using Maydan.Infrastructure.Web;
-
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -62,7 +61,8 @@ builder.Services.AddScoped<IProductionCompanyOnboardingService, ProductionCompan
 builder.Services.AddScoped<IWorkerService, WorkerService>();
 builder.Services.AddScoped<IEntityOnboardingService, EntityOnboardingService>();
 builder.Services.AddScoped<IFrontendLinkBuilder, FrontendLinkBuilder>();
-
+builder.Services.AddScoped<IWorkerProjectLinkRepository, WorkerProjectLinkRepository>();
+builder.Services.AddScoped<IProjectDetailsService, ProjectDetailsService>();
 builder.Services.AddScoped<IEmailSender, LoggingEmailSender>();
 
 
@@ -73,6 +73,9 @@ builder.Services.AddScoped<ISystemConfigurationGateService, SystemConfigurationG
 builder.Services.AddScoped<IServiceConfigurationService, ServiceConfigurationService>();
 builder.Services.AddScoped<ILookupService, LookupService>();
 builder.Services.AddScoped<IServiceRequestService, ServiceRequestService>();
+builder.Services.AddScoped<IWorkerAttendanceRepository, WorkerAttendanceRepository>();
+builder.Services.AddScoped<IWorkerAttendanceService, WorkerAttendanceService>();
+
 builder.Services.AddHostedService<Maydan.API.HostedServices.ServiceRequestReminderHostedService>();
 
 var uploadsRootPath = Path.Combine(

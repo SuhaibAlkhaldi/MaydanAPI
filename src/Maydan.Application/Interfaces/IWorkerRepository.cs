@@ -27,6 +27,6 @@ public interface IWorkerRepository
     DateTime endDate,
     CancellationToken cancellationToken = default);
     //for assignment workers
-   
+    Task<bool> IsWorkerBusyAsync(int workerId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default);
 }
 

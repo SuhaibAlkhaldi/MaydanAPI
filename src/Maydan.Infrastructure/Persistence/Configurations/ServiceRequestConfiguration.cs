@@ -1,4 +1,5 @@
-﻿using Maydan.Domain.Entities;
+using Maydan.Domain.Entities;
+using Maydan.Infrastructure.Persistence.Seed;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -11,17 +12,18 @@ public class ServiceRequestConfiguration : IEntityTypeConfiguration<ServiceReque
         builder.ToTable("ServiceRequests");
         builder.HasKey(r => r.Id);
 
-
         builder.Property(r => r.UnitPriceSnapshot).HasPrecision(18, 2);
         builder.Property(r => r.ExpectedTotalAmount).HasPrecision(18, 2);
-
         builder.Property(r => r.AdditionalRequirements).HasMaxLength(1000);
-        //builder.Property(r => r.IdempotencyKey).HasMaxLength(100);
 
-        // Unique index on IdempotencyKey + ProductionCompanyId to enforce idempotency at the database level
-        //builder.HasIndex(r => new { r.IdempotencyKey, r.ProductionCompanyId })
-        //    .IsUnique()
-        //    .HasFilter("[IdempotencyKey] IS NOT NULL");
+        builder.Property(r => r.StatusId)
+            .IsRequired()
+            .HasDefaultValue(LookupSeed.ServiceRequestStatusPendingWorkerSelectionItemId);
+
+        builder.HasOne(r => r.Status)
+            .WithMany()
+            .HasForeignKey(r => r.StatusId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(r => r.Project)
             .WithMany()

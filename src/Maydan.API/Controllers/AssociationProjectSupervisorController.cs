@@ -49,6 +49,38 @@ public class AssociationProjectSupervisorController : ApiControllerBase
         }
     }
 
+    [HttpGet("project/{projectId:int}")]
+    public async Task<ActionResult> GetByProjectId(int projectId, CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId)) return UnauthorizedResponse();
+
+        try
+        {
+            var response = await _supervisorService.GetByProjectIdAsync(projectId, currentUserId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
+        }
+        catch (Exception exception)
+        {
+            return HandleException(exception);
+        }
+    }
+
+    [HttpGet("{id:int}")]
+    public async Task<ActionResult> GetById(int id, CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId)) return UnauthorizedResponse();
+
+        try
+        {
+            var response = await _supervisorService.GetByIdAsync(id, currentUserId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
+        }
+        catch (Exception exception)
+        {
+            return HandleException(exception);
+        }
+    }
+
     [HttpPost]
     public async Task<ActionResult> Create(
         [FromBody] CreateAssociationProjectSupervisorDto dto, CancellationToken cancellationToken)
