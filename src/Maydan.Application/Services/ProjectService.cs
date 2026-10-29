@@ -73,6 +73,21 @@ public class ProjectService : IProjectService
             return lmError;
         }
 
+        var hasLocationManagerOverlap =
+            await _unitOfWork.Projects.HasLocationManagerOverlapAsync(
+                locationManager!.UserId,
+                request.StartDate,
+                request.EndDate,
+                excludedProjectId: null,
+                cancellationToken: cancellationToken);
+
+        if (hasLocationManagerOverlap)
+        {
+            return ApiResponse<ProjectDto>.FailureResponse(
+                "مدير الموقع مسند إلى مشروع آخر خلال هذه الفترة.",
+                "Location Manager is already assigned to another Project during these dates.");
+        }
+
         var project = new Project
         {
             ProjectNameEn = request.ProjectNameEn.Trim(),
@@ -240,6 +255,21 @@ public class ProjectService : IProjectService
         if (lmError is not null)
         {
             return lmError;
+        }
+
+        var hasLocationManagerOverlap =
+            await _unitOfWork.Projects.HasLocationManagerOverlapAsync(
+                locationManager!.UserId,
+                request.StartDate,
+                request.EndDate,
+                excludedProjectId: project.Id,
+                cancellationToken: cancellationToken);
+
+        if (hasLocationManagerOverlap)
+        {
+            return ApiResponse<ProjectDto>.FailureResponse(
+                "مدير الموقع مسند إلى مشروع آخر خلال هذه الفترة.",
+                "Location Manager is already assigned to another Project during these dates.");
         }
 
         project.ProjectNameEn = request.ProjectNameEn.Trim();

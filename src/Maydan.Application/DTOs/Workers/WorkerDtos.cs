@@ -78,6 +78,8 @@ public class UpdateWorkerDto
     public int? GenderId { get; set; }
     public int? MaritalStatusId { get; set; }
     public string? Nationality { get; set; }
+    public int? CountryId { get; set; }
+    public int? CityId { get; set; }
 
     public string? PhoneNumber { get; set; }
     public List<int>? ServiceIds { get; set; }

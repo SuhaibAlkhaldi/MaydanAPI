@@ -653,76 +653,170 @@ public class ServiceRequestService : IServiceRequestService
     }
     
 
-    public async Task<ApiResponse<object?>> ApproveAndAssignAsync(int currentUserId, int id, List<int> workerIds, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<object?>> ApproveAndAssignAsync(
+    int currentUserId,
+    int id,
+    List<int> workerIds,
+    CancellationToken cancellationToken = default)
     {
-        var (currentUser, authError) = await GetCurrentUserAsync<object?>(currentUserId, cancellationToken);
-        if (authError is not null) return authError;
+        var (currentUser, authError) =
+            await GetCurrentUserAsync<object?>(
+                currentUserId,
+                cancellationToken);
 
-        var CurrentRequestToApprove = await _unitOfWork.ServiceRequests.GetByIdAsync(id, cancellationToken);
-        
+        if (authError is not null)
+        {
+            return authError;
+        }
 
-        if (CurrentRequestToApprove is null)
+        var serviceRequest =
+            await _unitOfWork.ServiceRequests.GetByIdAsync(
+                id,
+                cancellationToken);
+
+        if (serviceRequest is null)
         {
             return ApiResponse<object?>.FailureResponse(
                 "Service request was not found.",
                 "طلب الخدمة غير موجود.");
         }
-        if (currentUser!.EntityType != EntityType.Association || currentUser.EntityId != CurrentRequestToApprove.AssociationId)
-                {
-                    return ApiResponse<object?>.FailureResponse("ليس لديك الصلاحية للموافقة على طلب الخدمة هذا.", "Only the assigned association may approve this request.");
-               }
-       
-        // Make sure the request is in the correct status
-        if (CurrentRequestToApprove.Status != ServiceRequestStatus.PendingWorkerSelection)
+
+        if (currentUser!.EntityType != EntityType.Association ||
+            currentUser.EntityId != serviceRequest.AssociationId)
+        {
+            return ApiResponse<object?>.FailureResponse(
+                "Only the assigned association may approve this request.",
+                "ليس لديك الصلاحية للموافقة على طلب الخدمة هذا.");
+        }
+
+        if (serviceRequest.Status != ServiceRequestStatus.PendingWorkerSelection)
         {
             return ApiResponse<object?>.FailureResponse(
                 "Cannot approve and assign workers for the request in its current status.",
                 "لا يمكن الموافقة وتعيين العمال في حالة الطلب الحالية.");
         }
-        if (workerIds is null || workerIds.Count != CurrentRequestToApprove.RequestedWorkersCount)
+
+        if (workerIds is null ||
+            workerIds.Count != serviceRequest.RequestedWorkersCount)
         {
-            return ApiResponse<object?>.FailureResponse("عدد العمال المحدد لا يتطابق مع العدد المطلوب.", "Worker count mismatch.");
+            return ApiResponse<object?>.FailureResponse(
+                "Worker count mismatch.",
+                "عدد العمال المحدد لا يتطابق مع العدد المطلوب.");
         }
 
-        // Reject duplicate worker IDs
-        if (workerIds is null ||
-            workerIds.Count != workerIds.Distinct().Count())
+        if (workerIds.Count != workerIds.Distinct().Count())
         {
             return ApiResponse<object?>.FailureResponse(
                 "Worker IDs must be unique.",
                 "يجب عدم تكرار العمال.");
         }
 
+        // Validate the complete selection before adding any assignments
+        // to the DbContext change tracker.
         foreach (var workerId in workerIds)
         {
             var worker = await _unitOfWork.Workers
-                .GetByIdAsync(workerId, cancellationToken);
+                .GetByIdWithServicesAsync(workerId, cancellationToken);
 
             if (worker is null)
             {
                 return ApiResponse<object?>.FailureResponse(
-                    $"Worker with ID {workerId} was not found.",
-                    $"العامل ذو الرقم {workerId} غير موجود.");
+                    $"Worker with ID {workerId} was not found or is deleted.",
+                    $"العامل ذو الرقم {workerId} غير موجود أو محذوف.");
             }
 
-            if (worker.AssociationId != CurrentRequestToApprove.AssociationId)
+            if (!worker.IsActive)
+            {
+                return ApiResponse<object?>.FailureResponse(
+                    $"Worker with ID {workerId} is inactive.",
+                    $"العامل ذو الرقم {workerId} غير نشط.");
+            }
+
+            if (worker.AssociationId != serviceRequest.AssociationId)
             {
                 return ApiResponse<object?>.FailureResponse(
                     $"Worker {workerId} does not belong to the request association.",
                     $"العامل ذو الرقم {workerId} لا يتبع الجمعية المرتبطة بالطلب.");
             }
 
-            await _unitOfWork.ServiceRequests
-            .AssignToServiceRequestAsync(id,workerId,cancellationToken);
+            if (!worker.WorkerServices.Any(
+                    workerService => workerService.ServiceId == serviceRequest.ServiceId))
+            {
+                return ApiResponse<object?>.FailureResponse(
+                    $"Worker {workerId} is not qualified for the requested service.",
+                    $"العامل ذو الرقم {workerId} غير مؤهل للخدمة المطلوبة.");
+            }
+
+            var hasDifferentServiceInProject =
+                await _unitOfWork.ServiceRequests
+                    .HasDifferentServiceAssignmentInProjectAsync(
+                        workerId,
+                        serviceRequest.Id,
+                        serviceRequest.ProjectId,
+                        serviceRequest.ServiceId,
+                        cancellationToken);
+
+            if (hasDifferentServiceInProject)
+            {
+                return ApiResponse<object?>.FailureResponse(
+                    $"Worker {workerId} is already assigned to a different service in this project.",
+                    $"العامل ذو الرقم {workerId} مسند إلى خدمة مختلفة في هذا المشروع.");
+            }
+
+            var hasOverlappingRequestInProject =
+                await _unitOfWork.ServiceRequests
+                    .HasOverlappingServiceRequestAssignmentInProjectAsync(
+                        workerId,
+                        serviceRequest.Id,
+                        serviceRequest.ProjectId,
+                        serviceRequest.StartDate,
+                        serviceRequest.EndDate,
+                        cancellationToken);
+
+            if (hasOverlappingRequestInProject)
+            {
+                return ApiResponse<object?>.FailureResponse(
+                    $"Worker {workerId} already has an overlapping service request in this project.",
+                    $"للعامل ذو الرقم {workerId} طلب خدمة متداخل في هذا المشروع.");
+            }
+
+            var hasOverlappingProject =
+                await _unitOfWork.ServiceRequests
+                    .HasOverlappingProjectAssignmentAsync(
+                        workerId,
+                        serviceRequest.Id,
+                        serviceRequest.ProjectId,
+                        serviceRequest.Project.StartDate,
+                        serviceRequest.Project.EndDate,
+                        cancellationToken);
+
+            if (hasOverlappingProject)
+            {
+                return ApiResponse<object?>.FailureResponse(
+                    $"Worker {workerId} is already assigned to an overlapping project.",
+                    $"العامل ذو الرقم {workerId} مسند إلى مشروع آخر تتداخل فترته.");
+            }
         }
 
+        // All workers passed validation. Stage the assignments only now.
+        foreach (var workerId in workerIds)
+        {
+            await _unitOfWork.ServiceRequests
+                .AssignToServiceRequestAsync(
+                    id,
+                    workerId,
+                    cancellationToken);
+        }
 
-        CurrentRequestToApprove.SelectedWorkersCount = workerIds.Count;
-        CurrentRequestToApprove.Status = ServiceRequestStatus.InProgress;
+        serviceRequest.SelectedWorkersCount = workerIds.Count;
+        serviceRequest.Status = ServiceRequestStatus.InProgress;
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return ApiResponse<object?>.SuccessResponse(null, "تمت الموافقة وتعيين العمال بنجاح.", "Workers assigned successfully.");
+        return ApiResponse<object?>.SuccessResponse(
+            null,
+            "Workers assigned successfully.",
+            "تمت الموافقة وتعيين العمال بنجاح.");
     }
 
 }

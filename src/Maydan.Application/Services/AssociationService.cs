@@ -2,6 +2,7 @@ using System.Globalization;
 using Maydan.Application.DTOs.Associations;
 using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.UserManagement;
+using Maydan.Application.DTOs.Workers;
 using Maydan.Application.Interfaces;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
@@ -19,6 +20,12 @@ public class AssociationService : IAssociationService
     private const int ManageAssociationsPermissionId = 13;
     private const int ViewAssociationUsersPermissionId = 14;
 
+    private static readonly int[] ReadScope = { ViewAssociationsPermissionId, ManageAssociationsPermissionId };
+    private static readonly int[] CreateScope = { CreateAssociationsPermissionId, ManageAssociationsPermissionId };
+    private static readonly int[] EditScope = { EditAssociationsPermissionId, ManageAssociationsPermissionId };
+    private static readonly int[] DeleteScope = { DeleteAssociationsPermissionId, ManageAssociationsPermissionId };
+    private static readonly int[] ViewUsersScope = { ViewAssociationUsersPermissionId, ManageAssociationsPermissionId };
+
     private readonly IUnitOfWork _unitOfWork;
     private readonly IPasswordHasher _passwordHasher;
 
@@ -28,112 +35,212 @@ public class AssociationService : IAssociationService
         _passwordHasher = passwordHasher;
     }
 
-    public async Task<ApiResponse<List<AssociationDto>>> GetAllAsync(int currentUserId, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<List<AssociationDto>>> GetAllAsync(
+        int currentUserId,
+        CancellationToken cancellationToken = default)
     {
-        var (currentUser, authError) = await GetAuthorizedUserAsync<List<AssociationDto>>(currentUserId, ViewAssociationsPermissionId, cancellationToken);
-        if (authError is not null) return authError;
+        var (_, authError) = await AuthorizeAsync<List<AssociationDto>>(currentUserId, ReadScope, cancellationToken);
+        if (authError is not null)
+        {
+            return authError;
+        }
 
         var results = await _unitOfWork.Associations.QueryAsync(isDeleted: false, cancellationToken: cancellationToken);
-        var dtos = results.Select(r => MapToDto(r.Association, r.WorkersCount)).ToList();
+        var data = results.Select(r => MapToDto(r.Association, r.WorkersCount)).ToList();
 
-        return ApiResponse<List<AssociationDto>>.SuccessResponse(dtos, "Associations retrieved successfully.", "تم جلب الجمعيات بنجاح.");
+        return ApiResponse<List<AssociationDto>>.SuccessResponse(data, messageEn: "Associations retrieved successfully", messageAr: "تم جلب الجمعيات بنجاح");
     }
 
-    public async Task<ApiResponse<AssociationDto>> GetByIdAsync(int currentUserId, int associationId, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<AssociationDto>> GetByIdAsync(
+        int currentUserId,
+        int associationId,
+        CancellationToken cancellationToken = default)
     {
-        var (currentUser, authError) = await GetAuthorizedUserAsync<AssociationDto>(currentUserId, ViewAssociationsPermissionId, cancellationToken);
-        if (authError is not null) return authError;
+        var (currentUser, authError) = await AuthorizeAsync<AssociationDto>(currentUserId, ReadScope, cancellationToken);
+        if (authError is not null)
+        {
+            return authError;
+        }
 
         var tenantError = EnsureSameAssociation<AssociationDto>(associationId, currentUser!);
-        if (tenantError != null) return tenantError;
+        if (tenantError is not null)
+        {
+            return tenantError;
+        }
 
         var result = await _unitOfWork.Associations.GetByIdWithWorkersCountAsync(associationId, cancellationToken);
-        if (result == null)
-            return new ApiResponse<AssociationDto>(false, "الجمعية غير موجودة.", "Association was not found.", default, 404);
+        if (result is null || !result.HasValue)
+        {
+            return new ApiResponse<AssociationDto>(false, "لم يتم العثور على الجمعية.", "Association not found.", default, 404);
+        }
 
-        return ApiResponse<AssociationDto>.SuccessResponse(MapToDto(result.Value.Association, result.Value.WorkersCount), "Association retrieved successfully.", "تم جلب بيانات الجمعية بنجاح.");
+        var data = MapToDto(result.Value.Association, result.Value.WorkersCount);
+
+        return ApiResponse<AssociationDto>.SuccessResponse(data, messageEn: "Association retrieved successfully", messageAr: "تم جلب بيانات الجمعية بنجاح");
     }
 
-    public async Task<ApiResponse<AssociationDetailsDto>> GetDetailsAsync(int currentUserId, int associationId, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<AssociationDetailsDto>> GetDetailsAsync(
+         int currentUserId,
+         int associationId,
+         CancellationToken cancellationToken = default)
     {
-        var (currentUser, authError) = await GetAuthorizedUserAsync<AssociationDetailsDto>(currentUserId, ViewAssociationUsersPermissionId, cancellationToken);
-        if (authError is not null) return authError;
+        var (currentUser, authError) = await AuthorizeAsync<AssociationDetailsDto>(currentUserId, ViewUsersScope, cancellationToken);
+        if (authError is not null)
+        {
+            return authError;
+        }
 
         var tenantError = EnsureSameAssociation<AssociationDetailsDto>(associationId, currentUser!);
-        if (tenantError != null) return tenantError;
+        if (tenantError is not null)
+        {
+            return tenantError;
+        }
 
         var result = await _unitOfWork.Associations.GetByIdWithWorkersCountAsync(associationId, cancellationToken);
-        if (result == null)
-            return new ApiResponse<AssociationDetailsDto>(false, "الجمعية غير موجودة.", "Association was not found.", default, 404);
+        if (result is null || !result.HasValue)
+        {
+            return new ApiResponse<AssociationDetailsDto>(false, "لم يتم العثور على الجمعية.", "Association not found.", default, 404);
+        }
 
+        var (association, workersCount) = result.Value;
         var users = await _unitOfWork.Users.GetByEntityAsync(EntityType.Association, associationId, search: null, cancellationToken);
+        // Worker repository returns Worker entities, not WorkerSummaryDto objects.
+        var workerEntities = await _unitOfWork.Workers.GetByAssociationIdAsync(associationId, cancellationToken);
 
-        return ApiResponse<AssociationDetailsDto>.SuccessResponse(MapToDetailsDto(result.Value.Association, result.Value.WorkersCount, users), "Details retrieved successfully.", "تم جلب التفاصيل بنجاح.");
+        var workersList = workerEntities
+            .Select(w => new WorkerSummaryDto(
+                w.Id,
+                w.FirstName,
+                w.LastName,
+                w.CivilId,
+                w.WorkerServices
+               .Select(ws => $"{ws.Service.NameEn} - {ws.Service.NameAr}")
+               .ToList(),
+                w.YearsOfExperience,
+                w.PhoneNumber
+            ))
+            .ToList();
+
+
+        var data = MapToDetailsDto(association, workersCount, users, workersList);
+
+        return ApiResponse<AssociationDetailsDto>.SuccessResponse(data, messageEn: "Association details retrieved successfully", messageAr: "تم جلب تفاصيل الجمعية بنجاح");
     }
 
-    public async Task<ApiResponse<List<AssociationDto>>> SearchByNameAsync(int currentUserId, string name, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<List<AssociationDto>>> SearchByNameAsync(
+        int currentUserId,
+        string name,
+        CancellationToken cancellationToken = default)
     {
-        var (currentUser, authError) = await GetAuthorizedUserAsync<List<AssociationDto>>(currentUserId, ViewAssociationsPermissionId, cancellationToken);
-        if (authError is not null) return authError;
+        var (_, authError) = await AuthorizeAsync<List<AssociationDto>>(currentUserId, ReadScope, cancellationToken);
+        if (authError is not null)
+        {
+            return authError;
+        }
 
         var results = await _unitOfWork.Associations.QueryAsync(isDeleted: false, searchTerm: name, cancellationToken: cancellationToken);
-        var dtos = results.Select(r => MapToDto(r.Association, r.WorkersCount)).ToList();
+        var data = results.Select(r => MapToDto(r.Association, r.WorkersCount)).ToList();
 
-        return ApiResponse<List<AssociationDto>>.SuccessResponse(dtos, "Search completed successfully.", "تم البحث بنجاح.");
+        return ApiResponse<List<AssociationDto>>.SuccessResponse(data, messageEn: "Associations searched successfully", messageAr: "تم البحث عن الجمعيات بنجاح");
     }
 
-    public async Task<ApiResponse<List<AssociationDto>>> GetOrderedByWorkersCountAsync(int currentUserId, bool ascending, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<List<AssociationDto>>> GetOrderedByWorkersCountAsync(
+        int currentUserId,
+        bool ascending,
+        CancellationToken cancellationToken = default)
     {
-        var (currentUser, authError) = await GetAuthorizedUserAsync<List<AssociationDto>>(currentUserId, ViewAssociationsPermissionId, cancellationToken);
-        if (authError is not null) return authError;
+        var (_, authError) = await AuthorizeAsync<List<AssociationDto>>(currentUserId, ReadScope, cancellationToken);
+        if (authError is not null)
+        {
+            return authError;
+        }
 
         var results = await _unitOfWork.Associations.QueryAsync(isDeleted: false, orderByWorkersCountAscending: ascending, cancellationToken: cancellationToken);
-        var dtos = results.Select(r => MapToDto(r.Association, r.WorkersCount)).ToList();
+        var data = results.Select(r => MapToDto(r.Association, r.WorkersCount)).ToList();
 
-        return ApiResponse<List<AssociationDto>>.SuccessResponse(dtos, "Ordered successfully.", "تم الفرز بنجاح.");
+        return ApiResponse<List<AssociationDto>>.SuccessResponse(data, messageEn: "Ordered associations retrieved successfully", messageAr: "تم جلب الجمعيات المرتبة بنجاح");
     }
 
-    public async Task<ApiResponse<List<AssociationDto>>> GetDeletedAsync(int currentUserId, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<List<AssociationDto>>> GetDeletedAsync(
+        int currentUserId,
+        CancellationToken cancellationToken = default)
     {
-        var (currentUser, authError) = await GetAuthorizedUserAsync<List<AssociationDto>>(currentUserId, ViewAssociationsPermissionId, cancellationToken);
-        if (authError is not null) return authError;
+        var (_, authError) = await AuthorizeAsync<List<AssociationDto>>(currentUserId, ReadScope, cancellationToken);
+        if (authError is not null)
+        {
+            return authError;
+        }
 
         var results = await _unitOfWork.Associations.QueryAsync(isDeleted: true, cancellationToken: cancellationToken);
-        var dtos = results.Select(r => MapToDto(r.Association, r.WorkersCount)).ToList();
+        var data = results.Select(r => MapToDto(r.Association, r.WorkersCount)).ToList();
 
-        return ApiResponse<List<AssociationDto>>.SuccessResponse(dtos, "Deleted associations retrieved successfully.", "تم جلب الجمعيات المحذوفة بنجاح.");
+        return ApiResponse<List<AssociationDto>>.SuccessResponse(data, messageEn: "Deleted associations retrieved successfully", messageAr: "تم جلب الجمعيات المحذوفة بنجاح");
     }
 
-    public async Task<ApiResponse<List<AssociationDto>>> SearchDeletedByNameAsync(int currentUserId, string name, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<List<AssociationDto>>> SearchDeletedByNameAsync(
+        int currentUserId,
+        string name,
+        CancellationToken cancellationToken = default)
     {
-        var (currentUser, authError) = await GetAuthorizedUserAsync<List<AssociationDto>>(currentUserId, ViewAssociationsPermissionId, cancellationToken);
-        if (authError is not null) return authError;
+        var (_, authError) = await AuthorizeAsync<List<AssociationDto>>(currentUserId, ReadScope, cancellationToken);
+        if (authError is not null)
+        {
+            return authError;
+        }
 
         var results = await _unitOfWork.Associations.QueryAsync(isDeleted: true, searchTerm: name, cancellationToken: cancellationToken);
-        var dtos = results.Select(r => MapToDto(r.Association, r.WorkersCount)).ToList();
+        var data = results.Select(r => MapToDto(r.Association, r.WorkersCount)).ToList();
 
-        return ApiResponse<List<AssociationDto>>.SuccessResponse(dtos, "Deleted search completed successfully.", "تم البحث بالجمعيات المحذوفة بنجاح.");
+        return ApiResponse<List<AssociationDto>>.SuccessResponse(data, messageEn: "Deleted associations searched successfully", messageAr: "تم البحث في الجمعيات المحذوفة بنجاح");
     }
 
-    public async Task<ApiResponse<AssociationDto>> CreateAsync(int currentUserId, CreateAssociationDto dto, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<AssociationDto>> CreateAsync(
+        int currentUserId,
+        CreateAssociationDto dto,
+        CancellationToken cancellationToken = default)
     {
-        var (currentUser, authError) = await GetAuthorizedUserAsync<AssociationDto>(currentUserId, CreateAssociationsPermissionId, cancellationToken);
-        if (authError is not null) return authError;
+        var (currentUser, authError) = await AuthorizeAsync<AssociationDto>(currentUserId, CreateScope, cancellationToken);
+        if (authError is not null)
+        {
+            return authError;
+        }
 
-        var nameEnError = ValidateName<AssociationDto>(dto.EnglishName, "الاسم الإنجليزي", "English association name");
-        if (nameEnError != null) return nameEnError;
+        var nameEnError = ValidateName<AssociationDto>(dto.EnglishName, "English association name", "اسم الجمعية باللغة الإنجليزية");
+        if (nameEnError is not null) return nameEnError;
 
-        var nameArError = ValidateName<AssociationDto>(dto.ArabicName, "الاسم العربي", "Arabic association name");
-        if (nameArError != null) return nameArError;
+        var nameArError = ValidateName<AssociationDto>(dto.ArabicName, "Arabic association name", "اسم الجمعية باللغة العربية");
+        if (nameArError is not null) return nameArError;
 
         if (await _unitOfWork.Cities.GetByIdAsync(dto.CityId, cancellationToken) is null)
-            return new ApiResponse<AssociationDto>(false, "المدينة غير موجودة.", "City was not found.", default, 404);
+        {
+            return new ApiResponse<AssociationDto>(false, "المدينة غير موجودة.", "City not found.", default, 404);
+        }
 
-        var (lat, latError) = ParseCoordinate<AssociationDto>(dto.Latitude, "خط العرض (Latitude)", "Latitude");
-        if (latError != null) return latError;
+        var existingAssociations = await _unitOfWork.Associations.QueryAsync(isDeleted: false, cancellationToken: cancellationToken);
 
-        var (lon, lonError) = ParseCoordinate<AssociationDto>(dto.Longitude, "خط الطول (Longitude)", "Longitude");
-        if (lonError != null) return lonError;
+        var isDuplicateName = existingAssociations.Any(r =>
+            r.Association.ArabicName.Trim().Equals(dto.ArabicName.Trim(), StringComparison.OrdinalIgnoreCase) &&
+            r.Association.EnglishName.Trim().Equals(dto.EnglishName.Trim(), StringComparison.OrdinalIgnoreCase));
+
+        if (isDuplicateName)
+        {
+            return ApiResponse<AssociationDto>.FailureResponse(messageEn: "An association with the same Arabic and English name already exists", messageAr: "توجد جمعية مسجلة بنفس الاسم العربي والإنجليزي معاً");
+        }
+
+        var (parsedLat, latError) = ParseCoordinate<AssociationDto>(dto.Latitude, "Latitude", "خط العرض");
+        if (latError is not null) return latError;
+
+        var (parsedLng, lngError) = ParseCoordinate<AssociationDto>(dto.Longitude, "Longitude", "خط الطول");
+        if (lngError is not null) return lngError;
+
+        var isDuplicateLocation = existingAssociations.Any(r =>
+            r.Association.Latitude == parsedLat &&
+            r.Association.Longitude == parsedLng);
+
+        if (isDuplicateLocation)
+        {
+            return ApiResponse<AssociationDto>.FailureResponse(messageEn: "Another association is already registered with the same geographic coordinates", messageAr: "توجد جمعية مسجلة بنفس الإحداثيات الجغرافية");
+        }
 
         var adminPayload = dto.Admin;
         Role? adminRole = null;
@@ -145,15 +252,24 @@ public class AssociationService : IAssociationService
             }
             catch (Exception ex)
             {
-                return ApiResponse<AssociationDto>.FailureResponse(ex.Message, ex.Message);
+                return ApiResponse<AssociationDto>.FailureResponse(messageEn: ex.Message, messageAr: "بيانات مسؤول الجمعية غير صالحة.");
             }
 
             if (await _unitOfWork.Users.EmailExistsAsync(adminPayload.Email.Trim(), cancellationToken))
-                return ApiResponse<AssociationDto>.FailureResponse("A user with this email already exists.", "يوجد مستخدم مسجل بهذا البريد الإلكتروني مسبقاً.");
+            {
+                return ApiResponse<AssociationDto>.FailureResponse(messageEn: "A user with this email already exists", messageAr: "البريد الإلكتروني للمسؤول مستخدم بالفعل");
+            }
+
+            if (await _unitOfWork.Users.PhoneExistsAsync(adminPayload.PhoneNumber.Trim(), cancellationToken))
+            {
+                return ApiResponse<AssociationDto>.FailureResponse(messageEn: "A user with this phone number already exists", messageAr: "رقم الهاتف للمسؤول مستخدم بالفعل");
+            }
 
             adminRole = await _unitOfWork.Roles.GetWithPermissionsAsync(AssociationAdminUserFactory.AssociationRoleId, cancellationToken);
-            if (adminRole == null)
-                return new ApiResponse<AssociationDto>(false, "دور الجمعية غير موجود.", "Association role was not found.", default, 404);
+            if (adminRole is null)
+            {
+                return ApiResponse<AssociationDto>.FailureResponse(messageEn: "Association role was not found.", messageAr: "دور مسؤول الجمعية غير موجود.");
+            }
         }
 
         var association = new Association
@@ -162,204 +278,530 @@ public class AssociationService : IAssociationService
             ArabicName = dto.ArabicName.Trim(),
             CityId = dto.CityId,
             LocationOnGoogleMaps = string.IsNullOrWhiteSpace(dto.LocationOnGoogleMaps) ? null : dto.LocationOnGoogleMaps.Trim(),
-            Latitude = lat,
-            Longitude = lon,
+            Latitude = parsedLat,
+            Longitude = parsedLng,
+            ContactEmail = dto.ContactEmail.Trim(),
+            ContactPhone = dto.ContactPhone.Trim(),
             CreatedBy = currentUser!.UserId,
             IsActive = true
         };
 
-        if (adminRole is null)
+        try
         {
-            await _unitOfWork.Associations.AddAsync(association, cancellationToken);
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-        }
-        else
-        {
-            await _unitOfWork.ExecuteInTransactionAsync(async () =>
+            if (adminRole is null)
             {
                 await _unitOfWork.Associations.AddAsync(association, cancellationToken);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+            else
+            {
+                await _unitOfWork.ExecuteInTransactionAsync(async () =>
+                {
+                    await _unitOfWork.Associations.AddAsync(association, cancellationToken);
+                    await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-                var adminUser = AssociationAdminUserFactory.Build(adminRole, association.Id, adminPayload!, _passwordHasher);
-                await _unitOfWork.Users.AddAsync(adminUser, cancellationToken);
-                await _unitOfWork.SaveChangesAsync(cancellationToken);
-            }, cancellationToken);
+                    var adminUser = AssociationAdminUserFactory.Build(adminRole, association.Id, adminPayload!, _passwordHasher);
+                    await _unitOfWork.Users.AddAsync(adminUser, cancellationToken);
+                    await _unitOfWork.SaveChangesAsync(cancellationToken);
+                }, cancellationToken);
+            }
+        }
+        catch (Exception ex) when (ex.GetType().FullName == "Microsoft.EntityFrameworkCore.DbUpdateException")
+        {
+            return HandleDbUpdateException(ex);
         }
 
-        return await MapExistingAsync(association.Id, "تم إنشاء الجمعية بنجاح.", "Association created successfully.", 201, cancellationToken);
+        var data = await MapExistingAsync(association.Id, cancellationToken);
+        return ApiResponse<AssociationDto>.SuccessResponse(data, messageEn: "Association created successfully", messageAr: "تم إنشاء الجمعية بنجاح", statusCode: 201);
     }
 
-    public async Task<ApiResponse<AssociationDto>> UpdateAsync(int currentUserId, UpdateAssociationDto dto, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<AssociationUpdateResponseDto>> UpdateAsync(
+        int currentUserId,
+        UpdateAssociationDto dto,
+        CancellationToken cancellationToken = default)
     {
-        var (currentUser, authError) = await GetAuthorizedUserAsync<AssociationDto>(currentUserId, EditAssociationsPermissionId, cancellationToken);
+        var (currentUser, authError) = await AuthorizeAsync<AssociationUpdateResponseDto>(
+            currentUserId, EditScope, cancellationToken);
         if (authError is not null) return authError;
 
-        var tenantError = EnsureSameAssociation<AssociationDto>(dto.Id, currentUser!);
-        if (tenantError != null) return tenantError;
+        if (dto.Id <= 0)
+            return ApiResponse<AssociationUpdateResponseDto>.FailureResponse(
+                messageEn: "Invalid association ID.", messageAr: "رقم الجمعية غير صالح.");
 
-        var nameEnError = ValidateName<AssociationDto>(dto.EnglishName, "الاسم الإنجليزي", "English association name");
-        if (nameEnError != null) return nameEnError;
+        var tenantError = EnsureSameAssociation<AssociationUpdateResponseDto>(dto.Id, currentUser!);
+        if (tenantError is not null) return tenantError;
 
-        var nameArError = ValidateName<AssociationDto>(dto.ArabicName, "الاسم العربي", "Arabic association name");
-        if (nameArError != null) return nameArError;
+        // This repository method must return an EF-tracked entity.
+        var association = await _unitOfWork.Associations.GetByIdForUpdateAsync(dto.Id, cancellationToken);
+        if (association is null)
+            return new ApiResponse<AssociationUpdateResponseDto>(
+                false, "لم يتم العثور على الجمعية.", "Association not found.", default, 404);
 
-        var association = await _unitOfWork.Associations.GetByIdAsync(dto.Id, cancellationToken);
-        if (association == null)
-            return new ApiResponse<AssociationDto>(false, "الجمعية غير موجودة.", "Association was not found.", default, 404);
+        // Effective values: a missing field means retain its persisted value.
+        var englishName = dto.EnglishName is null ? association.EnglishName : dto.EnglishName.Trim();
+        var arabicName = dto.ArabicName is null ? association.ArabicName : dto.ArabicName.Trim();
+        var cityId = dto.CityId ?? association.CityId;
+        var latitude = association.Latitude;
+        var longitude = association.Longitude;
 
-        if (await _unitOfWork.Cities.GetByIdAsync(dto.CityId, cancellationToken) is null)
-            return new ApiResponse<AssociationDto>(false, "المدينة غير موجودة.", "City was not found.", default, 404);
+        var nameEnError = ValidateName<AssociationUpdateResponseDto>(
+            englishName, "English association name", "اسم الجمعية باللغة الإنجليزية");
+        if (nameEnError is not null) return nameEnError;
 
-        var (lat, latError) = ParseCoordinate<AssociationDto>(dto.Latitude, "خط العرض", "Latitude");
-        if (latError != null) return latError;
+        var nameArError = ValidateName<AssociationUpdateResponseDto>(
+            arabicName, "Arabic association name", "اسم الجمعية باللغة العربية");
+        if (nameArError is not null) return nameArError;
 
-        var (lon, lonError) = ParseCoordinate<AssociationDto>(dto.Longitude, "خط الطول", "Longitude");
-        if (lonError != null) return lonError;
+        if (dto.CityId.HasValue)
+        {
+            if (cityId <= 0 || await _unitOfWork.Cities.GetByIdAsync(cityId, cancellationToken) is null)
+                return new ApiResponse<AssociationUpdateResponseDto>(
+                    false, "المدينة غير موجودة.", "City not found.", default, 404);
+        }
 
-        association.EnglishName = dto.EnglishName.Trim();
-        association.ArabicName = dto.ArabicName.Trim();
-        association.CityId = dto.CityId;
-        association.LocationOnGoogleMaps = string.IsNullOrWhiteSpace(dto.LocationOnGoogleMaps) ? null : dto.LocationOnGoogleMaps.Trim();
-        association.Latitude = lat;
-        association.Longitude = lon;
+        if (dto.Latitude is not null)
+        {
+            var (parsed, error) = ParseCoordinate<AssociationUpdateResponseDto>(
+                dto.Latitude, "Latitude", "خط العرض");
+            if (error is not null) return error;
+            latitude = parsed;
+        }
 
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        if (dto.Longitude is not null)
+        {
+            var (parsed, error) = ParseCoordinate<AssociationUpdateResponseDto>(
+                dto.Longitude, "Longitude", "خط الطول");
+            if (error is not null) return error;
+            longitude = parsed;
+        }
 
-        return await MapExistingAsync(association.Id, "تم تحديث الجمعية بنجاح.", "Association updated successfully.", 200, cancellationToken);
-    }
+        // Validate uniqueness using the final combination, not the partial request.
+        var existingAssociations = await _unitOfWork.Associations.QueryAsync(
+            isDeleted: false, cancellationToken: cancellationToken);
 
-    public async Task<ApiResponse<object?>> DeleteAsync(int currentUserId, int associationId, CancellationToken cancellationToken = default)
-    {
-        var (currentUser, authError) = await GetAuthorizedUserAsync<object?>(currentUserId, DeleteAssociationsPermissionId, cancellationToken);
-        if (authError is not null) return authError;
+        if (existingAssociations.Any(r =>
+            r.Association.Id != dto.Id &&
+            string.Equals(r.Association.EnglishName.Trim(), englishName.Trim(), StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(r.Association.ArabicName.Trim(), arabicName.Trim(), StringComparison.OrdinalIgnoreCase)))
+            return ApiResponse<AssociationUpdateResponseDto>.FailureResponse(
+                messageEn: "Another association with the same Arabic and English names already exists.",
+                messageAr: "توجد جمعية أخرى مسجلة بنفس الاسم العربي والإنجليزي معاً.");
 
-        var tenantError = EnsureSameAssociation<object?>(associationId, currentUser!);
-        if (tenantError != null) return tenantError;
+        if (existingAssociations.Any(r =>
+            r.Association.Id != dto.Id &&
+            r.Association.Latitude == latitude && r.Association.Longitude == longitude))
+            return ApiResponse<AssociationUpdateResponseDto>.FailureResponse(
+                messageEn: "Another association is already registered with the same geographic coordinates.",
+                messageAr: "توجد جمعية أخرى مسجلة بنفس الإحداثيات الجغرافية.");
+
+        User? admin = null;
+        if (dto.Admin is not null)
+        {
+            admin = await _unitOfWork.Users.GetAssociationAdminForUpdateAsync(dto.Id, cancellationToken);
+            if (admin is null)
+                return new ApiResponse<AssociationUpdateResponseDto>(
+                    false, "لم يتم العثور على مسؤول الجمعية.", "Association administrator not found.", default, 404);
+
+            var adminFields = new (string? Value, string EnglishLabel, string ArabicLabel)[]
+            {
+                (dto.Admin.FirstNameEn, "English first name", "الاسم الأول بالإنجليزية"),
+                (dto.Admin.LastNameEn, "English last name", "اسم العائلة بالإنجليزية"),
+                (dto.Admin.FirstNameAr, "Arabic first name", "الاسم الأول بالعربية"),
+                (dto.Admin.LastNameAr, "Arabic last name", "اسم العائلة بالعربية"),
+                (dto.Admin.Email, "Email", "البريد الإلكتروني"),
+                (dto.Admin.PhoneNumber, "Phone number", "رقم الهاتف")
+            };
+
+            foreach (var field in adminFields)
+                if (field.Value is not null && string.IsNullOrWhiteSpace(field.Value))
+                    return ApiResponse<AssociationUpdateResponseDto>.FailureResponse(
+                        messageEn: $"{field.EnglishLabel} cannot be empty.",
+                        messageAr: $"{field.ArabicLabel} لا يمكن أن يكون فارغًا.");
+
+            if (dto.Admin.Email is not null)
+            {
+                var newEmail = dto.Admin.Email.Trim();
+                if (!string.Equals(newEmail, admin.Email, StringComparison.OrdinalIgnoreCase) &&
+                    await _unitOfWork.Users.EmailExistsForAnotherUserAsync(newEmail,admin.UserId,cancellationToken))
+                    return ApiResponse<AssociationUpdateResponseDto>.FailureResponse(
+                        messageEn: "A user with this email already exists.",
+                        messageAr: "البريد الإلكتروني للمسؤول مستخدم بالفعل.");
+            }
+
+            if (dto.Admin.PhoneNumber is not null)
+            {
+                var newPhone = dto.Admin.PhoneNumber.Trim();
+                if (!string.Equals(newPhone, admin.PhoneNumber, StringComparison.OrdinalIgnoreCase) &&
+                    await _unitOfWork.Users.PhoneExistsForAnotherUserAsync(newPhone,admin.UserId,cancellationToken))
+                    return ApiResponse<AssociationUpdateResponseDto>.FailureResponse(
+                        messageEn: "A user with this phone number already exists.",
+                        messageAr: "رقم الهاتف للمسؤول مستخدم بالفعل.");
+            }
+        }
+
+        // All validations passed; modify only explicitly provided fields.
+        if (dto.EnglishName is not null) association.EnglishName = englishName;
+        if (dto.ArabicName is not null) association.ArabicName = arabicName;
+        if (dto.CityId.HasValue) association.CityId = cityId;
+        if (dto.LocationOnGoogleMaps is not null)
+            association.LocationOnGoogleMaps = string.IsNullOrWhiteSpace(dto.LocationOnGoogleMaps)
+                ? null : dto.LocationOnGoogleMaps.Trim();
+        if (dto.Latitude is not null) association.Latitude = latitude;
+        if (dto.Longitude is not null) association.Longitude = longitude;
+        if (dto.ContactEmail is not null) association.ContactEmail = dto.ContactEmail.Trim();
+        if (dto.ContactPhone is not null) association.ContactPhone = dto.ContactPhone.Trim();
+
+        if (admin is not null && dto.Admin is not null)
+        {
+            if (dto.Admin.FirstNameEn is not null) admin.FirstNameEn = dto.Admin.FirstNameEn.Trim();
+            if (dto.Admin.LastNameEn is not null) admin.LastNameEn = dto.Admin.LastNameEn.Trim();
+            if (dto.Admin.FirstNameAr is not null) admin.FirstNameAr = dto.Admin.FirstNameAr.Trim();
+            if (dto.Admin.LastNameAr is not null) admin.LastNameAr = dto.Admin.LastNameAr.Trim();
+            if (dto.Admin.Email is not null) admin.Email = dto.Admin.Email.Trim();
+            if (dto.Admin.PhoneNumber is not null) admin.PhoneNumber = dto.Admin.PhoneNumber.Trim();
+        }
 
         try
         {
-            var association = await _unitOfWork.Associations.GetByIdWithWorkersAsync(associationId, cancellationToken);
-            if (association == null)
-                return new ApiResponse<object?>(false, "الجمعية غير موجودة.", "Association was not found.", default, 404);
-
-            var users = await _unitOfWork.Users.GetByEntityAsync(EntityType.Association, association.Id, search: null, cancellationToken);
-            var workers = association.Workers?.ToList() ?? new List<Worker>();
-
-            foreach (var user in users) _unitOfWork.Users.Remove(user);
-            foreach (var worker in workers) _unitOfWork.Workers.Remove(worker);
-
-            _unitOfWork.Associations.Remove(association);
+            // One tracked DbContext save persists both entities atomically.
             await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-            return ApiResponse<object?>.SuccessResponse(null, "Association deleted successfully.", "تم حذف الجمعية بنجاح.");
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex.GetType().FullName == "Microsoft.EntityFrameworkCore.DbUpdateException")
         {
-            string realError = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
-            return new ApiResponse<object?>(false, $"خطأ في السيرفر: {realError}", $"Server Error: {realError}", default, 500);
+            return new ApiResponse<AssociationUpdateResponseDto>(
+                false,
+                "تعذر حفظ التعديلات بسبب تعارض أو خطأ في البيانات.",
+                "Unable to save changes due to a database conflict or constraint.",
+                default, 409);
         }
+
+        var updated = await MapExistingAsync(association.Id, cancellationToken);
+        // Include admin in the response even when only association fields were changed.
+        admin ??= await _unitOfWork.Users.GetAssociationAdminForUpdateAsync(
+            association.Id, cancellationToken);
+
+        var data = new AssociationUpdateResponseDto
+        {
+            Id = updated.Id,
+            EnglishName = updated.EnglishName,
+            ArabicName = updated.ArabicName,
+            LocationOnGoogleMaps = updated.LocationOnGoogleMaps,
+            Latitude = updated.Latitude,
+            Longitude = updated.Longitude,
+            ContactPhone = updated.ContactPhone,
+            ContactEmail = updated.ContactEmail,
+            CountryId = updated.CountryId,
+            CountryEnglishName = updated.CountryEnglishName,
+            CountryArabicName = updated.CountryArabicName,
+            CityId = updated.CityId,
+            CityEnglishName = updated.CityEnglishName,
+            CityArabicName = updated.CityArabicName,
+            IsDeleted = updated.IsDeleted,
+            WorkersCount = updated.WorkersCount,
+            Admin = admin is null ? null : new AssociationAdminResponseDto
+            {
+                UserId = admin.UserId,
+                FirstNameEn = admin.FirstNameEn,
+                LastNameEn = admin.LastNameEn,
+                FirstNameAr = admin.FirstNameAr,
+                LastNameAr = admin.LastNameAr,
+                Email = admin.Email,
+                PhoneNumber = admin.PhoneNumber
+            }
+        };
+
+        return ApiResponse<AssociationUpdateResponseDto>.SuccessResponse(
+            data,
+            messageEn: "Association updated successfully",
+            messageAr: "تم تحديث الجمعية بنجاح");
     }
 
-    public async Task<ApiResponse<AssociationDto>> RestoreAsync(int currentUserId, int associationId, CancellationToken cancellationToken = default)
+
+    public async Task<ApiResponse<bool>> DeleteAsync(
+        int currentUserId,
+        int associationId,
+        CancellationToken cancellationToken = default)
     {
-        var (currentUser, authError) = await GetAuthorizedUserAsync<AssociationDto>(currentUserId, DeleteAssociationsPermissionId, cancellationToken);
-        if (authError is not null) return authError;
+        var (currentUser, authError) =
+            await AuthorizeAsync<bool>(
+                currentUserId,
+                DeleteScope,
+                cancellationToken);
 
-        var tenantError = EnsureSameAssociation<AssociationDto>(associationId, currentUser!);
-        if (tenantError != null) return tenantError;
+        if (authError is not null)
+            return authError;
 
-        var association = await _unitOfWork.Associations.GetByIdIncludingDeletedAsync(associationId, cancellationToken);
-        if (association == null)
-            return new ApiResponse<AssociationDto>(false, "الجمعية غير موجودة.", "Association was not found.", default, 404);
+        var tenantError =
+            EnsureSameAssociation<bool>(associationId, currentUser!);
+
+        if (tenantError is not null)
+            return tenantError;
+
+        // Load the real tracked Association.
+        var association = await _unitOfWork.Associations
+            .GetByIdForUpdateAsync(
+                associationId,
+                cancellationToken);
+
+        if (association is null)
+        {
+            return new ApiResponse<bool>(
+                false,
+                "لم يتم العثور على الجمعية.",
+                "Association not found.",
+                default,
+                404);
+        }
+
+        // Load tracked users and workers.
+        var users = await _unitOfWork.Users
+            .GetAssociationUsersForUpdateAsync(
+                associationId,
+                cancellationToken);
+
+        var workers = await _unitOfWork.Workers
+            .GetByAssociationIdForUpdateAsync(
+                associationId,
+                cancellationToken);
+
+        // One timestamp for the entire delete operation.
+        var deletedAt = DateTime.UtcNow;
+
+        // Soft delete the association.
+        association.IsDeleted = true;
+        association.DeletedAt = deletedAt;
+
+        // Soft delete only currently active users.
+        foreach (var user in users)
+        {
+            if (user.IsDeleted)
+                continue;
+
+            user.IsDeleted = true;
+            user.DeletedAt = deletedAt;
+        }
+
+        // Soft delete only currently active workers.
+        foreach (var worker in workers)
+        {
+            if (worker.IsDeleted)
+                continue;
+
+            worker.IsDeleted = true;
+            worker.DeletedAt = deletedAt;
+        }
+
+        // One SaveChanges persists the tracked updates atomically.
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return ApiResponse<bool>.SuccessResponse(
+            true,
+            messageEn: "Association deleted successfully",
+            messageAr: "تم حذف الجمعية بنجاح");
+    }
+
+
+
+    public async Task<ApiResponse<AssociationDto>> RestoreAsync(
+        int currentUserId,
+        int associationId,
+        CancellationToken cancellationToken = default)
+    {
+        var (currentUser, authError) =
+            await AuthorizeAsync<AssociationDto>(
+                currentUserId,
+                DeleteScope,
+                cancellationToken);
+
+        if (authError is not null)
+            return authError;
+
+        var tenantError =
+            EnsureSameAssociation<AssociationDto>(
+                associationId,
+                currentUser!);
+
+        if (tenantError is not null)
+            return tenantError;
+
+        // Load the deleted Association with tracking.
+        var association = await _unitOfWork.Associations
+            .GetByIdIncludingDeletedAsync(
+                associationId,
+                cancellationToken);
+
+        if (association is null)
+        {
+            return new ApiResponse<AssociationDto>(
+                false,
+                "لم يتم العثور على الجمعية.",
+                "Association not found.",
+                default,
+                404);
+        }
 
         if (!association.IsDeleted)
-            return ApiResponse<AssociationDto>.FailureResponse("Association is not deleted.", "الجمعية غير محذوفة أصلاً.");
+        {
+            return ApiResponse<AssociationDto>.FailureResponse(
+                messageEn: "Association is not deleted.",
+                messageAr: "الجمعية غير محذوفة أصلاً.");
+        }
 
+        // Identify records deleted with this association.
         var cascadeDeletedAt = association.DeletedAt;
 
-        var deletedUsers = await _unitOfWork.Users.GetDeletedByEntityAsync(EntityType.Association, association.Id, cancellationToken);
-        var deletedWorkers = await _unitOfWork.Workers.GetDeletedByAssociationIdAsync(association.Id, cancellationToken);
+        var deletedUsers = await _unitOfWork.Users
+            .GetDeletedAssociationUsersForUpdateAsync(
+                associationId,
+                cancellationToken);
 
+        var deletedWorkers = await _unitOfWork.Workers
+            .GetDeletedByAssociationIdAsync(
+                associationId,
+                cancellationToken);
+
+        // Restore the association.
         association.IsDeleted = false;
         association.DeletedAt = null;
 
-        foreach (var user in deletedUsers.Where(u => u.DeletedAt == cascadeDeletedAt))
+        if (cascadeDeletedAt.HasValue)
         {
-            user.IsDeleted = false;
-            user.DeletedAt = null;
-        }
+            // Restore only users deleted with the association.
+            foreach (var user in deletedUsers)
+            {
+                if (user.DeletedAt != cascadeDeletedAt)
+                    continue;
 
-        foreach (var worker in deletedWorkers.Where(w => w.DeletedAt == cascadeDeletedAt))
-        {
-            worker.IsDeleted = false;
-            worker.DeletedAt = null;
+                user.IsDeleted = false;
+                user.DeletedAt = null;
+            }
+
+            // Restore only workers deleted with the association.
+            foreach (var worker in deletedWorkers)
+            {
+                if (worker.DeletedAt != cascadeDeletedAt)
+                    continue;
+
+                worker.IsDeleted = false;
+                worker.DeletedAt = null;
+            }
         }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return await MapExistingAsync(association.Id, "تم استرجاع الجمعية بنجاح.", "Association restored successfully.", 200, cancellationToken);
+        var data = await MapExistingAsync(
+            association.Id,
+            cancellationToken);
+
+        return ApiResponse<AssociationDto>.SuccessResponse(
+            data,
+            messageEn: "Association restored successfully",
+            messageAr: "تم استعادة الجمعية بنجاح");
     }
+
 
     #region Helpers
 
-    private async Task<ApiResponse<AssociationDto>> MapExistingAsync(int associationId, string msgAr, string msgEn, int statusCode, CancellationToken cancellationToken)
-    {
-        var result = await _unitOfWork.Associations.GetByIdWithWorkersCountAsync(associationId, cancellationToken);
-        if (result == null)
-            return new ApiResponse<AssociationDto>(false, "تعذر تحميل الجمعية.", "Association could not be loaded.", default, 404);
-
-        return ApiResponse<AssociationDto>.SuccessResponse(MapToDto(result.Value.Association, result.Value.WorkersCount), msgEn, msgAr, statusCode);
-    }
-
-    private async Task<(User? User, ApiResponse<T>? Error)> GetAuthorizedUserAsync<T>(int currentUserId, int requiredPermissionId, CancellationToken cancellationToken)
+    private async Task<(User? User, ApiResponse<T>? Error)> AuthorizeAsync<T>(
+        int currentUserId,
+        int[] anyOfPermissionIds,
+        CancellationToken cancellationToken)
     {
         var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken);
-
         if (currentUser is null)
+        {
             return (null, new ApiResponse<T>(false, "المستخدم الحالي غير موجود.", "Current user was not found.", default, 401));
+        }
 
         if (!currentUser.IsActive)
-            return (null, new ApiResponse<T>(false, "المستخدم الحالي غير فعّال.", "Current user is inactive.", default, 401));
-
-        if (!GetEffectivePermissionIds(currentUser).Overlaps(new[] { requiredPermissionId, ManageAssociationsPermissionId }))
         {
-            return (null, new ApiResponse<T>(false, "لا تملك الصلاحية المطلوبة لإدارة الجمعيات.", "Caller does not hold the required Associations permission.", default, 403));
+            return (null, new ApiResponse<T>(false, "المستخدم الحالي غير فعّال.", "Current user is inactive.", default, 401));
+        }
+
+        if (!GetEffectivePermissionIds(currentUser).Overlaps(anyOfPermissionIds))
+        {
+            return (null, new ApiResponse<T>(false, "لا تملك الصلاحية المطلوبة لإدارة الجمعيات.", "You do not hold the required Associations permission.", default, 403));
         }
 
         return (currentUser, null);
     }
 
+
+    // Association-scoped users cannot access another association by supplying its ID.
     private static ApiResponse<T>? EnsureSameAssociation<T>(int associationId, User currentUser)
     {
         if (currentUser.EntityType == EntityType.Association && currentUser.EntityId != associationId)
         {
-            return new ApiResponse<T>(false, "لا تملك صلاحية الوصول لبيانات جمعية أخرى.", "Cannot access data outside your own association.", default, 403);
+            return new ApiResponse<T>(
+                false,
+                "لا تملك صلاحية الوصول لبيانات جمعية أخرى.",
+                "Cannot access data outside your own association.",
+                default,
+                403);
         }
+
         return null;
     }
 
-    private static ApiResponse<T>? ValidateName<T>(string value, string fieldLabelAr, string fieldLabelEn)
+    private static ApiResponse<AssociationDto> HandleDbUpdateException(Exception ex)
+    {
+        var innerMsg = ex.InnerException?.Message ?? ex.Message;
+
+        if (innerMsg.Contains("IX_Associations_ArabicName_EnglishName") || innerMsg.Contains("ArabicName"))
+        {
+            return ApiResponse<AssociationDto>.FailureResponse(messageEn: "An association with the same Arabic and English name already exists", messageAr: "توجد جمعية مسجلة بنفس الاسم العربي والإنجليزي معاً");
+        }
+
+        if (innerMsg.Contains("IX_Associations_Latitude_Longitude") || innerMsg.Contains("Latitude"))
+        {
+            return ApiResponse<AssociationDto>.FailureResponse(messageEn: "An association with the same geographic coordinates already exists", messageAr: "توجد جمعية مسجلة بنفس الإحداثيات الجغرافية");
+        }
+
+        if (innerMsg.Contains("IX_Associations_ContactPhone") || innerMsg.Contains("ContactPhone"))
+        {
+            return ApiResponse<AssociationDto>.FailureResponse(messageEn: "The contact phone number is already used by another association", messageAr: "رقم الهاتف مستخدم بالفعل لجمعية أخرى");
+        }
+
+        return ApiResponse<AssociationDto>.FailureResponse(messageEn: "An error occurred while saving data to the database", messageAr: "حدث خطأ أثناء حفظ البيانات بقاعدة البيانات");
+    }
+
+    private async Task<AssociationDto> MapExistingAsync(int associationId, CancellationToken cancellationToken)
+    {
+        var result = await _unitOfWork.Associations.GetByIdWithWorkersCountAsync(associationId, cancellationToken);
+        if (result is null || !result.HasValue)
+        {
+            throw new KeyNotFoundException("Association could not be loaded after the change.");
+        }
+
+        var (association, workersCount) = result.Value;
+        return MapToDto(association, workersCount);
+    }
+
+    private static ApiResponse<T>? ValidateName<T>(string value, string fieldLabelEn, string fieldLabelAr)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            return ApiResponse<T>.FailureResponse($"{fieldLabelEn} is required.", $"{fieldLabelAr} مطلوب.");
+            return ApiResponse<T>.FailureResponse(messageEn: $"{fieldLabelEn} is required.", messageAr: $"{fieldLabelAr} مطلوب.");
         }
 
         if (value.Trim().Length > MaxNameLength)
         {
-            return ApiResponse<T>.FailureResponse($"{fieldLabelEn} cannot exceed {MaxNameLength} characters.", $"{fieldLabelAr} يجب ألا يتجاوز {MaxNameLength} حرف.");
+            return ApiResponse<T>.FailureResponse(messageEn: $"{fieldLabelEn} cannot exceed {MaxNameLength} characters.", messageAr: $"{fieldLabelAr} لا يمكن أن يتجاوز {MaxNameLength} حرف.");
         }
 
         return null;
     }
 
-    private static (decimal? Value, ApiResponse<T>? Error) ParseCoordinate<T>(string? value, string fieldLabelAr, string fieldLabelEn)
+    private static (decimal Result, ApiResponse<T>? Error) ParseCoordinate<T>(string? value, string fieldLabelEn, string fieldLabelAr)
     {
-        if (string.IsNullOrWhiteSpace(value)) return (null, null);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return (0, ApiResponse<T>.FailureResponse(messageEn: $"{fieldLabelEn} is required.", messageAr: $"{fieldLabelAr} مطلوب."));
+        }
 
         if (!decimal.TryParse(value.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
         {
-            return (null, ApiResponse<T>.FailureResponse($"{fieldLabelEn} is not a valid number.", $"{fieldLabelAr} ليس رقماً صالحاً."));
+            return (0, ApiResponse<T>.FailureResponse(messageEn: $"{fieldLabelEn} is not a valid number.", messageAr: $"{fieldLabelAr} ليس رقماً صالحاً."));
         }
 
         return (parsed, null);
@@ -368,8 +810,8 @@ public class AssociationService : IAssociationService
     private static HashSet<int> GetEffectivePermissionIds(User user)
     {
         var rolePermissionIds = user.Role?.RolePermissions?
-         .Where(rp => rp.IsActive && (rp.Permission == null || rp.Permission.IsActive))
-         .Select(rp => rp.PermissionId) ?? Enumerable.Empty<int>();
+            .Where(rp => rp.IsActive && (rp.Permission == null || rp.Permission.IsActive))
+            .Select(rp => rp.PermissionId) ?? Enumerable.Empty<int>();
 
         var directPermissionIds = user.UserPermissions?
             .Where(up => up.IsActive && (up.Permission == null || up.Permission.IsActive))
@@ -395,6 +837,8 @@ public class AssociationService : IAssociationService
         CountryId = association.City.CountryId,
         CountryEnglishName = association.City.Country.EnglishName,
         CountryArabicName = association.City.Country.ArabicName,
+        ContactEmail = association.ContactEmail ?? string.Empty,
+        ContactPhone = association.ContactPhone ?? string.Empty,
         CityId = association.CityId,
         CityEnglishName = association.City.EnglishName,
         CityArabicName = association.City.ArabicName,
@@ -403,9 +847,9 @@ public class AssociationService : IAssociationService
     };
 
     private static string FormatCoordinate(decimal? value) =>
-        value?.ToString("0.######", CultureInfo.InvariantCulture) ?? string.Empty;
+        value.HasValue ? value.Value.ToString("0.######", CultureInfo.InvariantCulture) : string.Empty;
 
-    private static AssociationDetailsDto MapToDetailsDto(Association association, int workersCount, List<User> users)
+    private static AssociationDetailsDto MapToDetailsDto(Association association, int workersCount, List<User> users, List<WorkerSummaryDto> workers)
     {
         var dto = MapToDto(association, workersCount);
 
@@ -423,10 +867,14 @@ public class AssociationService : IAssociationService
             CityId = dto.CityId,
             CityEnglishName = dto.CityEnglishName,
             CityArabicName = dto.CityArabicName,
+            ContactEmail = dto.ContactEmail,
+            ContactPhone = dto.ContactPhone,
             IsDeleted = dto.IsDeleted,
             WorkersCount = dto.WorkersCount,
-            Users = users.Select(UserManagementService.MapUserSummary).ToList()
+            Users = users.Select(UserManagementService.MapUserSummary).ToList(),
+            Workers = workers
         };
     }
+
     #endregion
 }

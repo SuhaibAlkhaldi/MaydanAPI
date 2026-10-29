@@ -23,6 +23,9 @@ public interface IUnitOfWork
     IServiceRequestRepository ServiceRequests => throw new NotImplementedException();
     ILookupRepository Lookups => throw new NotImplementedException();
 
+    IWorkerSuggestionRuleRepository WorkerSuggestionRules => throw new NotImplementedException();
+
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 
     // Entity onboarding Stage 1 (2026-09-22): User.EntityId is a soft FK (no EF navigation, see

@@ -141,6 +141,29 @@ public class ProjectRepository : IProjectRepository
             .ToListAsync(cancellationToken);
     }
 
+
+    public async Task<bool> HasLocationManagerOverlapAsync(
+    int locationManagerUserId,
+    DateTime projectStartDate,
+    DateTime projectEndDate,
+    int? excludedProjectId,
+    CancellationToken cancellationToken = default)
+    {
+        var query = _context.Projects
+            .Where(project =>
+                project.LocationManagerUserId == locationManagerUserId &&
+                project.StartDate.Date <= projectEndDate.Date &&
+                project.EndDate.Date >= projectStartDate.Date);
+
+        if (excludedProjectId.HasValue)
+        {
+            query = query.Where(project =>
+                project.Id != excludedProjectId.Value);
+        }
+
+        return await query.AnyAsync(cancellationToken);
+    }
+
     public async Task AddAsync(
         Project project,
         CancellationToken cancellationToken = default)
