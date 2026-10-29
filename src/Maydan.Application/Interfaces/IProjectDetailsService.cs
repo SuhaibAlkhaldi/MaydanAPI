@@ -1,4 +1,4 @@
-﻿using Maydan.Application.DTOs.Common;
+using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.ProjectDetails;
 
 namespace Maydan.Application.Interfaces;
@@ -8,5 +8,6 @@ namespace Maydan.Application.Interfaces;
 public interface IProjectDetailsService
 {
     Task<ApiResponse<ProjectDetailsDto>> GetProjectFullDetailsAsync(int currentUserId, int projectId, CancellationToken cancellationToken = default);
+    Task<ApiResponse<List<ProjectDetailsSupervisorDto>>> GetProjectSupervisorsAsync(int currentUserId, int projectId, CancellationToken cancellationToken = default);
     Task<ApiResponse<List<ProjectDetailsWorkerDto>>> GetProjectWorkersAsync(int currentUserId, int projectId, CancellationToken cancellationToken = default);
 }

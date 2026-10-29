@@ -21,6 +21,7 @@ public interface IWorkerAttendanceRepository
     Task<WorkerOvertime?> GetOvertimeByIdAsync(int id, CancellationToken cancellationToken = default);
     Task<WorkerOvertime?> GetOvertimeAsync(int workerProjectLinkId, DateTime date, CancellationToken cancellationToken = default);
     Task<List<WorkerOvertime>> ListOvertimeByServiceRequestAsync(int serviceRequestId, DateTime from, DateTime to, CancellationToken cancellationToken = default);
-    Task<List<WorkerOvertime>> ListOvertimeByStatusAsync(AttendanceApprovalStatus status, CancellationToken cancellationToken = default);
+    //Task<List<WorkerOvertime>> ListOvertimeByStatusAsync(AttendanceApprovalStatus status, CancellationToken cancellationToken = default);
+    Task<List<WorkerOvertime>> ListOvertimeByStatusAsync(int statusId, CancellationToken cancellationToken = default);
     Task AddOvertimeAsync(WorkerOvertime overtime, CancellationToken cancellationToken = default);
 }

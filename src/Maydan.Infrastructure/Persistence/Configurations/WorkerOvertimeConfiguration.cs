@@ -1,4 +1,5 @@
-﻿using Maydan.Domain.Entities;
+using Maydan.Domain.Entities;
+using Maydan.Infrastructure.Persistence.Seed;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -17,9 +18,19 @@ public class WorkerOvertimeConfiguration : IEntityTypeConfiguration<WorkerOverti
         builder.Property(x => x.HoursPerUnit).IsRequired();
         builder.Property(x => x.UnitWageSnapshot).HasPrecision(18, 2).IsRequired();
         builder.Property(x => x.Amount).HasPrecision(18, 2).IsRequired();
-        builder.Property(x => x.ApprovalStatus).IsRequired();
         builder.Property(x => x.RejectionReason).HasMaxLength(500);
         builder.Property(x => x.CreatedDate).IsRequired().HasDefaultValueSql("SYSUTCDATETIME()");
+
+        builder.Property(x => x.ApprovalStatusId)
+            .IsRequired()
+            .HasDefaultValue(LookupSeed.AttendanceApprovalStatusPendingItemId);
+
+        builder.HasOne(x => x.ApprovalStatus)
+            .WithMany()
+            .HasForeignKey(x => x.ApprovalStatusId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(x => x.ApprovalStatusId);
 
         builder.HasOne(x => x.WorkerProjectLink)
             .WithMany()
@@ -28,6 +39,5 @@ public class WorkerOvertimeConfiguration : IEntityTypeConfiguration<WorkerOverti
 
         // One overtime record per worker per day.
         builder.HasIndex(x => new { x.WorkerProjectLinkId, x.OvertimeForDate }).IsUnique();
-        builder.HasIndex(x => x.ApprovalStatus);
     }
 }

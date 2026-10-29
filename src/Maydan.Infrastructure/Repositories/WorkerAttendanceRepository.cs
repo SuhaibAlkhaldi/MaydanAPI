@@ -3,6 +3,7 @@ using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
 using Maydan.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.SemanticKernel;
 
 namespace Maydan.Infrastructure.Repositories;
 
@@ -14,16 +15,21 @@ public class WorkerAttendanceRepository : IWorkerAttendanceRepository
     public Task<WorkerAttendance?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
         _db.WorkerAttendances
            .Include(a => a.WorkerProjectLink)
-           .FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
+           
+    //Temporary 
+    .Include(a => a.EntryType)
+.Include(a => a.ApprovalStatus).FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
 
     public Task<List<WorkerAttendance>> ListByLinkAndDateAsync(int workerProjectLinkId, DateTime date, CancellationToken cancellationToken = default) =>
-        _db.WorkerAttendances
+        _db.WorkerAttendances.Include(a => a.EntryType)
+       .Include(a => a.ApprovalStatus)
            .Where(a => a.WorkerProjectLinkId == workerProjectLinkId && a.AttendanceForDate == date)
            .OrderBy(a => a.CheckInNumber)
            .ToListAsync(cancellationToken);
 
     public Task<List<WorkerAttendance>> ListByServiceRequestAsync(int serviceRequestId, DateTime from, DateTime to, CancellationToken cancellationToken = default) =>
-        _db.WorkerAttendances
+        _db.WorkerAttendances.Include(a => a.EntryType)
+       .Include(a => a.ApprovalStatus)
            .Where(a => a.WorkerProjectLink.ServiceRequestId == serviceRequestId
                     && a.AttendanceForDate >= from && a.AttendanceForDate <= to)
            .OrderBy(a => a.AttendanceForDate).ThenBy(a => a.CheckInNumber)
@@ -63,7 +69,7 @@ public class WorkerAttendanceRepository : IWorkerAttendanceRepository
     // Overtime 
     public Task<WorkerOvertime?> GetOvertimeByIdAsync(int id, CancellationToken cancellationToken = default) =>
         _db.WorkerOvertimes
-           .Include(o => o.WorkerProjectLink).ThenInclude(l => l.Worker)
+           .Include(o => o.WorkerProjectLink).ThenInclude(l => l.Worker).Include(o => o.ApprovalStatus)
            .FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
 
     public Task<WorkerOvertime?> GetOvertimeAsync(int workerProjectLinkId, DateTime date, CancellationToken cancellationToken = default) =>
@@ -75,16 +81,20 @@ public class WorkerAttendanceRepository : IWorkerAttendanceRepository
            .Where(o => o.WorkerProjectLink.ServiceRequestId == serviceRequestId
                     && o.OvertimeForDate >= from && o.OvertimeForDate <= to)
            .Include(o => o.WorkerProjectLink).ThenInclude(l => l.Worker)
-           .OrderBy(o => o.OvertimeForDate)
+           .OrderBy(o => o.OvertimeForDate).Include(o => o.ApprovalStatus)
            .ToListAsync(cancellationToken);
 
-    public Task<List<WorkerOvertime>> ListOvertimeByStatusAsync(AttendanceApprovalStatus status, CancellationToken cancellationToken = default) =>
+    public Task<List<WorkerOvertime>> ListOvertimeByStatusAsync(int statusId, CancellationToken cancellationToken = default) =>
         _db.WorkerOvertimes
-           .Where(o => o.ApprovalStatus == status)
+           .Where(o => o.ApprovalStatusId == statusId)
            .Include(o => o.WorkerProjectLink).ThenInclude(l => l.Worker)
            .OrderBy(o => o.OvertimeForDate)
            .ToListAsync(cancellationToken);
-
+    //public Task<List<WorkerOvertime>> ListOvertimeByStatusAsync(int statusId, CancellationToken cancellationToken = default) =>
+    //_context.WorkerOvertimes
+    //    .Include(o => o.WorkerProjectLink).ThenInclude(l => l.Worker)
+    //    .Where(o => o.ApprovalStatusId == statusId)
+    //    .ToListAsync(cancellationToken);
     public async Task AddOvertimeAsync(WorkerOvertime overtime, CancellationToken cancellationToken = default) =>
         await _db.WorkerOvertimes.AddAsync(overtime, cancellationToken);
 }

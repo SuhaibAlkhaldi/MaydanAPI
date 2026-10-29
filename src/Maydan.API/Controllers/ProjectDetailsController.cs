@@ -41,6 +41,25 @@ public class ProjectDetailsController : ApiControllerBase
         }
     }
 
+    // GET api/project-details/{projectId}/supervisors
+    [HttpGet("{projectId:int}/supervisors")]
+    public async Task<ActionResult> GetProjectSupervisors(int projectId, CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
+
+        try
+        {
+            var result = await _service.GetProjectSupervisorsAsync(userId, projectId, cancellationToken);
+            return StatusCode(result.StatusCode, result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching project supervisors for ProjectId: {ProjectId}", projectId);
+            return HandleException(ex);
+        }
+    }
+
     // GET api/project-details/{projectId}/workers
     [HttpGet("{projectId:int}/workers")]
     public async Task<ActionResult> GetProjectWorkers(int projectId, CancellationToken cancellationToken)

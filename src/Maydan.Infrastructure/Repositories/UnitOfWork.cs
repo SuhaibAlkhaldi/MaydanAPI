@@ -27,6 +27,7 @@ public class UnitOfWork : IUnitOfWork
     private IServiceRepository? _services;
     private IServiceRequestRepository? _serviceRequests;
     private ILookupRepository? _lookups;
+    private IWorkerProjectLinkRepository? _workerProjectLinks;
 
     public UnitOfWork(MaydanDbContext context)
     {

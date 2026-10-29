@@ -1,5 +1,4 @@
 using Maydan.Domain.Common;
-using Maydan.Domain.Enums;
 
 namespace Maydan.Domain.Entities;
 
@@ -22,15 +21,7 @@ public class ServiceRequest : SharedEntities
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
 
-
-    //Time unit for payment calculation (Shift, Day, or Hour).
-    // Shift = 12 hours, Day = 9 hours, Hour = Direct hourly rate.
-
-    // Duration count(ShiftsCount): number of shifts/days/hours depending on TimeUnit.
-
     public int ShiftsCount { get; set; }
-    //DurationCount 
-
 
     // Worker Related Properties
     public int RequestedWorkersCount { get; set; }
@@ -39,35 +30,21 @@ public class ServiceRequest : SharedEntities
     public string? AdditionalRequirements { get; set; }
 
     // -----------Financial Related Properties-----------
-    
-    
     public decimal UnitPriceSnapshot { get; set; }
-
-  
-    
     public decimal ExpectedTotalAmount { get; set; }
 
     // Status Related Properties
-    public ServiceRequestStatus Status { get; set; } = ServiceRequestStatus.PendingWorkerSelection;
-
-    //public int StatusId { get; set; } = ServiceRequestStatusIds.PendingWorkerSelection;
-    //public ServiceRequestStatus Status { get; set; } = null!;
-
-
+    public int StatusId { get; set; }
+    public LookupItem Status { get; set; } = null!;
 
     // Tracks whether 6-hour reminder notification has been sent.
-
     public bool ReminderSent { get; set; } = false;
 
-   
     // Timestamp when request was cancelled (soft-delete indicator).
-    // Request is marked as Cancelled status instead of being deleted.
-   
     public DateTime? CancelledAt { get; set; }
     // Navigation to assigned workers
     public ICollection<ServiceRequestWorker> ServiceRequestWorkers { get; set; } = new HashSet<ServiceRequestWorker>();
 
-    //RejectionReason
+    // RejectionReason
     public string? RejectionReason { get; set; }
-
 }

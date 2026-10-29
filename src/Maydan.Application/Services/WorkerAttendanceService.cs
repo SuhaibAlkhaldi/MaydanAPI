@@ -1,6 +1,7 @@
-﻿using Maydan.Application.DTOs.Attendance;
+using Maydan.Application.DTOs.Attendance;
 using Maydan.Application.DTOs.Common;
 using Maydan.Application.Interfaces;
+using Maydan.Domain.Common;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
 
@@ -45,7 +46,7 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
             return Fail<List<AttendanceTimeWindowDto>>("Only the Production House of this request can define the attendance time window.",
                 "فقط بيت الإنتاج صاحب الطلب يمكنه تحديد وقت تسجيل الحضور.", 403);
 
-        if (sr.Status != ServiceRequestStatus.InProgress)
+        if (sr.StatusId != LookupConstants.ServiceRequestStatus.InProgress)
             return Fail<List<AttendanceTimeWindowDto>>("The service request is not in progress.", "طلب الخدمة غير قيد التنفيذ.");
 
         var from = dto.FromDate.Date;
@@ -133,9 +134,9 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
             windows.Select(ToDto).ToList(), "Time windows fetched.", "تم جلب أوقات التسجيل.");
     }
 
-    
+
     //  2) Recording (Association or Production House)
-    
+
     public async Task<ApiResponse<WorkerAttendanceDto>> CheckInAsync(int currentUserId, RecordAttendanceDto dto, CancellationToken ct = default)
     {
         var user = await GetActiveUserAsync(currentUserId, ct);
@@ -177,7 +178,7 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
             WorkerProjectLinkId = link.Id,
             AttendanceForDate = date,
             CheckInNumber = slot.SlotNumber,
-            EntryType = dto.EntryType,
+            EntryTypeId = dto.EntryTypeId != 0 ? dto.EntryTypeId : LookupConstants.AttendanceEntryType.Present,
             CityId = sr.Association.CityId,
             CreatedBy = user.UserId
         };
@@ -186,13 +187,13 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
         {
             entry.AssociationUserId = user.UserId;
             entry.AssociationCheckInDate = now;
-            entry.ApprovalStatus = AttendanceApprovalStatus.Pending;   // waits for the Production House
+            entry.ApprovalStatusId = LookupConstants.AttendanceApprovalStatus.Pending;   // waits for the Production House
         }
         else
         {
             entry.ProductionCompanyUserId = user.UserId;
             entry.ProductionCompanyCheckInDate = now;
-            entry.ApprovalStatus = AttendanceApprovalStatus.Approved;  // the Production House is the approver
+            entry.ApprovalStatusId = LookupConstants.AttendanceApprovalStatus.Approved;  // the Production House is the approver
             entry.ReviewedByUserId = user.UserId;
             entry.ReviewedDate = now;
         }
@@ -200,12 +201,12 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
         await _repo.AddAsync(entry, ct);
         await _uow.SaveChangesAsync(ct);
 
-        var result = ToDto(entry);
+        var saved = (await _repo.GetByIdAsync(entry.Id, ct))!;     // reloads with the lookup names
+        var result = ToDto(saved);
         result.WorkerId = link.WorkerId;
         result.WorkerName = link.Worker is null ? null : $"{link.Worker.FirstName} {link.Worker.LastName}";   // lets the scanner confirm who was scanned
         return ApiResponse<WorkerAttendanceDto>.SuccessResponse(result, "Attendance recorded.", "تم تسجيل الحضور.", 201);
     }
-
     public async Task<ApiResponse<WorkerAttendanceDto>> CheckOutAsync(int currentUserId, RecordAttendanceDto dto, CancellationToken ct = default)
     {
         var user = await GetActiveUserAsync(currentUserId, ct);
@@ -230,8 +231,8 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
         // Close the latest check-in of this worker that THIS side opened and has not closed yet.
         var rows = await _repo.ListByLinkAndDateAsync(link.Id, date, ct);
         var open = rows.LastOrDefault(r =>
-            r.EntryType == AttendanceEntryType.Present &&
-            r.ApprovalStatus != AttendanceApprovalStatus.Rejected &&
+            r.EntryTypeId == LookupConstants.AttendanceEntryType.Present &&
+            r.ApprovalStatusId != LookupConstants.AttendanceApprovalStatus.Rejected &&
             (gate.Side == Side.Association
                 ? r.AssociationCheckInDate != null && r.AssociationCheckOutDate == null
                 : r.ProductionCompanyCheckInDate != null && r.ProductionCompanyCheckOutDate == null));
@@ -275,20 +276,23 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
             return Fail<WorkerAttendanceDto>("Only the Production House of this request can approve or reject attendance.",
                 "فقط بيت الإنتاج صاحب الطلب يمكنه اعتماد أو رفض الحضور.", 403);
 
-        if (sr.Status != ServiceRequestStatus.InProgress)
+        if (sr.StatusId != LookupConstants.ServiceRequestStatus.InProgress)
             return Fail<WorkerAttendanceDto>("The service request is closed; attendance can no longer be changed.", "طلب الخدمة مغلق ولا يمكن تعديل الحضور.");
 
-        if (a.ApprovalStatus != AttendanceApprovalStatus.Pending)
+        if (a.ApprovalStatusId != LookupConstants.AttendanceApprovalStatus.Pending)
             return Fail<WorkerAttendanceDto>("This attendance record was already reviewed.", "تمت مراجعة سجل الحضور هذا مسبقاً.");
 
         var now = DateTime.UtcNow;
-        a.ApprovalStatus = approve ? AttendanceApprovalStatus.Approved : AttendanceApprovalStatus.Rejected;
+        a.ApprovalStatusId = approve
+            ? LookupConstants.AttendanceApprovalStatus.Approved
+            : LookupConstants.AttendanceApprovalStatus.Rejected;
         a.RejectionReason = approve ? null : reason!.Trim();
         a.ReviewedByUserId = user.UserId;
         a.ReviewedDate = now;
         a.UpdatedBy = user.UserId; a.UpdatedDate = now;
 
         await _uow.SaveChangesAsync(ct);
+        a = (await _repo.GetByIdAsync(a.Id, ct))!;
         return ApiResponse<WorkerAttendanceDto>.SuccessResponse(ToDto(a),
             approve ? "Attendance approved." : "Attendance rejected.",
             approve ? "تم اعتماد الحضور." : "تم رفض الحضور.");
@@ -326,8 +330,8 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
                 DayStatus = ComputeDayStatus(sr.AttendanceFrequency, day, slots, mine, now).ToString(),
                 ExpectedCheckIns = sr.AttendanceFrequency,
                 RecordedCheckIns = mine.Count,
-                ApprovedCheckIns = mine.Count(r => r.ApprovalStatus == AttendanceApprovalStatus.Approved),
-                PendingCheckIns = mine.Count(r => r.ApprovalStatus == AttendanceApprovalStatus.Pending),
+                ApprovedCheckIns = mine.Count(r => r.ApprovalStatusId == LookupConstants.AttendanceApprovalStatus.Approved),
+                PendingCheckIns = mine.Count(r => r.ApprovalStatusId == LookupConstants.AttendanceApprovalStatus.Pending),
                 Entries = mine.Select(ToDto).ToList()
             });
         }
@@ -388,11 +392,11 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
                 var overtime = overtimes[(link.Id, day)].FirstOrDefault();
                 if (overtime is not null)
                 {
-                    if (overtime.ApprovalStatus == AttendanceApprovalStatus.Pending)
+                    if (overtime.ApprovalStatusId == LookupConstants.AttendanceApprovalStatus.Pending)
                     {
                         item.PendingOvertimeAmount += overtime.Amount;
                     }
-                    else if (overtime.ApprovalStatus == AttendanceApprovalStatus.Approved && status == AttendanceDayStatus.Present)
+                    else if (overtime.ApprovalStatusId == LookupConstants.AttendanceApprovalStatus.Approved && status == AttendanceDayStatus.Present)
                     {
                         item.ApprovedOvertimeHours += overtime.Hours;
                         item.ApprovedOvertimeAmount += overtime.Amount;
@@ -423,17 +427,17 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
     {
         if (slots.Count == 0 && rows.Count == 0) return AttendanceDayStatus.NotScheduled;
 
-        var approvedPresent = rows.Count(r => r.EntryType == AttendanceEntryType.Present && r.ApprovalStatus == AttendanceApprovalStatus.Approved);
+        var approvedPresent = rows.Count(r => r.EntryTypeId == LookupConstants.AttendanceEntryType.Present && r.ApprovalStatusId == LookupConstants.AttendanceApprovalStatus.Approved);
         if (frequency > 0 && approvedPresent >= frequency) return AttendanceDayStatus.Present;
 
         // A rejected record or an approved absence decides the day immediately.
-        if (rows.Any(r => r.ApprovalStatus == AttendanceApprovalStatus.Rejected ||
-                          (r.EntryType == AttendanceEntryType.Absent && r.ApprovalStatus == AttendanceApprovalStatus.Approved)))
+        if (rows.Any(r => r.ApprovalStatusId == LookupConstants.AttendanceApprovalStatus.Rejected ||
+                          (r.EntryTypeId == LookupConstants.AttendanceEntryType.Absent && r.ApprovalStatusId == LookupConstants.AttendanceApprovalStatus.Approved)))
             return AttendanceDayStatus.Absent;
 
         var closesAt = slots.Count > 0 ? slots.Max(x => x.ClosesAtUtc) : date.AddDays(1) - LocalOffset;   // day ends when its LAST window closes
         if (nowUtc <= closesAt)
-            return rows.Any(r => r.ApprovalStatus == AttendanceApprovalStatus.Pending)
+            return rows.Any(r => r.ApprovalStatusId == LookupConstants.AttendanceApprovalStatus.Pending)
                 ? AttendanceDayStatus.PendingApproval
                 : AttendanceDayStatus.Open;
 
@@ -445,7 +449,7 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
         if (!Permissions(user).Contains(ManagePermission))
             return new Gate(Side.None, "You do not have permission to record attendance.", "ليس لديك صلاحية تسجيل الحضور.", 403);
 
-        if (sr.Status != ServiceRequestStatus.InProgress)
+        if (sr.StatusId != LookupConstants.ServiceRequestStatus.InProgress)
             return new Gate(Side.None, "Attendance cannot be recorded: the service request is not in progress (closed, completed, cancelled or not yet approved).",
                 "لا يمكن تسجيل الحضور: طلب الخدمة غير قيد التنفيذ (مغلق أو مكتمل أو ملغى أو لم تتم الموافقة عليه).");
 
@@ -479,7 +483,7 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
         // Association Representative = an Association user assigned as supervisor on the request's project.
         if (user.EntityType == EntityType.Association && user.EntityId == sr.AssociationId)
         {
-            var supervisors = await _uow.AssociationProjectSupervisors.GetAllAsync(sr.ProjectId, null, ct);
+            var supervisors = await _uow.AssociationProjectSupervisors.GetByProjectIdAsync(sr.ProjectId, ct);
             if (supervisors.Any(s => s.UserId == user.UserId)) return Side.Association;
         }
         return Side.None;
@@ -546,7 +550,8 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
         OpensAtUtc = w.OpensAtUtc,
         ClosesAtUtc = w.ClosesAtUtc,
         OpensAtLocal = (w.OpensAtUtc + LocalOffset).TimeOfDay,
-        ClosesAtLocal = (w.ClosesAtUtc + LocalOffset).TimeOfDay
+        ClosesAtLocal = (w.ClosesAtUtc + LocalOffset).TimeOfDay,
+      
     };
 
     private static WorkerAttendanceDto ToDto(WorkerAttendance a) => new()
@@ -555,8 +560,14 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
         WorkerProjectLinkId = a.WorkerProjectLinkId,
         AttendanceForDate = a.AttendanceForDate.Date,
         CheckInNumber = a.CheckInNumber,
-        EntryType = a.EntryType.ToString(),
-        ApprovalStatus = a.ApprovalStatus.ToString(),
+        EntryTypeId = a.EntryTypeId,
+        EntryType = LookupConstants.AttendanceEntryTypeCode(a.EntryTypeId),
+        EntryTypeNameEn = a.EntryType?.EnglishName,
+        EntryTypeNameAr = a.EntryType?.ArabicName,
+        ApprovalStatusId = a.ApprovalStatusId,
+        ApprovalStatus = LookupConstants.AttendanceApprovalStatusCode(a.ApprovalStatusId),
+        ApprovalStatusNameEn = a.ApprovalStatus?.EnglishName,
+        ApprovalStatusNameAr = a.ApprovalStatus?.ArabicName,
         CityId = a.CityId,
         AssociationUserId = a.AssociationUserId,
         AssociationCheckInDate = a.AssociationCheckInDate,

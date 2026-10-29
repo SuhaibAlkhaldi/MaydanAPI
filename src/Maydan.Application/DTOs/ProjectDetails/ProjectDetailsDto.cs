@@ -77,7 +77,9 @@ public class ProjectDetailsServiceRequestDto
     public string? ServiceNameEn { get; set; }
     public string? ServiceNameAr { get; set; }
     public int AssociationId { get; set; }
-    public string? AssociationName { get; set; }
+    //public string? AssociationName { get; set; }
+    public string AssociationNameEn { get; set; } = string.Empty;
+    public string AssociationNameAr { get; set; } = string.Empty;
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
     public int ShiftsCount { get; set; }

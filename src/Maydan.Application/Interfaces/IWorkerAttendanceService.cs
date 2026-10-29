@@ -19,7 +19,7 @@ public interface IWorkerAttendanceService
 
     //Overtime 
     Task<ApiResponse<WorkerOvertimeDto>> RecordOvertimeAsync(int currentUserId, RecordOvertimeDto dto, CancellationToken cancellationToken = default);
-    Task<ApiResponse<List<WorkerOvertimeDto>>> GetOvertimeAsync(int currentUserId, int serviceRequestId, DateTime? from, DateTime? to, AttendanceApprovalStatus? status, CancellationToken cancellationToken = default);
+    Task<ApiResponse<List<WorkerOvertimeDto>>> GetOvertimeAsync(int currentUserId, int serviceRequestId, DateTime? from, DateTime? to, int? statusId, CancellationToken cancellationToken = default);
     Task<ApiResponse<List<WorkerOvertimeDto>>> GetPendingOvertimeAsync(int currentUserId, CancellationToken cancellationToken = default);
     Task<ApiResponse<WorkerOvertimeDto>> ApproveOvertimeAsync(int currentUserId, int overtimeId, CancellationToken cancellationToken = default);
     Task<ApiResponse<WorkerOvertimeDto>> RejectOvertimeAsync(int currentUserId, int overtimeId, string reason, CancellationToken cancellationToken = default);

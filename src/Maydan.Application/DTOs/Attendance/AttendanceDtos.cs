@@ -1,4 +1,4 @@
-﻿using Maydan.Domain.Enums;
+using Maydan.Domain.Common;
 
 namespace Maydan.Application.DTOs.Attendance;
 
@@ -14,7 +14,7 @@ public class RecordAttendanceDto
     //Date the attendance counts for. Defaults to today (Jordan time).
     public DateTime? AttendanceForDate { get; set; }
 
-    public AttendanceEntryType EntryType { get; set; } = AttendanceEntryType.Present;
+    public int EntryTypeId { get; set; } = LookupConstants.AttendanceEntryType.Present;
 }
 
 public class RejectAttendanceDto
@@ -58,8 +58,14 @@ public class WorkerAttendanceDto
     public string? WorkerName { get; set; }
     public DateTime AttendanceForDate { get; set; }
     public int CheckInNumber { get; set; }
+    public int EntryTypeId { get; set; }
     public string EntryType { get; set; } = string.Empty;
+    public int ApprovalStatusId { get; set; }
     public string ApprovalStatus { get; set; } = string.Empty;
+    public string? EntryTypeNameEn { get; set; }
+    public string? EntryTypeNameAr { get; set; }
+    public string? ApprovalStatusNameEn { get; set; }
+    public string? ApprovalStatusNameAr { get; set; }
     public int CityId { get; set; }
 
     public int? AssociationUserId { get; set; }
@@ -73,6 +79,7 @@ public class WorkerAttendanceDto
     public int? ReviewedByUserId { get; set; }
     public DateTime? ReviewedDate { get; set; }
     public string? RejectionReason { get; set; }
+   
 }
 
 public class DayRosterItemDto
@@ -164,10 +171,14 @@ public class WorkerOvertimeDto
     public int HoursPerUnit { get; set; }
     public decimal UnitWageAmount { get; set; }
     public decimal Amount { get; set; }
+    public int ApprovalStatusId { get; set; }
     public string ApprovalStatus { get; set; } = string.Empty;
+
     public int RecordedByUserId { get; set; }
     public DateTime RecordedDate { get; set; }
     public int? ReviewedByUserId { get; set; }
     public DateTime? ReviewedDate { get; set; }
     public string? RejectionReason { get; set; }
+    public string? ApprovalStatusNameEn { get; set; }
+    public string? ApprovalStatusNameAr { get; set; }
 }

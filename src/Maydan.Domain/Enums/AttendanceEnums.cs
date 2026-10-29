@@ -8,18 +8,8 @@ namespace Maydan.Domain.Enums
 {
    
 
-    public enum AttendanceEntryType
-    {
-        Present = 1,
-        Absent = 2
-    }
-
-    public enum AttendanceApprovalStatus
-    {
-        Pending = 1,    // recorded by the Association, waiting for the Production House
-        Approved = 2,   // approved by the Production House (or recorded directly by it)
-        Rejected = 3    // rejected by the Production House => counts as "not approved"
-    }
+   
+  
 
     //Computed (never stored) outcome of one worker for one calendar day.
     public enum AttendanceDayStatus

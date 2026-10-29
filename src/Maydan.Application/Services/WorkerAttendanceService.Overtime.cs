@@ -1,5 +1,7 @@
 ﻿using Maydan.Application.DTOs.Attendance;
 using Maydan.Application.DTOs.Common;
+using Maydan.Application.DTOs.Lookups;
+using Maydan.Domain.Common;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
 
@@ -42,7 +44,7 @@ public partial class WorkerAttendanceService
         var sr = await _uow.ServiceRequests.GetByIdAsync(dto.ServiceRequestId, ct);
         if (sr is null) return Fail<WorkerOvertimeDto>("Service request was not found.", "طلب الخدمة غير موجود.", 404);
 
-        if (sr.Status != ServiceRequestStatus.InProgress)
+        if (sr.StatusId != LookupConstants.ServiceRequestStatus.InProgress)
             return Fail<WorkerOvertimeDto>("Overtime cannot be recorded: the service request is not in progress.", "لا يمكن تسجيل وقت إضافي: طلب الخدمة غير قيد التنفيذ.");
 
         // Same people who take attendance: association supervisor of the project, or the project's location manager.
@@ -63,8 +65,8 @@ public partial class WorkerAttendanceService
 
         // Rule: overtime can only be entered AFTER the worker's check-out of that day.
         var rows = await _repo.ListByLinkAndDateAsync(link.Id, date, ct);
-        var checkedOut = rows.Any(r => r.EntryType == AttendanceEntryType.Present
-                                    && r.ApprovalStatus != AttendanceApprovalStatus.Rejected
+        var checkedOut = rows.Any(r => r.EntryTypeId == LookupConstants.AttendanceEntryType.Present
+                                    && r.ApprovalStatusId != LookupConstants.AttendanceApprovalStatus.Rejected
                                     && (r.AssociationCheckOutDate != null || r.ProductionCompanyCheckOutDate != null));
         if (!checkedOut)
             return Fail<WorkerOvertimeDto>("Overtime can only be recorded after the worker's check-out for that day.",
@@ -82,7 +84,7 @@ public partial class WorkerAttendanceService
         }
         else
         {
-            if (overtime.ApprovalStatus == AttendanceApprovalStatus.Approved)
+            if (overtime.ApprovalStatusId == LookupConstants.AttendanceApprovalStatus.Approved)
                 return Fail<WorkerOvertimeDto>("Overtime for this day was already approved and can no longer be changed.", "تم اعتماد الوقت الإضافي لهذا اليوم ولا يمكن تعديله.", 409);
             overtime.UpdatedBy = user.UserId;
             overtime.UpdatedDate = now;
@@ -95,12 +97,13 @@ public partial class WorkerAttendanceService
         overtime.Amount = amount;
         overtime.RecordedByUserId = user.UserId;
         overtime.RecordedDate = now;
-        overtime.ApprovalStatus = AttendanceApprovalStatus.Pending;
+        overtime.ApprovalStatusId = LookupConstants.AttendanceApprovalStatus.Pending;
         overtime.ReviewedByUserId = null;
         overtime.ReviewedDate = null;
         overtime.RejectionReason = null;
 
         await _uow.SaveChangesAsync(ct);
+        overtime = (await _repo.GetOvertimeByIdAsync(overtime.Id, ct))!;   
         return ApiResponse<WorkerOvertimeDto>.SuccessResponse(ToOvertimeDto(overtime, link),
             "Overtime recorded. It is not counted until Bayt Al Urdon approves it.", "تم تسجيل الوقت الإضافي ولن يُحتسب إلا بعد موافقة بيت الأردن.", 201);
     }
@@ -109,7 +112,7 @@ public partial class WorkerAttendanceService
     //  Read
     
     public async Task<ApiResponse<List<WorkerOvertimeDto>>> GetOvertimeAsync(
-        int currentUserId, int serviceRequestId, DateTime? from, DateTime? to, AttendanceApprovalStatus? status, CancellationToken ct = default)
+        int currentUserId, int serviceRequestId, DateTime? from, DateTime? to, int? statusId, CancellationToken ct = default)
     {
         var (_, sr, error) = await LoadForViewAsync(currentUserId, serviceRequestId, ct);
         if (error is not null) return Fail<List<WorkerOvertimeDto>>(error.En!, error.Ar!, error.Status);
@@ -117,7 +120,7 @@ public partial class WorkerAttendanceService
         var f = (from ?? sr!.StartDate).Date;
         var t = (to ?? sr!.EndDate).Date;
         var list = await _repo.ListOvertimeByServiceRequestAsync(sr!.Id, f, t, ct);
-        if (status.HasValue) list = list.Where(o => o.ApprovalStatus == status.Value).ToList();
+        if (statusId.HasValue) list = list.Where(o => o.ApprovalStatusId == statusId.Value).ToList();
 
         return ApiResponse<List<WorkerOvertimeDto>>.SuccessResponse(
             list.Select(o => ToOvertimeDto(o)).ToList(), "Overtime fetched.", "تم جلب الوقت الإضافي.");
@@ -131,7 +134,7 @@ public partial class WorkerAttendanceService
         if (!CanApproveOvertime(user))
             return Fail<List<WorkerOvertimeDto>>("Only Bayt Al Urdon can review overtime.", "فقط بيت الأردن يمكنه مراجعة الوقت الإضافي.", 403);
 
-        var list = await _repo.ListOvertimeByStatusAsync(AttendanceApprovalStatus.Pending, ct);
+        var list = await _repo.ListOvertimeByStatusAsync(LookupConstants.AttendanceApprovalStatus.Pending, ct);
         return ApiResponse<List<WorkerOvertimeDto>>.SuccessResponse(
             list.Select(o => ToOvertimeDto(o)).ToList(), "Pending overtime fetched.", "تم جلب الوقت الإضافي المعلّق.");
     }
@@ -159,12 +162,13 @@ public partial class WorkerAttendanceService
         var overtime = await _repo.GetOvertimeByIdAsync(overtimeId, ct);
         if (overtime is null) return Fail<WorkerOvertimeDto>("Overtime record was not found.", "سجل الوقت الإضافي غير موجود.", 404);
 
-        if (overtime.ApprovalStatus != AttendanceApprovalStatus.Pending)
+        if (overtime.ApprovalStatusId != LookupConstants.AttendanceApprovalStatus.Pending)
             return Fail<WorkerOvertimeDto>("This overtime was already reviewed.", "تمت مراجعة هذا الوقت الإضافي مسبقاً.");
 
         var now = DateTime.UtcNow;
-        overtime.ApprovalStatus = approve ? AttendanceApprovalStatus.Approved : AttendanceApprovalStatus.Rejected;
-        overtime.RejectionReason = approve ? null : reason!.Trim();
+        overtime.ApprovalStatusId = approve
+                    ? LookupConstants.AttendanceApprovalStatus.Approved
+                    : LookupConstants.AttendanceApprovalStatus.Rejected; overtime.RejectionReason = approve ? null : reason!.Trim();
         overtime.ReviewedByUserId = user.UserId;
         overtime.ReviewedDate = now;
         overtime.UpdatedBy = user.UserId;
@@ -195,7 +199,10 @@ public partial class WorkerAttendanceService
             HoursPerUnit = o.HoursPerUnit,
             UnitWageAmount = o.UnitWageSnapshot,
             Amount = o.Amount,
-            ApprovalStatus = o.ApprovalStatus.ToString(),
+            ApprovalStatusId = o.ApprovalStatusId,                       
+            ApprovalStatus = LookupConstants.AttendanceApprovalStatusCode(o.ApprovalStatusId),
+            ApprovalStatusNameEn = o.ApprovalStatus?.EnglishName,
+            ApprovalStatusNameAr = o.ApprovalStatus?.ArabicName,
             RecordedByUserId = o.RecordedByUserId,
             RecordedDate = o.RecordedDate,
             ReviewedByUserId = o.ReviewedByUserId,

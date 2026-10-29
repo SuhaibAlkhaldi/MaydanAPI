@@ -46,6 +46,14 @@ public class AssociationProjectSupervisorRepository : IAssociationProjectSupervi
         return (items, totalCount);
     }
 
+    public Task<List<AssociationProjectSupervisor>> GetByProjectIdAsync(int projectId, CancellationToken cancellationToken = default) =>
+        _context.AssociationProjectSupervisors
+            .Include(s => s.Project)
+            .Include(s => s.User)
+            .Where(s => s.ProjectId == projectId)
+            .OrderByDescending(s => s.CreatedAt)
+            .ToListAsync(cancellationToken);
+
     public Task<AssociationProjectSupervisor?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
         _context.AssociationProjectSupervisors
             .Include(s => s.Project)

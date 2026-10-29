@@ -1,6 +1,7 @@
-﻿using Maydan.Application.DTOs.Common;
+using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.ProjectDetails;
 using Maydan.Application.Interfaces;
+using Maydan.Domain.Common;
 using Maydan.Domain.Constants;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
@@ -31,7 +32,7 @@ public class ProjectDetailsService : IProjectDetailsService
 
         var today = (DateTime.UtcNow + LocalOffset).Date;
 
-        var supervisors = await _uow.AssociationProjectSupervisors.GetAllAsync(projectId: projectId, associationId: null, cancellationToken: ct);
+        var supervisors = await _uow.AssociationProjectSupervisors.GetByProjectIdAsync(projectId, ct);
         var workerLinks = await _linkRepo.ListByProjectAsync(projectId, ct);
         var allServiceRequests = await _uow.ServiceRequests.GetAllAsync(ct);
         var projectServiceRequests = allServiceRequests.Where(sr => sr.ProjectId == projectId).ToList();
@@ -69,7 +70,8 @@ public class ProjectDetailsService : IProjectDetailsService
                 ServiceNameEn = sr.Service?.NameEn,
                 ServiceNameAr = sr.Service?.NameAr,
                 AssociationId = sr.AssociationId,
-                AssociationName = sr.Association?.EnglishName,
+                AssociationNameEn = sr.Association?.EnglishName,
+                AssociationNameAr=sr.Association?.ArabicName,
                 StartDate = sr.StartDate,
                 EndDate = sr.EndDate,
                 ShiftsCount = sr.ShiftsCount,
@@ -78,7 +80,7 @@ public class ProjectDetailsService : IProjectDetailsService
                 AttendanceFrequency = sr.AttendanceFrequency,
                 UnitPriceSnapshot = sr.UnitPriceSnapshot,
                 ExpectedTotalAmount = sr.ExpectedTotalAmount,
-                Status = sr.Status.ToString(),
+                Status = LookupConstants.ServiceRequestStatusCode(sr.StatusId),
                 AdditionalRequirements = sr.AdditionalRequirements,
                 RejectionReason = sr.RejectionReason,
                 AssignedWorkers = sr.ServiceRequestWorkers?.Select(srw => new ProjectDetailsAssignedWorkerDto
@@ -93,6 +95,27 @@ public class ProjectDetailsService : IProjectDetailsService
     }
 
     //  GET workers only
+    public async Task<ApiResponse<List<ProjectDetailsSupervisorDto>>> GetProjectSupervisorsAsync(int currentUserId, int projectId, CancellationToken ct = default)
+    {
+        var (_, error) = await LoadAuthorizedProjectAsync<List<ProjectDetailsSupervisorDto>>(currentUserId, projectId, ct);
+        if (error is not null) return error;
+
+        var supervisors = await _uow.AssociationProjectSupervisors.GetByProjectIdAsync(projectId, ct);
+
+        var dtos = supervisors?.Select(s => new ProjectDetailsSupervisorDto
+        {
+            Id = s.Id,
+            UserId = s.UserId,
+            FullNameEn = s.User != null ? $"{s.User.FirstNameEn} {s.User.LastNameEn}" : null,
+            FullNameAr = s.User != null ? $"{s.User.FirstNameAr} {s.User.LastNameAr}" : null,
+            Email = s.User?.Email,
+            PhoneNumber = s.User?.PhoneNumber
+        }).ToList() ?? new List<ProjectDetailsSupervisorDto>();
+
+        return ApiResponse<List<ProjectDetailsSupervisorDto>>.SuccessResponse(
+            dtos, "Project supervisors fetched successfully.", "تم جلب مشرفي المشروع بنجاح.");
+    }
+
     public async Task<ApiResponse<List<ProjectDetailsWorkerDto>>> GetProjectWorkersAsync(int currentUserId, int projectId, CancellationToken ct = default)
     {
         var (_, error) = await LoadAuthorizedProjectAsync<List<ProjectDetailsWorkerDto>>(currentUserId, projectId, ct);
@@ -175,10 +198,10 @@ public class ProjectDetailsService : IProjectDetailsService
         CreatedDate = wl.CreatedDate,
         ServiceStartDate = wl.ServiceRequest?.StartDate,
         ServiceEndDate = wl.ServiceRequest?.EndDate,
-        ServiceRequestStatus = wl.ServiceRequest?.Status.ToString(),
+        ServiceRequestStatus = wl.ServiceRequest is null ? null : LookupConstants.ServiceRequestStatusCode(wl.ServiceRequest.StatusId),
         IsCurrent = wl.IsWorkerActive
                     && wl.ServiceRequest != null
-                    && wl.ServiceRequest.Status == ServiceRequestStatus.InProgress
+                    && wl.ServiceRequest.StatusId == LookupConstants.ServiceRequestStatus.InProgress
                     && wl.ServiceRequest.EndDate >= today
     };
 }

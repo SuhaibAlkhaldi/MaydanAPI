@@ -75,6 +75,54 @@ public class AssociationProjectSupervisorService : IAssociationProjectSupervisor
         return ApiResponse<PagedAssociationProjectSupervisorDto>.SuccessResponse(pagedResult, "Supervisors retrieved successfully.", "تم استرجاع المشرفين بنجاح.");
     }
 
+    public async Task<ApiResponse<List<AssociationProjectSupervisorDto>>> GetByProjectIdAsync(
+        int projectId, int currentUserId, CancellationToken cancellationToken = default)
+    {
+        var user = await _unitOfWork.Users.GetByIdAsync(currentUserId, cancellationToken);
+        if (user == null || !user.IsActive)
+            return new ApiResponse<List<AssociationProjectSupervisorDto>>(false, "المستخدم الحالي غير مصرح له.", "Unauthorized.", default, 401);
+
+        var project = await _unitOfWork.Projects.GetByIdAsync(projectId, cancellationToken);
+        if (project == null)
+            return new ApiResponse<List<AssociationProjectSupervisorDto>>(false, "المشروع غير موجود.", "Project was not found.", default, 404);
+
+        if (user.EntityType == EntityType.ProductionCompany && project.ProductionCompanyId != user.EntityId)
+            return new ApiResponse<List<AssociationProjectSupervisorDto>>(false, "غير مصرح لك بالوصول لبيانات هذا المشروع.", "Forbidden.", default, 403);
+
+        var supervisors = await _unitOfWork.AssociationProjectSupervisors.GetByProjectIdAsync(projectId, cancellationToken);
+
+        if (user.EntityType == EntityType.Association)
+        {
+            supervisors = supervisors.Where(s => s.User.EntityType == EntityType.Association && s.User.EntityId == user.EntityId).ToList();
+        }
+
+        var associationNames = await ResolveAssociationNamesAsync(supervisors, cancellationToken);
+        var dtos = supervisors.Select(s => MapToDto(s, associationNames)).ToList();
+
+        return ApiResponse<List<AssociationProjectSupervisorDto>>.SuccessResponse(dtos, "Supervisors retrieved successfully.", "تم استرجاع المشرفين بنجاح.");
+    }
+
+    public async Task<ApiResponse<AssociationProjectSupervisorDto>> GetByIdAsync(
+        int id, int currentUserId, CancellationToken cancellationToken = default)
+    {
+        var user = await _unitOfWork.Users.GetByIdAsync(currentUserId, cancellationToken);
+        if (user == null || !user.IsActive)
+            return new ApiResponse<AssociationProjectSupervisorDto>(false, "المستخدم الحالي غير مصرح له.", "Unauthorized.", default, 401);
+
+        var supervisor = await _unitOfWork.AssociationProjectSupervisors.GetByIdAsync(id, cancellationToken);
+        if (supervisor == null)
+            return new ApiResponse<AssociationProjectSupervisorDto>(false, "المشرف غير موجود.", "Supervisor assignment was not found.", default, 404);
+
+        if (user.EntityType == EntityType.ProductionCompany && supervisor.Project != null && supervisor.Project.ProductionCompanyId != user.EntityId)
+            return new ApiResponse<AssociationProjectSupervisorDto>(false, "غير مصرح لك بالوصول لبيانات هذا المشرف.", "Forbidden.", default, 403);
+
+        if (user.EntityType == EntityType.Association && (supervisor.User.EntityType != EntityType.Association || supervisor.User.EntityId != user.EntityId))
+            return new ApiResponse<AssociationProjectSupervisorDto>(false, "غير مصرح لك بالوصول لبيانات هذا المشرف.", "Forbidden.", default, 403);
+
+        var associationNames = await ResolveAssociationNamesAsync(new[] { supervisor }, cancellationToken);
+        return ApiResponse<AssociationProjectSupervisorDto>.SuccessResponse(MapToDto(supervisor, associationNames), "Supervisor retrieved successfully.", "تم استرجاع المشرف بنجاح.");
+    }
+
     public async Task<ApiResponse<AssociationProjectSupervisorDto>> CreateAsync(CreateAssociationProjectSupervisorDto dto, int currentUserId, CancellationToken cancellationToken = default)
     {
         var currentUser = await _unitOfWork.Users.GetByIdAsync(currentUserId, cancellationToken);

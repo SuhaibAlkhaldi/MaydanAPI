@@ -1,4 +1,5 @@
-﻿using Maydan.Domain.Entities;
+using Maydan.Domain.Entities;
+using Maydan.Infrastructure.Persistence.Seed;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -14,10 +15,26 @@ public class WorkerAttendanceConfiguration : IEntityTypeConfiguration<WorkerAtte
 
         builder.Property(x => x.AttendanceForDate).HasColumnType("date").IsRequired();
         builder.Property(x => x.CheckInNumber).IsRequired();
-        builder.Property(x => x.EntryType).IsRequired();
-        builder.Property(x => x.ApprovalStatus).IsRequired();
         builder.Property(x => x.RejectionReason).HasMaxLength(500);
         builder.Property(x => x.CreatedDate).IsRequired().HasDefaultValueSql("SYSUTCDATETIME()");
+
+        builder.Property(x => x.EntryTypeId)
+            .IsRequired()
+            .HasDefaultValue(LookupSeed.AttendanceEntryTypePresentItemId);
+
+        builder.HasOne(x => x.EntryType)
+            .WithMany()
+            .HasForeignKey(x => x.EntryTypeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Property(x => x.ApprovalStatusId)
+            .IsRequired()
+            .HasDefaultValue(LookupSeed.AttendanceApprovalStatusPendingItemId);
+
+        builder.HasOne(x => x.ApprovalStatus)
+            .WithMany()
+            .HasForeignKey(x => x.ApprovalStatusId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(x => x.WorkerProjectLink)
             .WithMany()

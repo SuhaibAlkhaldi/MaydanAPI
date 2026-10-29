@@ -1,5 +1,3 @@
-using Maydan.Domain.Enums;
-
 namespace Maydan.Application.DTOs.ServiceRequests;
 
 public class ServiceRequestDetailsDto
@@ -38,21 +36,42 @@ public class ServiceRequestDetailsDto
     public decimal ExpectedTotalAmount { get; set; }
 
     // Status and metadata
-    public ServiceRequestStatus Status { get; set; }
+    public int StatusId { get; set; }
+    public string? StatusNameEn { get; set; }
+    public string? StatusNameAr { get; set; }
     public string? RejectionReason { get; set; } 
     public DateTime? CreatedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
 
     public string? AdditionalRequirements { get; set; }
 
-    //
     public List<AssignedWorkerDto> AssignedWorkers { get; set; } = new();
 }
-public record AssignedWorkerDto(
-   int Id,
-   string FullName,
-   string? PhoneNumber,
-   string? Nationality,
-   int? YearsOfExperience,
-   List<string> DocumentPaths
-);
+
+public class AssignedWorkerDto
+{
+    public int WorkerId { get; set; }
+    public string WorkerNameEn { get; set; } = string.Empty;
+    public string WorkerNameAr { get; set; } = string.Empty;
+    public string? PhoneNumber { get; set; }
+    public string? Nationality { get; set; }
+    public int? YearsOfExperience { get; set; }
+
+    public List<string> Documents { get; set; }
+    public DateTime AssignedAt { get; set; }
+    public AssignedWorkerDto(
+       int workerId,
+       string workerNameEn,
+       string? phoneNumber,
+       string? nationality,
+       int? yearsOfExperience,
+       List<string> documents)
+    {
+        WorkerId = workerId;
+        WorkerNameEn = workerNameEn;
+        PhoneNumber = phoneNumber;
+        Nationality = nationality;
+        YearsOfExperience = yearsOfExperience;
+        Documents = documents;
+    }
+}

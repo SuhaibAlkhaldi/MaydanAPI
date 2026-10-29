@@ -1,6 +1,7 @@
 ﻿using Maydan.Application.DTOs.Attendance;
 using Maydan.Application.DTOs.Common;
 using Maydan.Application.Interfaces;
+using Maydan.Domain.Common;
 using Maydan.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -97,10 +98,10 @@ public class AttendanceController : ApiControllerBase
 
     [HttpGet("service-requests/{serviceRequestId:int}/overtime")]
     public async Task<IActionResult> GetOvertime(int serviceRequestId, [FromQuery] DateTime? from, [FromQuery] DateTime? to,
-        [FromQuery] AttendanceApprovalStatus? status, CancellationToken ct)
+        [FromQuery] int? statusId, CancellationToken ct)
     {
         if (!TryGetCurrentUserId(out var uid)) return NoUser();
-        var r = await _service.GetOvertimeAsync(uid, serviceRequestId, from, to, status, ct);
+        var r = await _service.GetOvertimeAsync(uid, serviceRequestId, from, to, statusId, ct);
         return StatusCode(r.StatusCode, r);
     }
 

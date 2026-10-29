@@ -1,5 +1,6 @@
 using Maydan.Application.DTOs.Workers;
 using Maydan.Application.Interfaces;
+using Maydan.Domain.Common;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
 using Maydan.Infrastructure.Persistence;
@@ -164,7 +165,7 @@ var serviceRequiresDocs = await _context.Set<Service>()
             .Where(w => w.WorkerServices.Any(ws => ws.ServiceId == serviceId))
             .Where(w => !serviceRequiresDocs || w.Documents.Any())
             .Where(w => !w.ServiceRequestWorkers.Any(srw =>
-                srw.ServiceRequest.Status == ServiceRequestStatus.InProgress &&
+                srw.ServiceRequest.StatusId == LookupConstants.ServiceRequestStatus.InProgress &&
                 srw.ServiceRequest.StartDate <= endDate &&
                 srw.ServiceRequest.EndDate >= startDate))
             .Select(w => new WorkerDto(
@@ -198,7 +199,7 @@ var serviceRequiresDocs = await _context.Set<Service>()
     public Task<bool> IsWorkerBusyAsync(int workerId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default) =>
     _context.Workers.AnyAsync(w => w.Id == workerId &&
         w.ServiceRequestWorkers.Any(srw =>
-            srw.ServiceRequest.Status == ServiceRequestStatus.InProgress &&
+            srw.ServiceRequest.StatusId == LookupConstants.ServiceRequestStatus.InProgress &&
             srw.ServiceRequest.StartDate <= endDate &&
             srw.ServiceRequest.EndDate >= startDate), cancellationToken);
 }
