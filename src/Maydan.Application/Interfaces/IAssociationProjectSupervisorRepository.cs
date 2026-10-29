@@ -11,8 +11,13 @@ public interface IAssociationProjectSupervisorRepository
     // the only way to scope "supervisors for this association's users." Both null = no filter
     // (return everything) — the "0 means no filter" translation happens one layer up, in the
     // service, so this repository only ever deals in real nullable semantics.
-    Task<List<AssociationProjectSupervisor>> GetAllAsync(int? projectId, int? associationId, CancellationToken cancellationToken = default);
-
+    Task<(List<AssociationProjectSupervisor> Items, int TotalCount)> GetAllAsync(
+        int? projectId,
+        int? associationId,
+        int? productionCompanyId,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default);
     Task<AssociationProjectSupervisor?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
 
     Task AddAsync(AssociationProjectSupervisor supervisor, CancellationToken cancellationToken = default);

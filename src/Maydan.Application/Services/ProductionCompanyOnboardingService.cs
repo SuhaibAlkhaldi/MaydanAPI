@@ -1,26 +1,16 @@
 using Maydan.Application.DTOs.Auth;
+using Maydan.Application.DTOs.Common; 
 using Maydan.Application.Interfaces;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
+using System.Text.RegularExpressions;
 
 namespace Maydan.Application.Services;
 
-// Entity onboarding Stage 1 (2026-09-22): the only way today to create a brand-new
-// ProductionCompany's first user. Deliberately its own service, not a method on AuthService or
-// UserManagementService: it's neither an authentication concern (no session exists before this
-// point — nothing to authenticate against) nor an entity-scoped user-management concern
-// (UserManagementService.CreateUserAsync's EnsureSameEntityCreation guard assumes a currentUser to
-// inherit EntityType/EntityId from, which doesn't exist here). Production companies only for now —
-// Associations/ASEZA/Bayt-AlUrdon onboarding is Stage 2+, a different flow per the confirmed
-// product decisions, not this class's concern.
 public class ProductionCompanyOnboardingService : IProductionCompanyOnboardingService
 {
-    // Matches RolePermissionSeedConfiguration.cs's ProductionHouse const (RoleId 3) — the new
-    // admin's role. Not resolved by name lookup: this ticket's confirmed flow only ever creates a
-    // ProductionCompany admin, so the seeded id is the right thing to pin against, same as how
-    // UserManagementServiceTests pins RoleId literals in its own fixtures.
     private const int ProductionHouseRoleId = 3;
-
+    private const int BaytAlUrdonRoleId = 1;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IPasswordHasher _passwordHasher;
 
@@ -30,44 +20,62 @@ public class ProductionCompanyOnboardingService : IProductionCompanyOnboardingSe
         _passwordHasher = passwordHasher;
     }
 
-    public async Task<RegisterProductionCompanyResponseDto> RegisterAsync(RegisterProductionCompanyDto dto, CancellationToken cancellationToken = default)
-    {
-        ValidatePayload(dto);
+   
+
+       public async Task<ApiResponse<RegisterProductionCompanyResponseDto>> RegisterAsync(RegisterProductionCompanyDto dto, int? currentUserId = null, CancellationToken cancellationToken = default)
+         {
+        var validationError = ValidatePayload(dto);
+        if (validationError != null)
+        {
+            return validationError;
+        }
 
         var email = dto.Email.Trim();
         if (await _unitOfWork.Users.EmailExistsAsync(email, cancellationToken))
         {
-            throw new InvalidOperationException("A user with this email already exists.");
+            return ApiResponse<RegisterProductionCompanyResponseDto>.FailureResponse("A user with this email already exists.", "يوجد مستخدم مسجل بهذا البريد الإلكتروني مسبقاً.");
         }
 
         var registrationNumber = dto.RegistrationNumber.Trim();
         if (await _unitOfWork.ProductionCompanies.RegistrationNumberExistsAsync(registrationNumber, cancellationToken))
         {
-            throw new InvalidOperationException("A production company with this registration number is already registered.");
+            return ApiResponse<RegisterProductionCompanyResponseDto>.FailureResponse("A production company with this registration number is already registered.", "شركة الإنتاج بهذا رقم التسجيل مسجلة مسبقاً.");
         }
 
-        // MAYD-79 gap fix: the ticket's own text requires CompanyNameEn to be unique, same as
-        // RegistrationNumber — this check never existed until now (confirmed by reading this
-        // method before the fix; only Email and RegistrationNumber were ever checked).
         var companyNameEn = dto.CompanyNameEn.Trim();
         if (await _unitOfWork.ProductionCompanies.EnglishNameExistsAsync(companyNameEn, cancellationToken))
         {
-            throw new InvalidOperationException("A production company with this English name is already registered.");
+            return ApiResponse<RegisterProductionCompanyResponseDto>.FailureResponse("A production company with this English name is already registered.", "شركة الإنتاج بهذا الاسم الإنجليزي مسجلة مسبقاً.");
         }
 
         if (await _unitOfWork.Cities.GetByIdAsync(dto.CityId, cancellationToken) is null)
         {
-            throw new KeyNotFoundException("City was not found.");
+            return ApiResponse<RegisterProductionCompanyResponseDto>.FailureResponse("City was not found.", "المدينة غير موجودة.");
         }
 
-        var role = await _unitOfWork.Roles.GetWithPermissionsAsync(ProductionHouseRoleId, cancellationToken)
-            ?? throw new KeyNotFoundException("ProductionHouse role was not found.");
+        var role = await _unitOfWork.Roles.GetWithPermissionsAsync(ProductionHouseRoleId, cancellationToken);
+        if (role == null)
+        {
+            return ApiResponse<RegisterProductionCompanyResponseDto>.FailureResponse("ProductionHouse role was not found.", "دور شركة الإنتاج غير موجود بالنظام.");
+        }
+
+        // --- التعديل الجوهري: فحص من هو منشئ الطلب لتحديد حالة التفعيل ---
+        bool isCompanyActive = false; // افتراضياً غير فعالة (بانتظار الموافقة)
+        bool isSelfRegistered = true; // افتراضياً تسجيل ذاتي من الخارج
+
+        if (currentUserId.HasValue)
+        {
+            var currentUser = await _unitOfWork.Users.GetByIdAsync(currentUserId.Value, cancellationToken);
+            // إذا كان المستخدم الحالي هو غيث (أدمن بيت الأردن)
+            if (currentUser != null && currentUser.RoleId == BaytAlUrdonRoleId)
+            {
+                isCompanyActive = true;     // تتفعل فوراً
+                isSelfRegistered = false;   // ليست تسجيل ذاتي
+            }
+        }
+        // ------------------------------------------------------------------
 
         var phone = $"{dto.MobileCountryCode.Trim()}{dto.MobileNumber.Trim()}";
-
-        // Stage 3: real Arabic name fields arrived on the DTO — the Stage 1 stopgap that mirrored
-        // the Latin name into FirstNameAr/LastNameAr (to satisfy User.cs's NOT NULL columns without
-        // a real Arabic value) is gone.
         var firstNameEn = dto.AdminFirstName.Trim();
         var lastNameEn = dto.AdminLastName.Trim();
         var firstNameAr = dto.AdminFirstNameAr.Trim();
@@ -79,13 +87,10 @@ public class ProductionCompanyOnboardingService : IProductionCompanyOnboardingSe
             ArabicName = dto.CompanyNameAr.Trim(),
             RegistrationNumber = registrationNumber,
             CityId = dto.CityId,
-            // No separate company-contact fields exist on this form — the registering admin is the
-            // company's point of contact at signup time, so these default from the admin's own
-            // details rather than staying empty. Revisit if a later stage adds dedicated fields.
             ContactEmail = email,
             ContactPhone = phone,
-            IsSelfRegistered = true,
-            IsActive = true
+            IsSelfRegistered = isSelfRegistered, // تأخذ القيمة الديناميكية
+            IsActive = isCompanyActive           // تأخذ القيمة الديناميكية
         };
 
         var user = new User
@@ -97,11 +102,8 @@ public class ProductionCompanyOnboardingService : IProductionCompanyOnboardingSe
             Email = email,
             PhoneNumber = phone,
             PasswordHash = _passwordHasher.HashPassword(dto.Password),
-            // The wizard (UserManagementService.CreateUserAsync) always forces true for
-            // employees an admin creates with a temp password. This admin chose their own
-            // password during registration, so there's nothing to force a reset of.
             MustResetPassword = false,
-            IsActive = true,
+            IsActive = isCompanyActive,          // تأخذ القيمة الديناميكية
             RoleId = role.RoleId,
             EntityType = EntityType.ProductionCompany
         };
@@ -111,8 +113,6 @@ public class ProductionCompanyOnboardingService : IProductionCompanyOnboardingSe
             user.UserPermissions.Add(new UserPermission { PermissionId = rolePermission.PermissionId, IsActive = true });
         }
 
-        // Two SaveChangesAsync calls, not one: see IUnitOfWork.ExecuteInTransactionAsync's comment
-        // on why User.EntityId (a soft FK) can't be populated before ProductionCompany.Id exists.
         await _unitOfWork.ExecuteInTransactionAsync(async () =>
         {
             await _unitOfWork.ProductionCompanies.AddAsync(company, cancellationToken);
@@ -123,17 +123,33 @@ public class ProductionCompanyOnboardingService : IProductionCompanyOnboardingSe
             await _unitOfWork.SaveChangesAsync(cancellationToken);
         }, cancellationToken);
 
-        return new RegisterProductionCompanyResponseDto(
+        var responseDto = new RegisterProductionCompanyResponseDto(
             company.Id,
             company.EnglishName,
             company.ArabicName,
             user.UserId,
             user.Email,
-            "Production company registered successfully. You can now log in.");
+            isCompanyActive ? "Production company registered and activated successfully." : "Production company registered successfully. Pending admin approval.");
+
+        // تحضير رسائل النجاح بناءً على حالة التفعيل
+        string successMsgEn = isCompanyActive
+            ? "Registration successful. The production company is activated."
+            : "Registration successful. Your account is pending admin approval.";
+
+        string successMsgAr = isCompanyActive
+            ? "تم تسجيل وتفعيل شركة الإنتاج بنجاح."
+            : "تم تسجيل الشركة بنجاح. حسابك بانتظار موافقة الإدارة لتفعيله.";
+
+        return ApiResponse<RegisterProductionCompanyResponseDto>.SuccessResponse(
+            responseDto,
+            successMsgEn,
+            successMsgAr,
+            201);
     }
 
-    private static void ValidatePayload(RegisterProductionCompanyDto dto)
+    private static ApiResponse<RegisterProductionCompanyResponseDto>? ValidatePayload(RegisterProductionCompanyDto dto)
     {
+        // 1. فحص الحقول المطلوبة (Empty Checks)
         if (string.IsNullOrWhiteSpace(dto.CompanyNameEn) ||
             string.IsNullOrWhiteSpace(dto.CompanyNameAr) ||
             string.IsNullOrWhiteSpace(dto.RegistrationNumber) ||
@@ -146,20 +162,43 @@ public class ProductionCompanyOnboardingService : IProductionCompanyOnboardingSe
             string.IsNullOrWhiteSpace(dto.Email) ||
             string.IsNullOrWhiteSpace(dto.Password))
         {
-            throw new InvalidOperationException("All company and admin fields are required.");
+            return ApiResponse<RegisterProductionCompanyResponseDto>.FailureResponse("All company and admin fields are required.", "جميع حقول الشركة والمسؤول مطلوبة.");
         }
 
         if (dto.CityId <= 0)
         {
-            throw new InvalidOperationException("A valid city is required.");
+            return ApiResponse<RegisterProductionCompanyResponseDto>.FailureResponse("A valid city is required.", "يجب اختيار مدينة صحيحة.");
         }
 
-        // Mirrors the frontend's own minlength(8) — a floor, not a re-implementation of its full
-        // uppercase+symbol strength check, which is presentation-layer UX rather than a security
-        // boundary worth duplicating server-side.
+        var emailRegex = new System.Text.RegularExpressions.Regex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$",
+            System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (!emailRegex.IsMatch(dto.Email.Trim()))
+        {
+            return ApiResponse<RegisterProductionCompanyResponseDto>.FailureResponse("Invalid email format.", "صيغة البريد الإلكتروني غير صحيحة.");
+        }
+
+        var phone = $"{dto.MobileCountryCode.Trim()}{dto.MobileNumber.Trim()}";
+        var phoneRegex = new System.Text.RegularExpressions.Regex(@"^(07[789]\d{7}|\+9627[789]\d{7}|009627[789]\d{7})$",
+            System.Text.RegularExpressions.RegexOptions.Compiled);
+        if (!phoneRegex.IsMatch(phone))
+        {
+            return ApiResponse<RegisterProductionCompanyResponseDto>.FailureResponse(
+                "Invalid phone number. Must be a valid Jordanian mobile number.",
+                "رقم الهاتف غير صحيح، يجب أن يكون رقم هاتف أردني صالح.");
+        }
+
+        var regNumRegex = new System.Text.RegularExpressions.Regex(@"^[a-zA-Z0-9\-]{5,15}$", System.Text.RegularExpressions.RegexOptions.Compiled); if (!regNumRegex.IsMatch(dto.RegistrationNumber.Trim()))
+        {
+            return ApiResponse<RegisterProductionCompanyResponseDto>.FailureResponse(
+                "Invalid registration number. Must contain letters and numbers only (5 to 15 characters).",
+                "رقم التسجيل غير صحيح. يجب أن يحتوي على حروف وأرقام فقط (من 5 إلى 15 خانة).");
+        }
+
         if (dto.Password.Length < 8)
         {
-            throw new InvalidOperationException("Password must be at least 8 characters.");
+            return ApiResponse<RegisterProductionCompanyResponseDto>.FailureResponse("Password must be at least 8 characters.", "يجب أن تتكون كلمة المرور من 8 أحرف على الأقل.");
         }
+
+        return null;
     }
 }

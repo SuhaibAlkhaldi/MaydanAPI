@@ -101,7 +101,8 @@ public class UserManagementServiceGetUserDetailsTests
             _currentUser = currentUser;
             _target = target;
         }
-
+        public Task<List<User>> GetAssociationSupervisorsAsync(EntityType entityType, int? entityId = null, CancellationToken cancellationToken = default)
+    => Task.FromResult(new List<User>());
         public Task<User?> GetByIdAsync(int userId, CancellationToken cancellationToken = default) =>
             Task.FromResult(userId == _currentUser.UserId ? _currentUser : null);
 

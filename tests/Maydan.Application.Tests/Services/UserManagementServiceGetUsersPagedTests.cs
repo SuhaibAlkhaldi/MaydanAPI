@@ -238,7 +238,8 @@ public class UserManagementServiceGetUsersPagedTests
 
         public EntityType? LastQueriedEntityType { get; private set; }
         public int? LastQueriedEntityId { get; private set; }
-
+        public Task<List<User>> GetAssociationSupervisorsAsync(EntityType entityType, int? entityId = null, CancellationToken cancellationToken = default)
+    => Task.FromResult(new List<User>());
         public void SeedRealUsers(params SeedUser[] users)
         {
             var role = _currentUser.Role;

@@ -196,6 +196,26 @@ public class UserRepository : IUserRepository
 
     public void Remove(User user) => _context.Users.Remove(user);
 
+    public Task<List<User>> GetAssociationSupervisorsAsync(EntityType entityType, int? entityId = null, CancellationToken cancellationToken = default)
+    {
+        var allowedRoles = new[] { 4, 7, 9,8 };
+
+        var query = _context.Users
+             .Include(u => u.Role)
+             .Where(u => u.EntityType == EntityType.Association && allowedRoles.Contains(u.RoleId));
+
+
+        if (entityId.HasValue && entityId.Value > 0)
+        {
+            query = query.Where(u => u.EntityId == entityId.Value);
+        }
+
+        return query
+             .OrderBy(u => u.FirstNameEn)
+             .ThenBy(u => u.LastNameEn)
+             .ToListAsync(cancellationToken);
+    }
+
 
 
     public async Task<bool> EmailExistsForAnotherUserAsync(
@@ -245,6 +265,26 @@ public class UserRepository : IUserRepository
                 u.EntityId == associationId &&
                 u.IsDeleted)
             .ToListAsync(cancellationToken);
+    }
+
+    public Task<List<User>> GetAssociationSupervisorsAsync(EntityType entityType, int? entityId = null, CancellationToken cancellationToken = default)
+    {
+        var allowedRoles = new[] { 4, 7, 9, 8 };
+
+        var query = _context.Users
+             .Include(u => u.Role)
+             .Where(u => u.EntityType == EntityType.Association && allowedRoles.Contains(u.RoleId));
+
+
+        if (entityId.HasValue && entityId.Value > 0)
+        {
+            query = query.Where(u => u.EntityId == entityId.Value);
+        }
+
+        return query
+             .OrderBy(u => u.FirstNameEn)
+             .ThenBy(u => u.LastNameEn)
+             .ToListAsync(cancellationToken);
     }
 
 

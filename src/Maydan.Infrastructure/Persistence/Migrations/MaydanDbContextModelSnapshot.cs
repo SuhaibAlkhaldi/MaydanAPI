@@ -458,6 +458,198 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                 b.ToTable("GroupPermissions", (string)null);
             });
 
+            modelBuilder.Entity("Maydan.Domain.Entities.LookupCategory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ArabicName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EnglishName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("LookupCategories", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            ArabicName = "الجنس",
+                            Code = "Gender",
+                            EnglishName = "Gender",
+                            IsActive = true,
+                            IsDeleted = false
+                        },
+                        new
+                        {
+                            Id = 2,
+                            ArabicName = "الحالة الاجتماعية",
+                            Code = "MaritalStatus",
+                            EnglishName = "Marital Status",
+                            IsActive = true,
+                            IsDeleted = false
+                        });
+                });
+
+            modelBuilder.Entity("Maydan.Domain.Entities.LookupItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ArabicName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<int>("CategoryId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EnglishName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("LookupItems", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            ArabicName = "ذكر",
+                            CategoryId = 1,
+                            Code = "Male",
+                            EnglishName = "Male",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = 2,
+                            ArabicName = "أنثى",
+                            CategoryId = 1,
+                            Code = "Female",
+                            EnglishName = "Female",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            Id = 3,
+                            ArabicName = "أعزب",
+                            CategoryId = 2,
+                            Code = "Single",
+                            EnglishName = "Single",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = 4,
+                            ArabicName = "متزوج",
+                            CategoryId = 2,
+                            Code = "Married",
+                            EnglishName = "Married",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            Id = 5,
+                            ArabicName = "مطلق",
+                            CategoryId = 2,
+                            Code = "Divorced",
+                            EnglishName = "Divorced",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 3
+                        },
+                        new
+                        {
+                            Id = 6,
+                            ArabicName = "أرمل",
+                            CategoryId = 2,
+                            Code = "Widowed",
+                            EnglishName = "Widowed",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 4
+                        });
+                });
+
             modelBuilder.Entity("Maydan.Domain.Entities.PasswordResetToken", b =>
             {
                 b.Property<int>("Id")
@@ -2677,8 +2869,8 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     .HasMaxLength(100)
                     .HasColumnType("nvarchar(100)");
 
-                b.Property<int?>("Gender")
-                    .HasColumnType("int");
+                    b.Property<int?>("GenderId")
+                        .HasColumnType("int");
 
                 b.Property<bool>("IsActive")
                     .ValueGeneratedOnAdd()
@@ -2693,8 +2885,8 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     .HasMaxLength(100)
                     .HasColumnType("nvarchar(100)");
 
-                b.Property<int?>("MaritalStatus")
-                    .HasColumnType("int");
+                    b.Property<int?>("MaritalStatusId")
+                        .HasColumnType("int");
 
                 b.Property<string>("MiddleName")
                     .HasMaxLength(100)
@@ -2726,8 +2918,12 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                 b.HasIndex("CivilIdHash")
                     .IsUnique();
 
-                b.HasIndex("QrCode")
-                    .IsUnique();
+                    b.HasIndex("GenderId");
+
+                    b.HasIndex("MaritalStatusId");
+
+                    b.HasIndex("QrCode")
+                        .IsUnique();
 
                 b.ToTable("Workers", (string)null);
             });
@@ -2885,6 +3081,17 @@ namespace Maydan.Infrastructure.Persistence.Migrations
 
                 b.Navigation("Permission");
             });
+
+            modelBuilder.Entity("Maydan.Domain.Entities.LookupItem", b =>
+                {
+                    b.HasOne("Maydan.Domain.Entities.LookupCategory", "Category")
+                        .WithMany("Items")
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Category");
+                });
 
             modelBuilder.Entity("Maydan.Domain.Entities.PasswordResetToken", b =>
             {
@@ -3100,8 +3307,22 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     .OnDelete(DeleteBehavior.Restrict)
                     .IsRequired();
 
-                b.Navigation("Association");
-            });
+                    b.HasOne("Maydan.Domain.Entities.LookupItem", "Gender")
+                        .WithMany()
+                        .HasForeignKey("GenderId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Maydan.Domain.Entities.LookupItem", "MaritalStatus")
+                        .WithMany()
+                        .HasForeignKey("MaritalStatusId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Association");
+
+                    b.Navigation("Gender");
+
+                    b.Navigation("MaritalStatus");
+                });
 
             modelBuilder.Entity("Maydan.Domain.Entities.WorkerDocument", b =>
             {
@@ -3154,6 +3375,11 @@ namespace Maydan.Infrastructure.Persistence.Migrations
 
                 b.Navigation("UserGroups");
             });
+
+            modelBuilder.Entity("Maydan.Domain.Entities.LookupCategory", b =>
+                {
+                    b.Navigation("Items");
+                });
 
             modelBuilder.Entity("Maydan.Domain.Entities.Permission", b =>
             {

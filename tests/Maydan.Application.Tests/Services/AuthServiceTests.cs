@@ -589,7 +589,8 @@ public class AuthServiceTests
         private readonly User? _user;
 
         public FakeUserRepository(User? user) => _user = user;
-
+        public Task<List<User>> GetAssociationSupervisorsAsync(EntityType entityType, int? entityId = null, CancellationToken cancellationToken = default)
+    => Task.FromResult(new List<User>());
         public User? TrackedUser { get; private set; }
 
         public Task<User?> GetByEmailWithAccessAsync(string email, CancellationToken cancellationToken = default) =>

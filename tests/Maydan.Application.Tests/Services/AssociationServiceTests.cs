@@ -531,6 +531,10 @@ public class AssociationServiceTests
         {
         }
 
+        public Task<List<User>> GetAssociationSupervisorsAsync(EntityType entityType, int? entityId = null, CancellationToken cancellationToken = default) =>
+      Task.FromResult(_currentUser != null && _currentUser.EntityType == entityType
+          ? new List<User> { _currentUser }
+          : new List<User>());
         public Task<User?> GetByIdAsync(int userId, CancellationToken cancellationToken = default) =>
             Task.FromResult(userId == _currentUser.UserId ? _currentUser : null);
 

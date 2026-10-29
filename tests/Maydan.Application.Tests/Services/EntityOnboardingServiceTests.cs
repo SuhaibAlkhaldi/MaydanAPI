@@ -176,7 +176,9 @@ public class EntityOnboardingServiceTests
             _emailExists = emailExists;
             _roleForNewUsers = roleForNewUsers;
         }
-
+        
+        public Task<List<User>> GetAssociationSupervisorsAsync(EntityType entityType, int? entityId = null, CancellationToken cancellationToken = default)
+    => Task.FromResult(new List<User>());
         public User? AddedUser { get; private set; }
 
         public Task<User?> GetWithPermissionsAsync(int userId, CancellationToken cancellationToken = default) =>

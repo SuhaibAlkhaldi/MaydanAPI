@@ -1,5 +1,3 @@
-using Maydan.Domain.Enums;
-
 namespace Maydan.Application.DTOs.Workers;
 
 public record WorkerDto(
@@ -9,8 +7,10 @@ public record WorkerDto(
     string LastName,
     string CivilId,
     DateTime? DateOfBirth,
-    Gender? Gender,
-    MaritalStatus? MaritalStatus,
+    int? GenderId,
+    string? GenderNameEn,
+    int? MaritalStatusId,
+    string? MaritalStatusNameEn,
     string? Nationality,
     int? CountryId,
     string? CountryNameEn,
@@ -47,8 +47,8 @@ public class CreateWorkerDto
     public string LastName { get; set; } = string.Empty;
     public string CivilId { get; set; } = string.Empty;
     public DateTime DateOfBirth { get; set; }
-    public Gender Gender { get; set; }
-    public MaritalStatus MaritalStatus { get; set; }
+    public int GenderId { get; set; }
+    public int MaritalStatusId { get; set; }
     public string Nationality { get; set; } = string.Empty;
 
     public string PhoneNumber { get; set; } = string.Empty;
@@ -75,8 +75,8 @@ public class UpdateWorkerDto
     public string? MiddleName { get; set; }
     public string? LastName { get; set; }
     public DateTime? DateOfBirth { get; set; }
-    public Gender? Gender { get; set; }
-    public MaritalStatus? MaritalStatus { get; set; }
+    public int? GenderId { get; set; }
+    public int? MaritalStatusId { get; set; }
     public string? Nationality { get; set; }
     public int? CountryId { get; set; }
     public int? CityId { get; set; }

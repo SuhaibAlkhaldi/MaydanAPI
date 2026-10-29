@@ -77,8 +77,8 @@ public class ProductionCompanyOnboardingServiceTests
         var grantedPermissionIds = user.UserPermissions.Select(up => up.PermissionId).OrderBy(id => id).ToList();
         Assert.Equal(new[] { 25, 34 }, grantedPermissionIds);
 
-        Assert.Equal(companyRepository.AddedCompany.Id, result.ProductionCompanyId);
-        Assert.Equal(user.UserId, result.AdminUserId);
+        Assert.Equal(companyRepository.AddedCompany.Id, result.Data!.ProductionCompanyId);
+        Assert.Equal(user.UserId, result.Data!.AdminUserId);
     }
 
     [Fact]
@@ -176,7 +176,8 @@ public class ProductionCompanyOnboardingServiceTests
 
         public Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken = default) =>
             Task.FromResult(_emailExists);
-
+        public Task<List<User>> GetAssociationSupervisorsAsync(EntityType entityType, int? entityId = null, CancellationToken cancellationToken = default)
+    => Task.FromResult(new List<User>());
         public Task AddAsync(User user, CancellationToken cancellationToken = default)
         {
             user.UserId = 200;

@@ -61,4 +61,7 @@ CancellationToken cancellationToken = default);
         int associationId,
         CancellationToken cancellationToken = default);
 
+    Task<List<User>> GetAssociationSupervisorsAsync(EntityType entityType, int? entityId = null, CancellationToken cancellationToken = default);
+
+
 }

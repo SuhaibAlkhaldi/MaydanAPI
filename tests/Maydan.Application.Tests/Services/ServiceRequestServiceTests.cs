@@ -754,6 +754,11 @@ public class ServiceRequestServiceTests
         {
             throw new NotImplementedException();
         }
+
+        public Task<List<User>> GetAssociationSupervisorsAsync(EntityType entityType, int? entityId = null, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     private sealed class FakeWorkerRepository : IWorkerRepository

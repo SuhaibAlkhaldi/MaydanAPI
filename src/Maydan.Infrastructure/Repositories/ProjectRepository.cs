@@ -72,6 +72,7 @@ public class ProjectRepository : IProjectRepository
         int? searchByProductionCompanyId,
         int? cityId,
         int? cityLocationId,
+        bool? IsActive,
         CancellationToken cancellationToken = default)
     {
 
@@ -128,6 +129,11 @@ public class ProjectRepository : IProjectRepository
         if (cityLocationId.HasValue && cityLocationId.Value > 0)
         {
             query = query.Where(x => x.CityLocationId == cityLocationId.Value);
+        }
+
+        if (IsActive.HasValue)
+        {
+            query = query.Where(x => x.IsActive == IsActive.Value);
         }
 
         return await query
