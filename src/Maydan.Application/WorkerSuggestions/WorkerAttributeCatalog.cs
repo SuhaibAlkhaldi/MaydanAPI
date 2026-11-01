@@ -74,7 +74,7 @@ namespace Maydan.Application.WorkerSuggestions
                     "Number",
                     "CalculatedProperty",
                     false,
-                    false
+                    true
                 ),
 
                 new WorkerAttributeDescriptor(
@@ -84,7 +84,7 @@ namespace Maydan.Application.WorkerSuggestions
                     "GenderId",
                     "Lookup",
                     "LookupProperty",
-                    false,
+                    true,
                     false
                 ),
 
@@ -95,7 +95,7 @@ namespace Maydan.Application.WorkerSuggestions
                     "MaritalStatusId",
                     "Lookup",
                     "LookupProperty",
-                    false,
+                    true,
                     false
                 ),
 

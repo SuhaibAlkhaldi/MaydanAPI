@@ -35,13 +35,20 @@ public interface IWorkerRepository
         int? associationId, string? search, int? serviceId, int page, int pageSize, CancellationToken cancellationToken = default);
 
     Task<WorkerDto?> GetByIdProjectedAsync(int workerId, CancellationToken cancellationToken = default);
+
     Task<List<WorkerDto>> GetAvailableWorkersForRequestAsync(
-    int associationId,
-    int serviceId,
-    DateTime startDate,
-    DateTime endDate,
-    CancellationToken cancellationToken = default);
+        int associationId,
+        int serviceId,
+        DateTime startDate,
+        DateTime endDate,
+        int requestedWorkersCount,
+        int serviceRequestId,
+        int projectId,
+        DateTime projectStartDate,
+        DateTime projectEndDate,
+        CancellationToken cancellationToken = default);
+
     //for assignment workers
-   
+
 }
 

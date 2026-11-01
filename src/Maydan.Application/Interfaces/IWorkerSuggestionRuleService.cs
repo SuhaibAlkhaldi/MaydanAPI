@@ -56,5 +56,12 @@ namespace Maydan.Application.Interfaces
             int currentUserId,
             ReorderWorkerSuggestionRulesRequest request,
             CancellationToken cancellationToken = default);
+
+
+        Task<ApiResponse<IReadOnlyList<WorkerSuggestionAttributeDto>>>
+            GetAttributesAsync(
+                int currentUserId,
+                CancellationToken cancellationToken = default);
+
     }
 }
