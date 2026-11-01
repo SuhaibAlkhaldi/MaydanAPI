@@ -73,21 +73,6 @@ public class ProjectService : IProjectService
             return lmError;
         }
 
-        var hasLocationManagerOverlap =
-            await _unitOfWork.Projects.HasLocationManagerOverlapAsync(
-                locationManager!.UserId,
-                request.StartDate,
-                request.EndDate,
-                excludedProjectId: null,
-                cancellationToken: cancellationToken);
-
-        if (hasLocationManagerOverlap)
-        {
-            return ApiResponse<ProjectDto>.FailureResponse(
-                "مدير الموقع مسند إلى مشروع آخر خلال هذه الفترة.",
-                "Location Manager is already assigned to another Project during these dates.");
-        }
-
         var project = new Project
         {
             ProjectNameEn = request.ProjectNameEn.Trim(),
@@ -257,21 +242,6 @@ public class ProjectService : IProjectService
             return lmError;
         }
 
-        var hasLocationManagerOverlap =
-            await _unitOfWork.Projects.HasLocationManagerOverlapAsync(
-                locationManager!.UserId,
-                request.StartDate,
-                request.EndDate,
-                excludedProjectId: project.Id,
-                cancellationToken: cancellationToken);
-
-        if (hasLocationManagerOverlap)
-        {
-            return ApiResponse<ProjectDto>.FailureResponse(
-                "مدير الموقع مسند إلى مشروع آخر خلال هذه الفترة.",
-                "Location Manager is already assigned to another Project during these dates.");
-        }
-
         project.ProjectNameEn = request.ProjectNameEn.Trim();
         project.ProjectNameAr = request.ProjectNameAr.Trim();
         project.StartDate = request.StartDate;
@@ -409,9 +379,9 @@ public class ProjectService : IProjectService
         var allCompanyUsers = await _unitOfWork.Users.GetByEntityAsync(
             EntityType.ProductionCompany, currentUser.EntityId, search: null, cancellationToken);
 
-   
+
         var availableUsers = allCompanyUsers
-           // 5==producer && 6== Location Manager
+              // 5==producer && 6== Location Manager
               .Where(u => u.RoleId == 5 || u.RoleId == 6)
                      .Where(u => !busyUserIds.Contains(u.UserId))
                          .Select(UserManagementService.MapUserSummary)

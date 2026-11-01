@@ -30,12 +30,7 @@ public interface IProjectRepository
         bool?IsActive,
         CancellationToken cancellationToken = default);
 
-    Task<bool> HasLocationManagerOverlapAsync(
-    int locationManagerUserId,
-    DateTime projectStartDate,
-    DateTime projectEndDate,
-    int? excludedProjectId,
-    CancellationToken cancellationToken = default);
+
 
     Task AddAsync(
         Project project,
