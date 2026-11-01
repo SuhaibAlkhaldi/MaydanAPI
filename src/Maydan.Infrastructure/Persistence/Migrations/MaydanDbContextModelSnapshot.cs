@@ -1677,125 +1677,125 @@ namespace Maydan.Infrastructure.Persistence.Migrations
 
                 b.ToTable("Roles", (string)null);
 
-                b.HasData(
-                    new
-                    {
-                        RoleId = 1,
-                        CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
-                        Id = 0,
-                        IsActive = true,
-                        IsDeleted = false,
-                        RoleNameAr = "بيت الأردن",
-                        RoleNameEn = "Bayt-AlUrdon",
-                        UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
-                    },
-                    new
-                    {
-                        RoleId = 2,
-                        CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
-                        Id = 0,
-                        IsActive = true,
-                        IsDeleted = false,
-                        RoleNameAr = "سلطة منطقة العقبة الاقتصادية الخاصة",
-                        RoleNameEn = "ASEZA",
-                        UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
-                    },
-                    new
-                    {
-                        RoleId = 3,
-                        CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
-                        Id = 0,
-                        IsActive = true,
-                        IsDeleted = false,
-                        RoleNameAr = "شركة الإنتاج",
-                        RoleNameEn = "ProductionHouse",
-                        TargetEntityType = 2,
-                        UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
-                    },
-                    new
-                    {
-                        RoleId = 4,
-                        CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
-                        Id = 0,
-                        IsActive = true,
-                        IsDeleted = false,
-                        RoleNameAr = "الجمعية",
-                        RoleNameEn = "Association",
-                        TargetEntityType = 3,
-                        UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
-                    },
-                    new
-                    {
-                        RoleId = 5,
-                        CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
-                        Id = 0,
-                        IsActive = true,
-                        IsDeleted = false,
-                        RoleNameAr = "منتج",
-                        RoleNameEn = "Producer",
-                        TargetEntityType = 2,
-                        UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
-                    },
-                    new
-                    {
-                        RoleId = 6,
-                        CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
-                        Id = 0,
-                        IsActive = true,
-                        IsDeleted = false,
-                        RoleNameAr = "مدير الموقع",
-                        RoleNameEn = "LocationManager",
-                        TargetEntityType = 2,
-                        UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
-                    },
-                    new
-                    {
-                        RoleId = 7,
-                        CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
-                        Id = 0,
-                        IsActive = true,
-                        IsDeleted = false,
-                        RoleNameAr = "مدير العمال",
-                        RoleNameEn = "WorkerManager",
-                        TargetEntityType = 3,
-                        UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
-                    },
-                    new
-                    {
-                        RoleId = 8,
-                        CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
-                        Id = 0,
-                        IsActive = true,
-                        IsDeleted = false,
-                        RoleNameAr = "عامل",
-                        RoleNameEn = "Worker",
-                        TargetEntityType = 3,
-                        UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
-                    },
-                    new
-                    {
-                        RoleId = 9,
-                        CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
-                        Id = 0,
-                        IsActive = true,
-                        IsDeleted = false,
-                        RoleNameAr = "مسؤول الحضور",
-                        RoleNameEn = "AttendanceOfficer",
-                        TargetEntityType = 3,
-                        UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
-                    },
-                    new
-                    {
-                        RoleId = 10,
-                        CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
-                        Id = 0,
-                        IsActive = true,
-                        IsDeleted = false,
-                        RoleNameAr = "مشرف نظام",
-                        RoleNameEn = "Admin",
-                        UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
-                    });
-            });
+                    b.HasData(
+                        new
+                        {
+                            RoleId = 1,
+                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Id = 0,
+                            IsActive = true,
+                            IsDeleted = false,
+                            RoleNameAr = "بيت الأردن",
+                            RoleNameEn = "Bayt-AlUrdon",
+                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            RoleId = 2,
+                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Id = 0,
+                            IsActive = true,
+                            IsDeleted = false,
+                            RoleNameAr = "سلطة منطقة العقبة الاقتصادية الخاصة",
+                            RoleNameEn = "ASEZA",
+                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            RoleId = 3,
+                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Id = 0,
+                            IsActive = true,
+                            IsDeleted = false,
+                            RoleNameAr = "شركة الإنتاج",
+                            RoleNameEn = "ProductionHouse",
+                            TargetEntityType = 2,
+                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            RoleId = 4,
+                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Id = 0,
+                            IsActive = true,
+                            IsDeleted = false,
+                            RoleNameAr = "الجمعية",
+                            RoleNameEn = "Association",
+                            TargetEntityType = 3,
+                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            RoleId = 5,
+                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Id = 0,
+                            IsActive = true,
+                            IsDeleted = false,
+                            RoleNameAr = "منتج",
+                            RoleNameEn = "Producer",
+                            TargetEntityType = 2,
+                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            RoleId = 6,
+                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Id = 0,
+                            IsActive = true,
+                            IsDeleted = false,
+                            RoleNameAr = "مدير الموقع",
+                            RoleNameEn = "LocationManager",
+                            TargetEntityType = 2,
+                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            RoleId = 7,
+                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Id = 0,
+                            IsActive = true,
+                            IsDeleted = false,
+                            RoleNameAr = "مدير العمال",
+                            RoleNameEn = "Admin-Association",
+                            TargetEntityType = 3,
+                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            RoleId = 8,
+                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Id = 0,
+                            IsActive = true,
+                            IsDeleted = false,
+                            RoleNameAr = "عامل",
+                            RoleNameEn = "Worker",
+                            TargetEntityType = 3,
+                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            RoleId = 9,
+                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Id = 0,
+                            IsActive = true,
+                            IsDeleted = false,
+                            RoleNameAr = "مندوب الجمعية",
+                            RoleNameEn = "Association Representative",
+                            TargetEntityType = 3,
+                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            RoleId = 10,
+                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Id = 0,
+                            IsActive = true,
+                            IsDeleted = false,
+                            RoleNameAr = "مشرف نظام",
+                            RoleNameEn = "Admin",
+                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
+                        });
+                });
 
             modelBuilder.Entity("Maydan.Domain.Entities.RolePermission", b =>
             {

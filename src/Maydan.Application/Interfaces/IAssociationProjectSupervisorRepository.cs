@@ -17,6 +17,7 @@ public interface IAssociationProjectSupervisorRepository
         int? productionCompanyId,
         int page,
         int pageSize,
+        int[]? allowedRoles = null,
         CancellationToken cancellationToken = default);
     Task<AssociationProjectSupervisor?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
 

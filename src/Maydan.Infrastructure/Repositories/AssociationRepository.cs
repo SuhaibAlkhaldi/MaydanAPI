@@ -49,6 +49,15 @@ public class AssociationRepository : IAssociationRepository
             //.Include(a => a.City).ThenInclude(c => c.Country)
             .FirstOrDefaultAsync(a => a.Id == associationId, cancellationToken);
 
+   
+
+    // تطبيق دالة الجمع
+    public async Task<List<Association>> GetByIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default)
+    {
+        return await _context.Associations
+            .Where(a => ids.Contains(a.Id))
+            .ToListAsync(cancellationToken);
+    }
     public async Task<List<Association>> GetAllAsync(CancellationToken cancellationToken = default) =>
         await _context.Associations
             .AsNoTracking()

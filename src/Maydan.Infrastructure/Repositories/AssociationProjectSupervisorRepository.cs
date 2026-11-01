@@ -16,9 +16,10 @@ public class AssociationProjectSupervisorRepository : IAssociationProjectSupervi
     }
 
     public async Task<(List<AssociationProjectSupervisor> Items, int TotalCount)> GetAllAsync(
-     int? projectId, int? associationId, int? productionCompanyId, int page, int pageSize, CancellationToken cancellationToken = default)
+     int? projectId, int? associationId, int? productionCompanyId, int page, int pageSize, int[]? allowedRoles = null, CancellationToken cancellationToken = default)
     {
         var query = _context.AssociationProjectSupervisors
+            .AsNoTracking()
             .Include(s => s.Project)
             .Include(s => s.User)
             .AsQueryable();
@@ -34,7 +35,10 @@ public class AssociationProjectSupervisorRepository : IAssociationProjectSupervi
         }
         if (productionCompanyId is not null)
             query = query.Where(s => s.Project != null && s.Project.ProductionCompanyId == productionCompanyId);
-
+        if (allowedRoles != null && allowedRoles.Length > 0)
+        {
+            query = query.Where(x => x.User != null && allowedRoles.Contains(x.User.RoleId));
+        }
         var totalCount = await query.CountAsync(cancellationToken);
 
         var items = await query

@@ -92,7 +92,7 @@ namespace Maydan.Infrastructure.Persistence.Seed
                 new Role
                 {
                     RoleId = 7,
-                    RoleNameEn = "WorkerManager",
+                    RoleNameEn = "Admin-Association",
                     RoleNameAr = "مدير العمال",
                     TargetEntityType = EntityType.Association,
                     CreatedAt = seedDate,
@@ -116,8 +116,8 @@ namespace Maydan.Infrastructure.Persistence.Seed
                 new Role
                 {
                     RoleId = 9,
-                    RoleNameEn = "AttendanceOfficer",
-                    RoleNameAr = "مسؤول الحضور",
+                    RoleNameEn = "Association Representative",
+                    RoleNameAr = "مندوب الجمعية",
                     TargetEntityType = EntityType.Association,
                     CreatedAt = seedDate,
                     UpdatedAt = seedDate,
