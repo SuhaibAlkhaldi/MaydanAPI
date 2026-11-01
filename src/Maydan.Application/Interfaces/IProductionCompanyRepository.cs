@@ -22,7 +22,7 @@ public interface IProductionCompanyRepository
     // CityLocationRepository.GetByCityIdAsync already use. isDeleted=true will always return an
     // empty list today (nothing here can currently become soft-deleted — no delete endpoint exists,
     // out of scope for this phase, see the controller's own comment), which is correct, not a bug.
-    Task<List<ProductionCompany>> QueryAsync(bool isDeleted, string? searchTerm = null, CancellationToken cancellationToken = default);
+    Task<List<ProductionCompany>> QueryAsync( string? searchTerm = null, bool? isActive = null, CancellationToken cancellationToken = default);
 
     Task AddAsync(ProductionCompany productionCompany, CancellationToken cancellationToken = default);
     void Remove(ProductionCompany productionCompany);

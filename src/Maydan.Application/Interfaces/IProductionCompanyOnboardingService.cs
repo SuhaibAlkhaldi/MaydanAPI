@@ -5,5 +5,6 @@ namespace Maydan.Application.Interfaces;
 
 public interface IProductionCompanyOnboardingService
 {
-    Task<ApiResponse<RegisterProductionCompanyResponseDto>> RegisterAsync(RegisterProductionCompanyDto dto, int? currentUserId = null, CancellationToken cancellationToken = default);
+    Task<ApiResponse<RegisterProductionCompanyResponseDto>> RegisterAsync(RegisterProductionCompanyDto dto, CancellationToken cancellationToken = default);
+    Task<ApiResponse<RegisterProductionCompanyResponseDto>> CreateByAdminAsync(RegisterProductionCompanyDto dto, int adminUserId, CancellationToken cancellationToken = default);
 }
