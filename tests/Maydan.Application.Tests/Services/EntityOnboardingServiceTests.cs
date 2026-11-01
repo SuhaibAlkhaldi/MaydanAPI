@@ -238,7 +238,7 @@ public class EntityOnboardingServiceTests
 
         public Task<Association?> GetByIdAsync(int associationId, CancellationToken cancellationToken = default) =>
             Task.FromResult(_associationsById.TryGetValue(associationId, out var association) ? association : null);
-
+        public async Task<List<Association>> GetByIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<List<Association>> GetAllAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(_associationsById.Values.ToList());
 

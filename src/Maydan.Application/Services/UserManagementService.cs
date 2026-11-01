@@ -589,7 +589,7 @@ public class UserManagementService : IUserManagementService
         if (roleId == SystemRoles.BaytAlUrdon) return (EntityType.BaytAlUrdon, 1, null);
         if (roleId == SystemRoles.Aseza) return (EntityType.Aseza, 1, null);
 
-        var associationRoles = new[] { SystemRoles.Association, SystemRoles.WorkerManager, SystemRoles.Worker, SystemRoles.AttendanceOfficer };
+        var associationRoles = new[] { SystemRoles.Association, SystemRoles.Admin_Association, SystemRoles.Worker, SystemRoles.Association_Representative };
         if (associationRoles.Contains(roleId))
         {
             if (!requestedEntityId.HasValue || requestedEntityId.Value <= 0)

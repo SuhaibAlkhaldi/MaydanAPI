@@ -313,6 +313,7 @@ public class AssociationProjectSupervisorServiceTests
             var association = _associationsById.GetValueOrDefault(associationId);
             return Task.FromResult(association is { IsDeleted: false } ? association : null);
         }
+        public async Task<List<Association>> GetByIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public Task<Association?> GetByIdIncludingDeletedAsync(int associationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Association?> GetByCityIdAsync(int cityId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
@@ -335,7 +336,7 @@ public class AssociationProjectSupervisorServiceTests
         public void Seed(AssociationProjectSupervisor supervisor) => _supervisors.Add(supervisor);
 
         public Task<(List<AssociationProjectSupervisor> Items, int TotalCount)> GetAllAsync(
-       int? projectId, int? associationId, int? productionCompanyId, int page, int pageSize, CancellationToken cancellationToken = default)
+       int? projectId, int? associationId, int? productionCompanyId, int page, int pageSize, int[]? allowedRoles = null, CancellationToken cancellationToken = default)
         {
             IEnumerable<AssociationProjectSupervisor> query = _supervisors.Where(s => !s.IsDeleted);
 
