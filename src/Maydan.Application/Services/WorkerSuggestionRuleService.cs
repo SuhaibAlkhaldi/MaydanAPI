@@ -1,5 +1,4 @@
-﻿
-using System.Globalization;
+﻿using System.Globalization;
 using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.WorkerSuggestions;
 using Maydan.Application.Interfaces;
@@ -47,8 +46,7 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
         if (error is not null)
             return error;
 
-        var rules = await _unitOfWork.WorkerSuggestionRules
-            .GetDeletedAsync(cancellationToken);
+        var rules = await _unitOfWork.WorkerSuggestionRules.GetDeletedAsync(cancellationToken);
 
         IReadOnlyList<WorkerSuggestionRuleDto> result =
             rules.Select(MapToDto).ToList();
@@ -57,8 +55,7 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
     }
 
     // Get rule by ID
-    public async Task<ApiResponse<WorkerSuggestionRuleDto>>
-        GetByIdAsync(int currentUserId, int id, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<WorkerSuggestionRuleDto>> GetByIdAsync(int currentUserId, int id, CancellationToken cancellationToken = default)
     {
         var error = await AuthorizeAsync<WorkerSuggestionRuleDto>(currentUserId, cancellationToken);
 
@@ -75,8 +72,7 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
     }
 
     // Create
-    public async Task<ApiResponse<WorkerSuggestionRuleDto>>
-        CreateAsync(int currentUserId, CreateWorkerSuggestionRuleRequest request, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<WorkerSuggestionRuleDto>> CreateAsync(int currentUserId, CreateWorkerSuggestionRuleRequest request, CancellationToken cancellationToken = default)
     {
         var error = await AuthorizeAsync<WorkerSuggestionRuleDto>(currentUserId, cancellationToken);
 
@@ -105,30 +101,31 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
             OperatorId = request.OperatorId,
             SortDirectionId = request.SortDirectionId,
             ComparisonValue = valid.ComparisonValue,
-            ComparisonLookupItemId = null,
+            ComparisonLookupItemId = request.ComparisonLookupItemId,
             PriorityOrder = request.PriorityOrder,
             IsActive = request.IsActive,
             CreatedBy = currentUserId
         };
 
-        await _unitOfWork.WorkerSuggestionRules
-            .AddAsync(rule, cancellationToken);
+        await _unitOfWork.WorkerSuggestionRules.AddAsync(rule, cancellationToken);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        return ApiResponse<WorkerSuggestionRuleDto>.SuccessResponse(MapToDto(rule, valid), "Rule created successfully.", "تم إنشاء القاعدة بنجاح.", 201);
+        if (rule.ComparisonLookupItemId.HasValue)
+        {
+            rule.ComparisonLookupItem = await _unitOfWork.WorkerSuggestionRules
+                .GetActiveLookupItemAsync(rule.ComparisonLookupItemId.Value, rule.AttributeKey, cancellationToken);
+        }
+        return ApiResponse<WorkerSuggestionRuleDto>.SuccessResponse(MapToDto(rule), "Rule created successfully.", "تم إنشاء القاعدة بنجاح.", 201);
     }
 
     // Update
-
     public async Task<ApiResponse<WorkerSuggestionRuleDto>> UpdateAsync(
         int currentUserId,
         int id,
         UpdateWorkerSuggestionRuleRequest request,
         CancellationToken cancellationToken = default)
     {
-        var error = await AuthorizeAsync<WorkerSuggestionRuleDto>(
-            currentUserId, cancellationToken);
+        var error = await AuthorizeAsync<WorkerSuggestionRuleDto>(currentUserId, cancellationToken);
 
         if (error is not null)
             return error;
@@ -149,7 +146,6 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
                 null,
                 404);
 
-        // Keep existing values when fields are not provided.
         var attributeKey = request.AttributeKey ?? rule.AttributeKey;
         var ruleTypeId = request.RuleTypeId ?? rule.RuleTypeId;
         var priorityOrder = request.PriorityOrder ?? rule.PriorityOrder;
@@ -160,9 +156,7 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
                 "Priority order must be greater than zero.",
                 "يجب أن تكون أولوية القاعدة أكبر من صفر.");
 
-        // Determine the resulting rule type.
-        var ruleType = await _unitOfWork.WorkerSuggestionRules
-            .GetActiveLookupItemAsync(
+        var ruleType = await _unitOfWork.WorkerSuggestionRules.GetActiveLookupItemAsync(
                 ruleTypeId,
                 "SuggestionRuleType",
                 cancellationToken);
@@ -192,8 +186,7 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
             comparisonValue = null;
             comparisonLookupItemId = null;
 
-            sortDirectionId =
-                request.SortDirectionId ?? rule.SortDirectionId;
+            sortDirectionId = request.SortDirectionId ?? rule.SortDirectionId;
         }
         else if (ruleType.Code == "Filter")
         {
@@ -208,12 +201,9 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
 
             operatorId = request.OperatorId ?? rule.OperatorId;
 
-            comparisonValue =
-                request.ComparisonValue ?? rule.ComparisonValue;
+            comparisonValue = request.ComparisonValue ?? rule.ComparisonValue;
 
-            comparisonLookupItemId =
-                request.ComparisonLookupItemId
-                ?? rule.ComparisonLookupItemId;
+            comparisonLookupItemId = request.ComparisonLookupItemId ?? rule.ComparisonLookupItemId;
         }
         else
         {
@@ -222,7 +212,6 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
                 "نوع القاعدة غير مدعوم.");
         }
 
-        // Validate the merged values.
         var (valid, errorEn, errorAr) = await ValidateRuleAsync(
             attributeKey,
             ruleTypeId,
@@ -237,7 +226,6 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
                 errorEn!,
                 errorAr!);
 
-        // Apply the validated values.
         rule.AttributeKey = valid.AttributeKey;
         rule.RuleTypeId = ruleTypeId;
         rule.OperatorId = operatorId;
@@ -249,18 +237,27 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        if (comparisonLookupItemId.HasValue)
+        {
+            rule.ComparisonLookupItem = await _unitOfWork.WorkerSuggestionRules
+                .GetActiveLookupItemAsync(comparisonLookupItemId.Value, attributeKey, cancellationToken);
+        }
+        else
+        {
+            rule.ComparisonLookupItem = null;
+        }
+
         return ApiResponse<WorkerSuggestionRuleDto>.SuccessResponse(
-            MapToDto(rule, valid),
+            MapToDto(rule),
             "Rule updated successfully.",
             "تم تعديل القاعدة بنجاح.");
-    }
 
+    }
 
     // Soft Delete
     public async Task<ApiResponse<bool>> DeleteAsync(int currentUserId, int id, CancellationToken cancellationToken = default)
     {
-        var error = await AuthorizeAsync<bool>(
-            currentUserId, cancellationToken);
+        var error = await AuthorizeAsync<bool>(currentUserId, cancellationToken);
 
         if (error is not null)
             return error;
@@ -277,9 +274,98 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
         return ApiResponse<bool>.SuccessResponse(true, "Rule deleted successfully.", "تم حذف القاعدة بنجاح.");
     }
 
+    public async Task<ApiResponse<IReadOnlyList<WorkerSuggestionAttributeDto>>>
+        GetAttributesAsync(int currentUserId, CancellationToken cancellationToken = default)
+    {
+        var error = await AuthorizeAsync<IReadOnlyList<WorkerSuggestionAttributeDto>>(currentUserId,cancellationToken);
+
+        if (error is not null)
+            return error;
+
+        var attributes = WorkerAttributeCatalog.GetAll()
+            .Where(a => a.IsFilterable || a.IsSortable)
+            .Select(a =>
+            {
+                string[] allowedRuleTypes =
+                    a.IsFilterable && a.IsSortable
+                        ? new[] { "Filter", "Sort" }
+                        : a.IsFilterable
+                            ? new[] { "Filter" }
+                            : new[] { "Sort" };
+
+                string[] allowedOperators =
+                    !a.IsFilterable
+                        ? Array.Empty<string>()
+                        : a.DataTypeCode switch
+                        {
+                            "Number" => new[]
+                            {
+                            "Equal",
+                            "NotEqual",
+                            "GreaterThan",
+                            "LessThan",
+                            "GreaterThanOrEqual",
+                            "LessThanOrEqual"
+                            },
+
+                            "Boolean" => new[]
+                            {
+                            "Equal",
+                            "NotEqual"
+                            },
+
+                            "Text" => new[]
+                            {
+                            "Equal",
+                            "NotEqual",
+                            "Contains"
+                            },
+
+                            "Lookup" => new[]
+                            {
+                            "Equal",
+                            "NotEqual"
+                            },
+
+                            _ => Array.Empty<string>()
+                        };
+
+                string inputType = a.DataTypeCode switch
+                {
+                    "Number" => "number",
+                    "Boolean" => "boolean",
+                    "Lookup" => "lookup",
+                    "Date" => "date",
+                    _ => "text"
+                };
+
+                return new WorkerSuggestionAttributeDto(
+                    a.Key,
+                    a.NameEn,
+                    a.NameAr,
+                    a.DataTypeCode,
+                    a.SourceTypeCode,
+                    a.IsFilterable,
+                    a.IsSortable,
+                    allowedRuleTypes,
+                    allowedOperators,
+                    inputType,
+                    null
+                );
+            })
+            .ToList();
+
+        IReadOnlyList<WorkerSuggestionAttributeDto> result = attributes;
+
+        return ApiResponse<IReadOnlyList<WorkerSuggestionAttributeDto>>.SuccessResponse(
+                result,
+                "Suggestion attributes retrieved successfully.",
+                "تم جلب معايير اقتراح العمال بنجاح."
+            );
+    }
+
     // Restore deleted rule
-    public async Task<ApiResponse<WorkerSuggestionRuleDto>>
-        RestoreAsync(
+    public async Task<ApiResponse<WorkerSuggestionRuleDto>> RestoreAsync(
             int currentUserId,
             int id,
             CancellationToken cancellationToken = default)
@@ -312,8 +398,6 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
         rule.ComparisonValue = valid.ComparisonValue;
         rule.IsDeleted = false;
         rule.DeletedAt = null;
-
-        // Restore as inactive until reviewed.
         rule.IsActive = false;
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -417,59 +501,28 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
             }
 
             var direction = await _unitOfWork.WorkerSuggestionRules
-                .GetActiveLookupItemAsync(
-                    sortDirectionId.Value,
-                    "SortDirection",
-                    cancellationToken);
+                .GetActiveLookupItemAsync(sortDirectionId.Value,"SortDirection",cancellationToken);
 
-            if (direction is null ||
-                (direction.Code != "Ascending" &&
-                 direction.Code != "Descending"))
+            if (direction is null ||(direction.Code != "Ascending" && direction.Code != "Descending"))
             {
-                return (null,
-                    "Invalid sort direction.",
-                    "اتجاه الترتيب غير صحيح.");
+                return (null,"Invalid sort direction.","اتجاه الترتيب غير صحيح.");
             }
 
-            return (new ValidatedRule(
-                attribute.Key, ruleType, null,
-                direction, null), null, null);
+            return (new ValidatedRule(attribute.Key, ruleType, null,direction, null), null, null);
         }
 
-        // Filter Rule
+        
         if (ruleType.Code != "Filter" || !attribute.IsFilterable)
-            return (null,
-                "Filtering is not allowed for this attribute.",
-                "التصفية غير مسموحة لهذا المعيار.");
+            return (null,"Filtering is not allowed for this attribute.","التصفية غير مسموحة لهذا المعيار.");
 
         if (sortDirectionId.HasValue || !operatorId.HasValue)
-            return (null,
-                "Filter rules require an operator and no sort direction.",
-                "قاعدة التصفية تحتاج عملية مقارنة دون اتجاه ترتيب.");
-
-        // Lookup-based employment filters are not enabled.
-        if (comparisonLookupItemId.HasValue)
-            return (null,
-                "Lookup-based filtering is not supported for the enabled attributes.",
-                "التصفية حسب خيارات Lookup غير مدعومة للمعايير المفعلة.");
+            return (null,"Filter rules require an operator and no sort direction.","قاعدة التصفية تحتاج عملية مقارنة دون اتجاه ترتيب.");
 
         var op = await _unitOfWork.WorkerSuggestionRules
-            .GetActiveLookupItemAsync(
-                operatorId.Value,
-                "ComparisonOperator",
-                cancellationToken);
+            .GetActiveLookupItemAsync(operatorId.Value,"ComparisonOperator",cancellationToken);
 
         if (op is null)
-            return (null,
-                "Invalid comparison operator.",
-                "عملية المقارنة غير صحيحة.");
-
-        var value = comparisonValue?.Trim();
-
-        if (string.IsNullOrWhiteSpace(value) || value.Length > 500)
-            return (null,
-                "A comparison value of 1 to 500 characters is required.",
-                "قيمة المقارنة مطلوبة ويجب ألا تتجاوز 500 حرف.");
+            return (null,"Invalid comparison operator.","عملية المقارنة غير صحيحة.");
 
         var validOperators = attribute.DataTypeCode switch
         {
@@ -481,6 +534,7 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
             },
             "Boolean" => new[] { "Equal", "NotEqual" },
             "Text" => new[] { "Equal", "NotEqual", "Contains" },
+            "Lookup" => new[] { "Equal", "NotEqual" },
             _ => Array.Empty<string>()
         };
 
@@ -489,41 +543,69 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
                 "Operator is not supported for this attribute type.",
                 "عملية المقارنة غير مدعومة لنوع هذا المعيار.");
 
-        if (attribute.DataTypeCode == "Number" &&
-            !decimal.TryParse(
-                value,
-                NumberStyles.Number,
-                CultureInfo.InvariantCulture,
-                out _))
+        // Validation based on DataTypeCode
+        if (attribute.DataTypeCode == "Lookup")
         {
-            return (null,
-                "Comparison value must be numeric.",
-                "يجب أن تكون قيمة المقارنة رقمية.");
-        }
-
-        if (attribute.DataTypeCode == "Boolean")
-        {
-            if (!bool.TryParse(value, out var parsed))
+            if (!comparisonLookupItemId.HasValue)
                 return (null,
-                    "Comparison value must be true or false.",
-                    "يجب أن تكون قيمة المقارنة true أو false.");
+                    "A lookup item is required for lookup-based attributes.",
+                    "يجب اختيار قيمة من القائمة المنسدلة.");
 
-            value = parsed ? "true" : "false";
+            int? expectedCategoryId = attribute.Key switch
+            {
+                "Gender" => 1,          
+                "MaritalStatus" => 2,   
+                _ => null
+            };
+
+            var lookupItem = await _unitOfWork.WorkerSuggestionRules
+                .GetActiveLookupItemAsync(comparisonLookupItemId.Value,attribute.Key,cancellationToken);
+
+            if (lookupItem is null && expectedCategoryId.HasValue)
+            {
+
+                return (null,"Invalid lookup item or item does not belong to this category.","قيمة القائمة المنسدلة غير صحيحة أو لا تنتمي لهذه الفئة.");
+            }
+            else if (lookupItem is null)
+            {
+                return (null,"Invalid lookup item.","قيمة القائمة المنسدلة غير صحيحة.");
+            }
+        }
+        else
+        {
+            var value = comparisonValue?.Trim();
+
+            if (string.IsNullOrWhiteSpace(value) || value.Length > 500)
+                return (null,"A comparison value of 1 to 500 characters is required.", "قيمة المقارنة مطلوبة ويجب ألا تتجاوز 500 حرف.");
+
+            if (attribute.DataTypeCode == "Number" &&
+                !decimal.TryParse(
+                    value,
+                    NumberStyles.Number,
+                    CultureInfo.InvariantCulture,
+                    out _))
+            {
+                return (null,"Comparison value must be numeric.","يجب أن تكون قيمة المقارنة رقمية.");
+            }
+
+            if (attribute.DataTypeCode == "Boolean")
+            {
+                if (!bool.TryParse(value, out var parsed))
+                    return (null,"Comparison value must be true or false.","يجب أن تكون قيمة المقارنة true أو false.");
+
+                value = parsed ? "true" : "false";
+            }
         }
 
         return (new ValidatedRule(
             attribute.Key, ruleType, op,
-            null, value), null, null);
+            null, comparisonValue), null, null);
     }
 
     // Authorization
-    private async Task<ApiResponse<T>?> AuthorizeAsync<T>(
-        int currentUserId,
-        CancellationToken cancellationToken)
+    private async Task<ApiResponse<T>?> AuthorizeAsync<T>(int currentUserId,CancellationToken cancellationToken)
     {
-        var user = await _unitOfWork.Users
-            .GetWithPermissionsAsync(
-                currentUserId, cancellationToken);
+        var user = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken);
 
         if (user is null)
             return new ApiResponse<T>(false, "المستخدم الحالي غير موجود.", "Current user not found.", default, 401);
@@ -551,8 +633,7 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
         var hasPermission = rolePermissions
             .Concat(directPermissions)
             .Concat(groupPermissions)
-            .Contains(ManagePermission,
-                StringComparer.OrdinalIgnoreCase);
+            .Contains(ManagePermission, StringComparer.OrdinalIgnoreCase);
 
         if (user.EntityType != EntityType.BaytAlUrdon ||
             !hasPermission)
@@ -591,7 +672,6 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
             rule.DeletedAt);
     }
 
-    // Map using already validated Lookup codes.
     private static WorkerSuggestionRuleDto MapToDto(
         WorkerSuggestionRule rule,
         ValidatedRule valid)
@@ -613,4 +693,5 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
             rule.IsDeleted,
             rule.DeletedAt);
     }
+
 }

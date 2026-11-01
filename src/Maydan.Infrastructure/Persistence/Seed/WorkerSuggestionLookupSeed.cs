@@ -17,6 +17,10 @@ namespace Maydan.Infrastructure.Persistence.Seed
         private const int OperatorCategoryId = 1004;
         private const int SortDirectionCategoryId = 1005;
 
+        // Domain Specific Lookup Category IDs
+        private const int GenderCategoryId = 1006;
+        private const int MaritalStatusCategoryId = 1007;
+
         public static void Seed(ModelBuilder modelBuilder)
         {
             // Lookup Categories
@@ -49,7 +53,20 @@ namespace Maydan.Infrastructure.Persistence.Seed
                     SortDirectionCategoryId,
                     "SortDirection",
                     "اتجاه الترتيب",
-                    "Sort Direction")
+                    "Sort Direction"),
+
+                // Categories for Lookup-based Attributes
+                Category(
+                    GenderCategoryId,
+                    "Gender",
+                    "الجنس",
+                    "Gender"),
+
+                Category(
+                    MaritalStatusCategoryId,
+                    "MaritalStatus",
+                    "الحالة الاجتماعية",
+                    "Marital Status")
             );
 
             // Lookup Items
@@ -124,7 +141,27 @@ namespace Maydan.Infrastructure.Persistence.Seed
                     "Ascending", "تصاعدي", "Ascending", 1),
 
                 Item(10020, SortDirectionCategoryId,
-                    "Descending", "تنازلي", "Descending", 2)
+                    "Descending", "تنازلي", "Descending", 2),
+
+                // Gender Options
+                Item(10021, GenderCategoryId,
+                    "Male", "ذكر", "Male", 1),
+
+                Item(10022, GenderCategoryId,
+                    "Female", "أنثى", "Female", 2),
+
+                // Marital Status Options
+                Item(10023, MaritalStatusCategoryId,
+                    "Single", "أعزب", "Single", 1),
+
+                Item(10024, MaritalStatusCategoryId,
+                    "Married", "متزوج", "Married", 2),
+
+                Item(10025, MaritalStatusCategoryId,
+                    "Divorced", "مطلق", "Divorced", 3),
+
+                Item(10026, MaritalStatusCategoryId,
+                    "Widowed", "أرمل", "Widowed", 4)
             );
         }
 
@@ -169,4 +206,3 @@ namespace Maydan.Infrastructure.Persistence.Seed
         }
     }
 }
-

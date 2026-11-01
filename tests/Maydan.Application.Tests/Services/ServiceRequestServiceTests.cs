@@ -875,12 +875,22 @@ public class ServiceRequestServiceTests
             CancellationToken cancellationToken = default) =>
             Task.FromResult(new List<Worker>());
 
-        Task<List<WorkerDto>> IWorkerRepository.GetAvailableWorkersForRequestAsync(int associationId, int serviceId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken)
+        //Task<List<WorkerDto>> IWorkerRepository.GetAvailableWorkersForRequestAsync(int associationId, int serviceId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken)
+        //{
+        //    throw new NotImplementedException();
+        //}
+
+        public Task<List<Worker>> GetByAssociationIdForUpdateAsync(int associationId, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
 
-        public Task<List<Worker>> GetByAssociationIdForUpdateAsync(int associationId, CancellationToken cancellationToken = default)
+        public Task<List<WorkerDto>> GetAvailableWorkersForRequestAsync(int associationId, int serviceId, DateTime startDate, DateTime endDate, int requestedWorkersCount, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<List<WorkerDto>> GetAvailableWorkersForRequestAsync(int associationId, int serviceId, DateTime startDate, DateTime endDate, int requestedWorkersCount, int serviceRequestId, int projectId, DateTime projectStartDate, DateTime projectEndDate, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }

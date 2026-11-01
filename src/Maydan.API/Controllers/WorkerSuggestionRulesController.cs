@@ -1,9 +1,9 @@
-﻿using Microsoft.AspNetCore.Http;
-
-using Maydan.Application.DTOs.Common;
+﻿using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.WorkerSuggestions;
 using Maydan.Application.Interfaces;
+using Maydan.Application.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Maydan.API.Controllers;
@@ -70,6 +70,43 @@ public class WorkerSuggestionRulesController : ApiControllerBase
             return HandleException(ex);
         }
     }
+
+
+    [HttpGet("attributes")]
+    public async Task<ActionResult<
+        ApiResponse<IReadOnlyList<WorkerSuggestionAttributeDto>>>>
+        GetAttributes(CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized(
+                new ApiResponse<IReadOnlyList<WorkerSuggestionAttributeDto>>(
+                    false,
+                    "المستخدم غير مصرح له.",
+                    "Unauthorized.",
+                    null,
+                    401
+                )
+            );
+        }
+
+        try
+        {
+            var response =
+                await _ruleService.GetAttributesAsync(
+                    currentUserId,
+                    cancellationToken);
+
+            return StatusCode(response.StatusCode, response);
+        }
+        catch (Exception ex)
+        {
+            return HandleException(ex);
+        }
+    }
+
+
+
 
     // GET: api/WorkerSuggestionRules/5
     [HttpGet("{id:int}")]
