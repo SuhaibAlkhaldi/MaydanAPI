@@ -47,6 +47,52 @@ public class ServiceRequestRepository : IServiceRequestRepository
             .Include(r => r.Association)
             .ToListAsync(cancellationToken);
 
+    public Task<bool> HasDifferentServiceAssignmentInProjectAsync(
+int workerId,
+int serviceRequestId,
+int projectId,
+int serviceId,
+CancellationToken cancellationToken = default) =>
+_context.ServiceRequestWorkers.AnyAsync(
+assignment =>
+    assignment.WorkerId == workerId &&
+    assignment.ServiceRequestId != serviceRequestId &&
+    assignment.ServiceRequest.ProjectId == projectId &&
+    assignment.ServiceRequest.ServiceId != serviceId,
+cancellationToken);
+
+    public Task<bool> HasOverlappingServiceRequestAssignmentInProjectAsync(
+        int workerId,
+        int serviceRequestId,
+        int projectId,
+        DateTime requestStartDate,
+        DateTime requestEndDate,
+        CancellationToken cancellationToken = default) =>
+        _context.ServiceRequestWorkers.AnyAsync(
+            assignment =>
+                assignment.WorkerId == workerId &&
+                assignment.ServiceRequestId != serviceRequestId &&
+                assignment.ServiceRequest.ProjectId == projectId &&
+                assignment.ServiceRequest.StartDate <= requestEndDate &&
+                assignment.ServiceRequest.EndDate >= requestStartDate,
+            cancellationToken);
+
+    public Task<bool> HasOverlappingProjectAssignmentAsync(
+        int workerId,
+        int serviceRequestId,
+        int projectId,
+        DateTime projectStartDate,
+        DateTime projectEndDate,
+        CancellationToken cancellationToken = default) =>
+        _context.ServiceRequestWorkers.AnyAsync(
+            assignment =>
+                assignment.WorkerId == workerId &&
+                assignment.ServiceRequestId != serviceRequestId &&
+                assignment.ServiceRequest.ProjectId != projectId &&
+                assignment.ServiceRequest.Project.StartDate.Date <= projectEndDate.Date &&
+                assignment.ServiceRequest.Project.EndDate.Date >= projectStartDate.Date,
+            cancellationToken);
+
     public async Task AssignToServiceRequestAsync(
     int serviceRequestId,
     int workerId,

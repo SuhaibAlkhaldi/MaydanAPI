@@ -12,6 +12,7 @@ public class ServiceRequestConfiguration : IEntityTypeConfiguration<ServiceReque
         builder.HasKey(r => r.Id);
 
 
+
         builder.Property(r => r.UnitPriceSnapshot).HasPrecision(18, 2);
         builder.Property(r => r.ExpectedTotalAmount).HasPrecision(18, 2);
 

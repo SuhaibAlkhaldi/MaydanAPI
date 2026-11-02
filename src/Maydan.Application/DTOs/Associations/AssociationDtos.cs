@@ -1,20 +1,9 @@
 using Maydan.Application.DTOs.Onboarding;
 using Maydan.Application.DTOs.UserManagement;
+using Maydan.Application.DTOs.Workers;
 
 namespace Maydan.Application.DTOs.Associations;
 
-// Field names match workforcment's src/app/features/associations/models/association.model.ts
-// exactly (camelCase once System.Text.Json's default policy applies) — the real, already-built
-// frontend contract this DTO has to satisfy, not a convention picked here. Country fields are
-// surfaced via Association.City.Country (Association itself has no CountryId column — see
-// AssociationService's own comment on why CountryId is accepted on write but never persisted).
-//
-// cityLocationId/cityLocationName exist on the frontend's Association model but are NOT sent by
-// the real create/update payload (CreateAssociation has no cityLocationId in practice — confirmed
-// by reading association-form.component.ts's buildAssociationPayload(), which never includes it)
-// and are read defensively with `??` fallbacks everywhere they're displayed — deliberately omitted
-// here rather than adding a CityLocationId column to Association for a field nothing currently
-// writes; that's the separate CityLocations module, a later phase. Flagged in this ticket's report.
 public class AssociationDto
 {
     public int Id { get; set; }
@@ -28,6 +17,9 @@ public class AssociationDto
     // setMapSelection, which builds them via lat.toFixed(6)).
     public string Latitude { get; set; } = string.Empty;
     public string Longitude { get; set; } = string.Empty;
+
+    public string ContactPhone { get; set; } = string.Empty;
+    public string ContactEmail { get; set; } = string.Empty;
 
     // Association has no CountryId column — this is City.Country.Id, surfaced for the frontend's
     // own read-side convenience (it never needs to be persisted; see CreateAssociationDto's own
@@ -54,28 +46,29 @@ public class CreateAssociationDto
     public string? LocationOnGoogleMaps { get; set; }
     public string? Latitude { get; set; }
     public string? Longitude { get; set; }
-
-    // Client-side-only on the frontend (used there purely to filter its City dropdown) — Association
-    // has no CountryId column to persist this into. Accepted here only so the request DTO matches
-    // what CreateAssociation actually sends; AssociationService validates the given CityId resolves
-    // to a real City and ignores CountryId entirely rather than silently trusting it (a CityId that
-    // doesn't belong to the claimed CountryId would otherwise go undetected).
+    public string ContactPhone { get; set; } = string.Empty;
+    public string ContactEmail { get; set; } = string.Empty;
     public int? CountryId { get; set; }
     public int CityId { get; set; }
 
-    // Association Admin User gap (2026-09-29): optional. Omitted (null, today's exact behavior for
-    // every existing caller) = association-only, its admin linked later via the existing
-    // EntityOnboardingController associations/without-admin + associations/{id}/admin flow — unchanged.
-    // Provided = AssociationService.CreateAsync creates the Association AND this admin in one
-    // transaction, reusing that same onboarding flow's own user-creation logic (AssociationAdminUserFactory)
-    // rather than duplicating it. Field shape mirrors OnboardAssociationAdminDto exactly (reused
-    // directly, not re-declared) since it's the same "new Association admin" payload either way.
     public OnboardAssociationAdminDto? Admin { get; set; }
 }
 
-public class UpdateAssociationDto : CreateAssociationDto
+public class UpdateAssociationDto
 {
     public int Id { get; set; }
+
+    public string? EnglishName { get; set; }
+    public string? ArabicName { get; set; }
+    public string? LocationOnGoogleMaps { get; set; }
+    public string? Latitude { get; set; }
+    public string? Longitude { get; set; }
+    public string? ContactPhone { get; set; }
+    public string? ContactEmail { get; set; }
+
+    public int? CityId { get; set; }
+
+    public UpdateAssociationAdminDto? Admin { get; set; }
 }
 
 // Association Users/Details gap (2026-09-29): AssociationDto itself is deliberately left unchanged
@@ -91,4 +84,30 @@ public class UpdateAssociationDto : CreateAssociationDto
 public class AssociationDetailsDto : AssociationDto
 {
     public List<UserSummaryDto> Users { get; set; } = new();
+    public List<WorkerSummaryDto> Workers { get; set; } = new();
+}
+
+public class UpdateAssociationAdminDto
+{
+    public string? FirstNameEn { get; set; }
+    public string? LastNameEn { get; set; }
+    public string? FirstNameAr { get; set; }
+    public string? LastNameAr { get; set; }
+    public string? Email { get; set; }
+    public string? PhoneNumber { get; set; }
+}
+
+public class AssociationAdminResponseDto
+{
+    public int UserId { get; set; }
+    public string FirstNameEn { get; set; } = string.Empty;
+    public string LastNameEn { get; set; } = string.Empty;
+    public string FirstNameAr { get; set; } = string.Empty;
+    public string LastNameAr { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string PhoneNumber { get; set; } = string.Empty;
+}
+public class AssociationUpdateResponseDto : AssociationDto
+{
+    public AssociationAdminResponseDto? Admin { get; set; }
 }

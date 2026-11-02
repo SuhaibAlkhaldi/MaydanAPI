@@ -27,6 +27,8 @@ public class UnitOfWork : IUnitOfWork
     private IServiceRepository? _services;
     private IServiceRequestRepository? _serviceRequests;
     private ILookupRepository? _lookups;
+    private IWorkerSuggestionRuleRepository? _workerSuggestionRules;
+
 
     public UnitOfWork(MaydanDbContext context)
     {
@@ -53,6 +55,9 @@ public class UnitOfWork : IUnitOfWork
     public IServiceRequestRepository ServiceRequests => _serviceRequests ??= new ServiceRequestRepository(_context);
     public IProjectTypeRepository ProjectTypes =>
     _projectTypes ??= new ProjectTypeRepository(_context);
+
+    public IWorkerSuggestionRuleRepository WorkerSuggestionRules =>_workerSuggestionRules ??= new WorkerSuggestionRuleRepository(_context);
+
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
         _context.SaveChangesAsync(cancellationToken);
 

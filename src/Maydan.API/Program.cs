@@ -20,7 +20,6 @@ using Microsoft.OpenApi.Models;
 var builder = WebApplication.CreateBuilder(args);
 
 
-
 builder.Services.AddControllers(options => options.Filters.Add<SystemConfigurationGateFilter>());
 //builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -62,6 +61,8 @@ builder.Services.AddScoped<IProductionCompanyOnboardingService, ProductionCompan
 builder.Services.AddScoped<IWorkerService, WorkerService>();
 builder.Services.AddScoped<IEntityOnboardingService, EntityOnboardingService>();
 builder.Services.AddScoped<IFrontendLinkBuilder, FrontendLinkBuilder>();
+builder.Services.AddScoped<IWorkerSuggestionRuleService, WorkerSuggestionRuleService>();
+
 
 builder.Services.AddScoped<IEmailSender, LoggingEmailSender>();
 
@@ -116,6 +117,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+
 
 if (app.Environment.IsDevelopment())
 {

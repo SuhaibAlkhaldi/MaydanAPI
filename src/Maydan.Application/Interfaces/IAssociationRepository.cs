@@ -12,6 +12,7 @@ public interface IAssociationRepository
 
     // دالة الجمع (تُستخدم في AssociationProjectSupervisorService للـ Performance)
     Task<List<Association>> GetByIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default);
+    Task<Association?> GetByIdForUpdateAsync(int associationId, CancellationToken cancellationToken = default);
     Task<List<Association>> GetAllAsync(CancellationToken cancellationToken = default);
     Task<Association?> GetByCityIdAsync(int cityId, CancellationToken cancellationToken = default);
     Task AddAsync(Association association, CancellationToken cancellationToken = default);
