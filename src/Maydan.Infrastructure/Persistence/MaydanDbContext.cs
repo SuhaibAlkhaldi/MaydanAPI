@@ -1,10 +1,8 @@
-
 using Maydan.Domain.Common;
 using Maydan.Domain.Entities;
 using Maydan.Infrastructure.Persistence.Seed;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
-
 using System.Reflection;
 
 namespace Maydan.Infrastructure.Persistence;
@@ -31,6 +29,7 @@ public class MaydanDbContext : DbContext
     public DbSet<LookupCategory> LookupCategories => Set<LookupCategory>();
     public DbSet<LookupItem> LookupItems => Set<LookupItem>();
     public DbSet<Association> Associations => Set<Association>();
+    public DbSet<AssociationZone> AssociationZones => Set<AssociationZone>();
     public DbSet<AssociationProjectSupervisor> AssociationProjectSupervisors => Set<AssociationProjectSupervisor>();
     public DbSet<ProductionCompany> ProductionCompanies => Set<ProductionCompany>();
     public DbSet<Project> Projects => Set<Project>();
@@ -44,8 +43,6 @@ public class MaydanDbContext : DbContext
     public DbSet<Service> ServiceTypes => Set<Service>();
     public DbSet<ServiceRequest> ServiceRequests => Set<ServiceRequest>();
     public DbSet<ServiceRequestWorker> ServiceRequestWorkers { get; set; } = null!;
-
-
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -108,3 +105,4 @@ public class MaydanDbContext : DbContext
     private static Expression<Func<TEntity, bool>> BuildSoftDeleteFilter<TEntity>() where TEntity : SharedEntities =>
         entity => !entity.IsDeleted;
 }
+

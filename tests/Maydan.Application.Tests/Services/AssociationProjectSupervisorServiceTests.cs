@@ -37,7 +37,8 @@ public class AssociationProjectSupervisorServiceTests
         LastNameAr = $"اخير{userId}",
         Email = $"user{userId}@test.local",
         PhoneNumber = "+962700000000",
-        Role = BuildRole(4, "Association"),
+        RoleId = 9,
+        Role = BuildRole(9, "AssociationRepresentative"),
         EntityType = EntityType.Association,
         EntityId = associationId,
         IsActive = isActive
@@ -103,8 +104,9 @@ public class AssociationProjectSupervisorServiceTests
         var associationUser = BuildAssociationUser(30, association.Id);
         var (service, _) = BuildService(users: [caller, associationUser], projects: [], associations: [association]);
 
-        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
-            service.CreateAsync(new CreateAssociationProjectSupervisorDto { ProjectId = 999, AssociationUserId = associationUser.UserId }, caller.UserId));
+        var result = await service.CreateAsync(new CreateAssociationProjectSupervisorDto { ProjectId = 999, AssociationUserId = associationUser.UserId }, caller.UserId);
+        Assert.False(result.Success);
+        Assert.Equal(404, result.StatusCode);
     }
 
     [Fact]
@@ -114,8 +116,9 @@ public class AssociationProjectSupervisorServiceTests
         var project = BuildProject(10);
         var (service, _) = BuildService(users: [caller], projects: [project], associations: []);
 
-        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
-            service.CreateAsync(new CreateAssociationProjectSupervisorDto { ProjectId = project.Id, AssociationUserId = 999 }, caller.UserId));
+        var result = await service.CreateAsync(new CreateAssociationProjectSupervisorDto { ProjectId = project.Id, AssociationUserId = 999 }, caller.UserId);
+        Assert.False(result.Success);
+        Assert.Equal(404, result.StatusCode);
     }
 
     [Fact]
@@ -126,8 +129,8 @@ public class AssociationProjectSupervisorServiceTests
         var productionCompanyUser = BuildProductionCompanyUser(40);
         var (service, _) = BuildService(users: [caller, productionCompanyUser], projects: [project], associations: []);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            service.CreateAsync(new CreateAssociationProjectSupervisorDto { ProjectId = project.Id, AssociationUserId = productionCompanyUser.UserId }, caller.UserId));
+        var result = await service.CreateAsync(new CreateAssociationProjectSupervisorDto { ProjectId = project.Id, AssociationUserId = productionCompanyUser.UserId }, caller.UserId);
+        Assert.False(result.Success);
     }
 
     [Fact]
@@ -147,7 +150,7 @@ public class AssociationProjectSupervisorServiceTests
         repository.Seed(new AssociationProjectSupervisor { Id = 1, ProjectId = projectA.Id, UserId = userA.UserId, Project = projectA, User = userA });
         repository.Seed(new AssociationProjectSupervisor { Id = 2, ProjectId = projectB.Id, UserId = userB.UserId, Project = projectB, User = userB });
 
-        var result = await service.GetAllAsync(currentUserId: 0, projectId: 0, associationId: 0, page: 1, pageSize: 10);
+        var result = await service.GetAllAsync(currentUserId: caller.UserId, projectId: 0, associationId: 0, page: 1, pageSize: 10);
 
         Assert.Equal(2, result.Data!.Items.Count);
     }
@@ -168,7 +171,7 @@ public class AssociationProjectSupervisorServiceTests
         repository.Seed(new AssociationProjectSupervisor { Id = 1, ProjectId = projectA.Id, UserId = userA.UserId, Project = projectA, User = userA });
         repository.Seed(new AssociationProjectSupervisor { Id = 2, ProjectId = projectB.Id, UserId = userB.UserId, Project = projectB, User = userB });
 
-        var result = await service.GetAllAsync(currentUserId: 0, projectId: projectA.Id, associationId: 0, page: 1, pageSize: 10);
+        var result = await service.GetAllAsync(currentUserId: caller.UserId, projectId: projectA.Id, associationId: 0, page: 1, pageSize: 10);
 
         var dto = Assert.Single(result.Data!.Items);
         Assert.Equal(projectA.Id, dto.ProjectId);
@@ -190,7 +193,7 @@ public class AssociationProjectSupervisorServiceTests
         repository.Seed(new AssociationProjectSupervisor { Id = 1, ProjectId = project.Id, UserId = userA.UserId, Project = project, User = userA });
         repository.Seed(new AssociationProjectSupervisor { Id = 2, ProjectId = project.Id, UserId = userB.UserId, Project = project, User = userB });
 
-        var result = await service.GetAllAsync(currentUserId: 0, projectId: 0, associationId: associationA.Id, page: 1, pageSize: 10);
+        var result = await service.GetAllAsync(currentUserId: caller.UserId, projectId: 0, associationId: associationA.Id, page: 1, pageSize: 10);
 
         var dto = Assert.Single(result.Data!.Items);
         Assert.Equal(associationA.Id, dto.AssociationId);
@@ -221,7 +224,9 @@ public class AssociationProjectSupervisorServiceTests
         var caller = BuildCaller(1);
         var (service, _) = BuildService(users: [caller], projects: [], associations: []);
 
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.DeleteAsync(999, caller.UserId));
+        var result = await service.DeleteAsync(999, caller.UserId);
+        Assert.False(result.Success);
+        Assert.Equal(404, result.StatusCode);
     }
 
     private static (AssociationProjectSupervisorService Service, FakeAssociationProjectSupervisorRepository Repository) BuildService(
@@ -313,7 +318,11 @@ public class AssociationProjectSupervisorServiceTests
             var association = _associationsById.GetValueOrDefault(associationId);
             return Task.FromResult(association is { IsDeleted: false } ? association : null);
         }
-        public async Task<List<Association>> GetByIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<List<Association>> GetByIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default)
+        {
+            var idSet = ids.ToHashSet();
+            return Task.FromResult(_associationsById.Values.Where(a => idSet.Contains(a.Id)).ToList());
+        }
 
         public Task<Association?> GetByIdIncludingDeletedAsync(int associationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Association?> GetByCityIdAsync(int cityId, CancellationToken cancellationToken = default) => throw new NotSupportedException();

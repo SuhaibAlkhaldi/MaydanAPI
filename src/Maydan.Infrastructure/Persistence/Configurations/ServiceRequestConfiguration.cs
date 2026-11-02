@@ -1,4 +1,4 @@
-﻿using Maydan.Domain.Entities;
+using Maydan.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -10,6 +10,8 @@ public class ServiceRequestConfiguration : IEntityTypeConfiguration<ServiceReque
     {
         builder.ToTable("ServiceRequests");
         builder.HasKey(r => r.Id);
+
+        builder.Property(r => r.Status).HasColumnName("StatusId");
 
 
         builder.Property(r => r.UnitPriceSnapshot).HasPrecision(18, 2);

@@ -101,7 +101,9 @@ public class AssociationServiceTests
         var caller = BuildUser(1, BuildRole(1, "NoAccess"));
         var service = BuildService(caller);
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.GetAllAsync(caller.UserId));
+        var result = await service.GetAllAsync(caller.UserId);
+        Assert.False(result.Success);
+        Assert.Equal(403, result.StatusCode);
     }
 
     [Fact]
@@ -146,7 +148,9 @@ public class AssociationServiceTests
 
         var dto = new CreateAssociationDto { EnglishName = "X", ArabicName = "س", CityId = 1 };
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.CreateAsync(caller.UserId, dto));
+        var result = await service.CreateAsync(caller.UserId, dto);
+        Assert.False(result.Success);
+        Assert.Equal(403, result.StatusCode);
     }
 
     [Fact]
@@ -157,7 +161,9 @@ public class AssociationServiceTests
 
         var dto = new CreateAssociationDto { EnglishName = "X", ArabicName = "س", CityId = 999 };
 
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.CreateAsync(caller.UserId, dto));
+        var result = await service.CreateAsync(caller.UserId, dto);
+        Assert.False(result.Success);
+        Assert.Equal(404, result.StatusCode);
     }
 
     private static OnboardAssociationAdminDto BuildAdminDto(string email = "new-admin@example.org") => new()
@@ -231,7 +237,8 @@ public class AssociationServiceTests
             Admin = BuildAdminDto(email: "taken@example.org")
         };
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateAsync(caller.UserId, dto));
+        var result = await service.CreateAsync(caller.UserId, dto);
+        Assert.False(result.Success);
 
         Assert.Empty(await associationRepository.QueryAsync(isDeleted: false));
         Assert.Single(await userRepository.GetByEntityAsync(EntityType.Association, 999, search: null)); // only the pre-existing one
@@ -286,7 +293,9 @@ public class AssociationServiceTests
         var caller = BuildUser(1, BuildRole(1, "ViewOnly", ViewAssociations));
         var service = BuildService(caller, [association], [city]);
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.GetDetailsAsync(caller.UserId, association.Id));
+        var result = await service.GetDetailsAsync(caller.UserId, association.Id);
+        Assert.False(result.Success);
+        Assert.Equal(403, result.StatusCode);
     }
 
     [Fact]
@@ -302,7 +311,9 @@ public class AssociationServiceTests
 
         var dto = new UpdateAssociationDto { Id = 10, EnglishName = "Updated", ArabicName = "محدثة", CityId = city.Id };
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.UpdateAsync(caller.UserId, dto));
+        var result = await service.UpdateAsync(caller.UserId, dto);
+        Assert.False(result.Success);
+        Assert.Equal(403, result.StatusCode);
     }
 
     [Fact]
@@ -345,7 +356,9 @@ public class AssociationServiceTests
         var association = BuildAssociation(10, city);
         var service = BuildService(caller, associations: [association]);
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.DeleteAsync(caller.UserId, 10));
+        var result = await service.DeleteAsync(caller.UserId, 10);
+        Assert.False(result.Success);
+        Assert.Equal(403, result.StatusCode);
     }
 
     [Fact]
@@ -372,7 +385,8 @@ public class AssociationServiceTests
         var association = BuildAssociation(10, city, isDeleted: false);
         var service = BuildService(caller, associations: [association]);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.RestoreAsync(caller.UserId, 10));
+        var result = await service.RestoreAsync(caller.UserId, 10);
+        Assert.False(result.Success);
     }
 
     [Fact]
@@ -732,7 +746,7 @@ public class AssociationServiceTests
             // .City) — this plain in-memory fake has no change tracker, so it's done by hand here,
             // matching real runtime behavior, for MapToDto (called right after AddAsync via
             // MapExistingAsync) to have a non-null City/Country to read.
-            if (_citiesById.TryGetValue(association.CityId, out var city))
+            if (association.CityId.HasValue && _citiesById.TryGetValue(association.CityId.Value, out var city))
             {
                 association.City = city;
             }

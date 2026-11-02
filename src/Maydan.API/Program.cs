@@ -45,7 +45,7 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 builder.Services.AddDbContext<MaydanDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("MaydanDb"), sqlOpts => sqlOpts.CommandTimeout(60))
+    options.UseSqlServer(builder.Configuration.GetConnectionString("MaydanDb"), sqlOpts => sqlOpts.CommandTimeout(60).UseNetTopologySuite())
            .EnableSensitiveDataLogging(builder.Environment.IsDevelopment())
 );
 
@@ -56,6 +56,7 @@ builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<ILocationService, LocationService>();
 builder.Services.AddScoped<IAssociationService, AssociationService>();
+builder.Services.AddScoped<IAssociationZoneService, AssociationZoneService>();
 builder.Services.AddScoped<IAssociationProjectSupervisorService, AssociationProjectSupervisorService>();
 builder.Services.AddScoped<IProductionCompanyService, ProductionCompanyService>();
 builder.Services.AddScoped<IProductionCompanyOnboardingService, ProductionCompanyOnboardingService>();
