@@ -3,18 +3,12 @@ using Maydan.Application.Interfaces;
 using Maydan.Application.Services;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
-using Microsoft.EntityFrameworkCore;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Maydan.Application.Tests.Services;
 
-// Projects audit follow-up: ProjectService.CreateAsync used to throw a bare Exception for every
-// validation failure, which ApiControllerBase.HandleException's switch has no case for (always
-// fell through to 500 regardless of the real problem). These tests cover the full CRUD+restore
-// surface added in this pass, asserting the specific exception type each failure now throws
-// (InvalidOperationException / KeyNotFoundException / UnauthorizedAccessException), matching the
-// convention UserManagementServiceTests.cs already established — same hand-rolled-fake pattern,
-// no mocking library exists in this test project.
+// ProjectService returns ApiResponse<T> for expected validation and authorization failures.
+// These tests cover CRUD and LocationManager overlap using lightweight in-memory repositories.
+// SQL Server translation, query filters, and concurrency require separate integration tests.
 public class ProjectServiceTests
 {
     private static User NewUser(int userId, EntityType entityType, int entityId, bool isActive = true) => new()
@@ -71,8 +65,381 @@ public class ProjectServiceTests
     };
 
     // ---------------------------------------------------------------------
-    // CreateAsync — regression coverage now that every throw has a real type
+    // CreateAsync — ApiResponse behavior and LocationManager overlap
     // ---------------------------------------------------------------------
+
+    [Fact]
+    public async Task CreateAsync_OverlappingProjectForSameManager_Fails()
+    {
+        var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
+        var producer = NewUser(2, EntityType.ProductionCompany, 5);
+        var locationManager = NewUser(3, EntityType.ProductionCompany, 5);
+        var projectType = NewProjectType(7);
+
+        var existingProject = NewProject(
+            20,
+            producer.UserId,
+            locationManager.UserId,
+            projectType.Id,
+            productionCompanyId: 5);
+
+        existingProject.StartDate = new DateTime(2026, 4, 1);
+        existingProject.EndDate = new DateTime(2026, 8, 31);
+
+        var (service, projectRepository) = BuildService(
+            users: [currentUser, producer, locationManager],
+            projectTypes: [projectType],
+            projects: [existingProject]);
+
+        var result = await service.CreateAsync(
+            ValidCreateDto(producer.UserId, locationManager.UserId, projectType.Id),
+            currentUser.UserId);
+
+        Assert.False(result.Success);
+        Assert.Equal(400, result.StatusCode);
+        Assert.Null(projectRepository.AddedProject);
+    }
+
+    [Fact]
+    public async Task CreateAsync_NonOverlappingProjectForSameManager_Succeeds()
+    {
+        var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
+        var producer = NewUser(2, EntityType.ProductionCompany, 5);
+        var locationManager = NewUser(3, EntityType.ProductionCompany, 5);
+        var projectType = NewProjectType(7);
+
+        var existingProject = NewProject(
+            20,
+            producer.UserId,
+            locationManager.UserId,
+            projectType.Id,
+            productionCompanyId: 5);
+
+        existingProject.StartDate = new DateTime(2025, 1, 1);
+        existingProject.EndDate = new DateTime(2025, 5, 31);
+
+        var (service, _) = BuildService(
+            users: [currentUser, producer, locationManager],
+            projectTypes: [projectType],
+            projects: [existingProject]);
+
+        var result = await service.CreateAsync(
+            ValidCreateDto(producer.UserId, locationManager.UserId, projectType.Id),
+            currentUser.UserId);
+
+        Assert.True(result.Success);
+    }
+
+    [Fact]
+    public async Task CreateAsync_SameBoundaryCalendarDate_Fails()
+    {
+        var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
+        var producer = NewUser(2, EntityType.ProductionCompany, 5);
+        var locationManager = NewUser(3, EntityType.ProductionCompany, 5);
+        var projectType = NewProjectType(7);
+
+        var existingProject = NewProject(
+            20,
+            producer.UserId,
+            locationManager.UserId,
+            projectType.Id,
+            productionCompanyId: 5);
+
+        existingProject.StartDate = new DateTime(2026, 1, 1);
+        existingProject.EndDate = new DateTime(2026, 5, 31, 0, 0, 0);
+
+        var dto = ValidCreateDto(
+            producer.UserId,
+            locationManager.UserId,
+            projectType.Id);
+
+        dto.StartDate = new DateTime(2026, 5, 31, 15, 0, 0);
+        dto.EndDate = new DateTime(2026, 8, 31);
+
+        var (service, _) = BuildService(
+            users: [currentUser, producer, locationManager],
+            projectTypes: [projectType],
+            projects: [existingProject]);
+
+        var result = await service.CreateAsync(dto, currentUser.UserId);
+
+        Assert.False(result.Success);
+    }
+
+    [Fact]
+    public async Task CreateAsync_StartsNextCalendarDayAfterExistingEnd_Succeeds()
+    {
+        var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
+        var producer = NewUser(2, EntityType.ProductionCompany, 5);
+        var locationManager = NewUser(3, EntityType.ProductionCompany, 5);
+        var projectType = NewProjectType(7);
+
+        var existingProject = NewProject(
+            20,
+            producer.UserId,
+            locationManager.UserId,
+            projectType.Id,
+            productionCompanyId: 5);
+
+        existingProject.StartDate = new DateTime(2026, 1, 1);
+        existingProject.EndDate = new DateTime(2026, 5, 31, 23, 59, 59);
+
+        var dto = ValidCreateDto(
+            producer.UserId,
+            locationManager.UserId,
+            projectType.Id);
+
+        dto.StartDate = new DateTime(2026, 6, 1);
+        dto.EndDate = new DateTime(2026, 8, 31);
+
+        var (service, _) = BuildService(
+            users: [currentUser, producer, locationManager],
+            projectTypes: [projectType],
+            projects: [existingProject]);
+
+        var result = await service.CreateAsync(dto, currentUser.UserId);
+
+        Assert.True(result.Success);
+    }
+
+    [Fact]
+    public async Task CreateAsync_DifferentLocationManagerWithOverlappingDates_Succeeds()
+    {
+        var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
+        var producer = NewUser(2, EntityType.ProductionCompany, 5);
+        var existingManager = NewUser(3, EntityType.ProductionCompany, 5);
+        var newManager = NewUser(4, EntityType.ProductionCompany, 5);
+        var projectType = NewProjectType(7);
+
+        var existingProject = NewProject(
+            20,
+            producer.UserId,
+            existingManager.UserId,
+            projectType.Id,
+            productionCompanyId: 5);
+
+        var (service, _) = BuildService(
+            users: [currentUser, producer, existingManager, newManager],
+            projectTypes: [projectType],
+            projects: [existingProject]);
+
+        var result = await service.CreateAsync(
+            ValidCreateDto(producer.UserId, newManager.UserId, projectType.Id),
+            currentUser.UserId);
+
+        Assert.True(result.Success);
+    }
+
+    [Fact]
+    public async Task CreateAsync_InactiveProjectStillConflicts()
+    {
+        var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
+        var producer = NewUser(2, EntityType.ProductionCompany, 5);
+        var locationManager = NewUser(3, EntityType.ProductionCompany, 5);
+        var projectType = NewProjectType(7);
+
+        var existingProject = NewProject(
+            20,
+            producer.UserId,
+            locationManager.UserId,
+            projectType.Id,
+            productionCompanyId: 5);
+
+        existingProject.IsActive = false;
+
+        var (service, _) = BuildService(
+            users: [currentUser, producer, locationManager],
+            projectTypes: [projectType],
+            projects: [existingProject]);
+
+        var result = await service.CreateAsync(
+            ValidCreateDto(producer.UserId, locationManager.UserId, projectType.Id),
+            currentUser.UserId);
+
+        Assert.False(result.Success);
+    }
+
+    [Fact]
+    public async Task CreateAsync_SoftDeletedProjectDoesNotCauseOverlap_Succeeds()
+    {
+        var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
+        var producer = NewUser(2, EntityType.ProductionCompany, 5);
+        var manager = NewUser(3, EntityType.ProductionCompany, 5);
+        var projectType = NewProjectType(7);
+        var deletedProject = NewProject(20, producer.UserId, manager.UserId, projectType.Id, 5);
+        deletedProject.IsDeleted = true;
+
+        var (service, repository) = BuildService(
+            users: [currentUser, producer, manager],
+            projectTypes: [projectType],
+            projects: [deletedProject]);
+
+        var result = await service.CreateAsync(
+            ValidCreateDto(producer.UserId, manager.UserId, projectType.Id),
+            currentUser.UserId);
+
+        Assert.True(result.Success);
+        Assert.NotNull(repository.AddedProject);
+    }
+
+    [Fact]
+    public async Task CreateAsync_SameCalendarDateWithDifferentTimes_Fails()
+    {
+        var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
+        var producer = NewUser(2, EntityType.ProductionCompany, 5);
+        var locationManager = NewUser(3, EntityType.ProductionCompany, 5);
+        var projectType = NewProjectType(7);
+
+        var existingProject = NewProject(
+            20,
+            producer.UserId,
+            locationManager.UserId,
+            projectType.Id,
+            productionCompanyId: 5);
+
+        existingProject.StartDate = new DateTime(2026, 1, 1);
+        existingProject.EndDate = new DateTime(2026, 6, 1, 0, 0, 0);
+
+        var dto = ValidCreateDto(
+            producer.UserId,
+            locationManager.UserId,
+            projectType.Id);
+
+        dto.StartDate = new DateTime(2026, 6, 1, 15, 0, 0);
+        dto.EndDate = new DateTime(2026, 8, 31);
+
+        var (service, _) = BuildService(
+            users: [currentUser, producer, locationManager],
+            projectTypes: [projectType],
+            projects: [existingProject]);
+
+        var result = await service.CreateAsync(dto, currentUser.UserId);
+
+        Assert.False(result.Success);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ChangingManagerToConflictingManager_Fails()
+    {
+        var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
+        var producer = NewUser(2, EntityType.ProductionCompany, 5);
+        var managerToAssign = NewUser(3, EntityType.ProductionCompany, 5);
+        var currentManager = NewUser(4, EntityType.ProductionCompany, 5);
+        var projectType = NewProjectType(7);
+
+        var projectBeingUpdated = NewProject(
+            10,
+            producer.UserId,
+            currentManager.UserId,
+            projectType.Id,
+            productionCompanyId: 5);
+
+        var conflictingProject = NewProject(
+            20,
+            producer.UserId,
+            managerToAssign.UserId,
+            projectType.Id,
+            productionCompanyId: 5);
+
+        projectBeingUpdated.StartDate = new DateTime(2026, 1, 1);
+        projectBeingUpdated.EndDate = new DateTime(2026, 2, 28);
+        conflictingProject.StartDate = new DateTime(2026, 3, 1);
+        conflictingProject.EndDate = new DateTime(2026, 4, 1);
+
+        var (service, _) = BuildService(
+            users: [currentUser, producer, managerToAssign, currentManager],
+            projectTypes: [projectType],
+            projects: [projectBeingUpdated, conflictingProject]);
+
+        var dto = ValidUpdateDto(producer.UserId, managerToAssign.UserId, projectType.Id);
+        dto.StartDate = new DateTime(2026, 2, 1);
+        dto.EndDate = new DateTime(2026, 5, 31);
+
+        var result = await service.UpdateAsync(
+            projectBeingUpdated.Id,
+            dto,
+            currentUser.UserId);
+
+        Assert.False(result.Success);
+        Assert.Equal(400, result.StatusCode);
+        Assert.Equal(currentManager.UserId, projectBeingUpdated.LocationManagerUserId);
+        Assert.Equal(new DateTime(2026, 1, 1), projectBeingUpdated.StartDate);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ChangingProjectDatesToConflict_Fails()
+    {
+        var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
+        var producer = NewUser(2, EntityType.ProductionCompany, 5);
+        var locationManager = NewUser(3, EntityType.ProductionCompany, 5);
+        var projectType = NewProjectType(7);
+
+        var projectBeingUpdated = NewProject(
+            10,
+            producer.UserId,
+            locationManager.UserId,
+            projectType.Id,
+            productionCompanyId: 5);
+
+        var conflictingProject = NewProject(
+            20,
+            producer.UserId,
+            locationManager.UserId,
+            projectType.Id,
+            productionCompanyId: 5);
+
+        projectBeingUpdated.StartDate = new DateTime(2026, 1, 1);
+        projectBeingUpdated.EndDate = new DateTime(2026, 2, 28);
+        conflictingProject.StartDate = new DateTime(2026, 3, 1);
+        conflictingProject.EndDate = new DateTime(2026, 4, 1);
+
+        var (service, _) = BuildService(
+            users: [currentUser, producer, locationManager],
+            projectTypes: [projectType],
+            projects: [projectBeingUpdated, conflictingProject]);
+
+        var dto = ValidUpdateDto(producer.UserId, locationManager.UserId, projectType.Id);
+        dto.StartDate = new DateTime(2026, 2, 15);
+        dto.EndDate = new DateTime(2026, 4, 15);
+
+        var result = await service.UpdateAsync(
+            projectBeingUpdated.Id,
+            dto,
+            currentUser.UserId);
+
+        Assert.False(result.Success);
+        Assert.Equal(400, result.StatusCode);
+        Assert.Equal(new DateTime(2026, 1, 1), projectBeingUpdated.StartDate);
+        Assert.Equal(new DateTime(2026, 2, 28), projectBeingUpdated.EndDate);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ExcludesCurrentProjectFromOverlapCheck_Succeeds()
+    {
+        var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
+        var producer = NewUser(2, EntityType.ProductionCompany, 5);
+        var locationManager = NewUser(3, EntityType.ProductionCompany, 5);
+        var projectType = NewProjectType(7);
+
+        var projectBeingUpdated = NewProject(
+            10,
+            producer.UserId,
+            locationManager.UserId,
+            projectType.Id,
+            productionCompanyId: 5);
+
+        var (service, _) = BuildService(
+            users: [currentUser, producer, locationManager],
+            projectTypes: [projectType],
+            projects: [projectBeingUpdated]);
+
+        var result = await service.UpdateAsync(
+            projectBeingUpdated.Id,
+            ValidUpdateDto(producer.UserId, locationManager.UserId, projectType.Id),
+            currentUser.UserId);
+
+        Assert.True(result.Success);
+    }
 
     [Fact]
     public async Task CreateAsync_ValidRequestFromProductionCompanyUser_Succeeds()
@@ -98,28 +465,30 @@ public class ProjectServiceTests
     }
 
     [Fact]
-    public async Task CreateAsync_CurrentUserNotFound_ThrowsUnauthorizedAccessException()
+    public async Task CreateAsync_CurrentUserNotFound_ReturnsFailure()
     {
         var (service, _) = BuildService(users: [], projectTypes: [NewProjectType(1)]);
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(
-            () => service.CreateAsync(ValidCreateDto(2, 3, 1), currentUserId: 999));
+        var result = await service.CreateAsync(ValidCreateDto(2, 3, 1), currentUserId: 999);
+
+        Assert.False(result.Success);
+        Assert.Equal(401, result.StatusCode);
     }
 
     [Fact]
-    public async Task CreateAsync_CurrentUserNotProductionCompany_ThrowsInvalidOperationException()
+    public async Task CreateAsync_CurrentUserNotProductionCompany_ReturnsFailure()
     {
         var currentUser = NewUser(1, EntityType.Association, 5);
         var (service, _) = BuildService(users: [currentUser], projectTypes: [NewProjectType(1)]);
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => service.CreateAsync(ValidCreateDto(2, 3, 1), currentUser.UserId));
+        var result = await service.CreateAsync(ValidCreateDto(2, 3, 1), currentUser.UserId);
 
-        Assert.Contains("Production Company", exception.Message);
+        Assert.False(result.Success);
+        Assert.Equal(400, result.StatusCode);
     }
 
     [Fact]
-    public async Task CreateAsync_MissingEnglishName_ThrowsInvalidOperationException()
+    public async Task CreateAsync_MissingEnglishName_ReturnsFailure()
     {
         var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
         var producer = NewUser(2, EntityType.ProductionCompany, 5);
@@ -130,11 +499,14 @@ public class ProjectServiceTests
         var dto = ValidCreateDto(producer.UserId, locationManager.UserId, projectType.Id);
         dto.ProjectNameEn = "   ";
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateAsync(dto, currentUser.UserId));
+        var result = await service.CreateAsync(dto, currentUser.UserId);
+
+        Assert.False(result.Success);
+        Assert.Equal(400, result.StatusCode);
     }
 
     [Fact]
-    public async Task CreateAsync_EndDateNotAfterStartDate_ThrowsInvalidOperationException()
+    public async Task CreateAsync_EndDateNotAfterStartDate_ReturnsFailure()
     {
         var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
         var producer = NewUser(2, EntityType.ProductionCompany, 5);
@@ -145,47 +517,56 @@ public class ProjectServiceTests
         var dto = ValidCreateDto(producer.UserId, locationManager.UserId, projectType.Id);
         dto.EndDate = dto.StartDate;
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateAsync(dto, currentUser.UserId));
+        var result = await service.CreateAsync(dto, currentUser.UserId);
+
+        Assert.False(result.Success);
+        Assert.Equal(400, result.StatusCode);
     }
 
     [Fact]
-    public async Task CreateAsync_ProducerSameAsLocationManager_ThrowsInvalidOperationException()
+    public async Task CreateAsync_ProducerSameAsLocationManager_ReturnsFailure()
     {
         var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
         var producer = NewUser(2, EntityType.ProductionCompany, 5);
         var projectType = NewProjectType(7);
         var (service, _) = BuildService(users: [currentUser, producer], projectTypes: [projectType]);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => service.CreateAsync(ValidCreateDto(producer.UserId, producer.UserId, projectType.Id), currentUser.UserId));
+        var result = await service.CreateAsync(ValidCreateDto(producer.UserId, producer.UserId, projectType.Id), currentUser.UserId);
+
+        Assert.False(result.Success);
+        Assert.Equal(400, result.StatusCode);
     }
 
     [Fact]
-    public async Task CreateAsync_InvalidProjectType_ThrowsKeyNotFoundException()
+    public async Task CreateAsync_InvalidProjectType_ReturnsFailure()
     {
         var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
         var producer = NewUser(2, EntityType.ProductionCompany, 5);
         var locationManager = NewUser(3, EntityType.ProductionCompany, 5);
         var (service, _) = BuildService(users: [currentUser, producer, locationManager], projectTypes: []);
 
-        await Assert.ThrowsAsync<KeyNotFoundException>(
-            () => service.CreateAsync(ValidCreateDto(producer.UserId, locationManager.UserId, 999), currentUser.UserId));
+        var result = await service.CreateAsync(ValidCreateDto(producer.UserId, locationManager.UserId, 999), currentUser.UserId);
+
+        Assert.False(result.Success);
+        Assert.Equal(400, result.StatusCode);
     }
 
     [Fact]
-    public async Task CreateAsync_ProducerNotFound_ThrowsKeyNotFoundException()
+    public async Task CreateAsync_ProducerNotFound_ReturnsFailure()
     {
         var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
         var locationManager = NewUser(3, EntityType.ProductionCompany, 5);
         var projectType = NewProjectType(7);
         var (service, _) = BuildService(users: [currentUser, locationManager], projectTypes: [projectType]);
 
-        await Assert.ThrowsAsync<KeyNotFoundException>(
-            () => service.CreateAsync(ValidCreateDto(producerUserId: 404, locationManager.UserId, projectType.Id), currentUser.UserId));
+        var result = await service.CreateAsync(ValidCreateDto(producerUserId: 404, locationManager.UserId, projectType.Id), currentUser.UserId);
+
+        Assert.False(result.Success);
+        Assert.Equal(400, result.StatusCode);
     }
 
     [Fact]
-    public async Task CreateAsync_ProducerDifferentCompany_ThrowsInvalidOperationException()
+    public async Task CreateAsync_ProducerDifferentCompany_ReturnsFailure()
     {
         var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
         var outsideProducer = NewUser(2, EntityType.ProductionCompany, 99);
@@ -193,10 +574,10 @@ public class ProjectServiceTests
         var projectType = NewProjectType(7);
         var (service, _) = BuildService(users: [currentUser, outsideProducer, locationManager], projectTypes: [projectType]);
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => service.CreateAsync(ValidCreateDto(outsideProducer.UserId, locationManager.UserId, projectType.Id), currentUser.UserId));
+        var result = await service.CreateAsync(ValidCreateDto(outsideProducer.UserId, locationManager.UserId, projectType.Id), currentUser.UserId);
 
-        Assert.Contains("same Production Company", exception.Message);
+        Assert.False(result.Success);
+        Assert.Equal(400, result.StatusCode);
     }
 
     // ---------------------------------------------------------------------
@@ -246,7 +627,7 @@ public class ProjectServiceTests
     }
 
     [Fact]
-    public async Task GetByIdAsync_UnassignedProductionCompanyUserWithoutAllProjectsPermission_ThrowsUnauthorizedAccessException()
+    public async Task GetByIdAsync_UnassignedProductionCompanyUserWithoutAllProjectsPermission_ReturnsFailure()
     {
         var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
         currentUser.Role = NewEmptyRole(currentUser.RoleId);
@@ -261,8 +642,10 @@ public class ProjectServiceTests
             projectTypes: [projectType],
             projects: [project]);
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(
-            () => service.GetByIdAsync(currentUser.UserId, project.Id));
+        var result = await service.GetByIdAsync(currentUser.UserId, project.Id);
+
+        Assert.False(result.Success);
+        Assert.Equal(403, result.StatusCode);
     }
 
     [Fact]
@@ -285,16 +668,19 @@ public class ProjectServiceTests
     }
 
     [Fact]
-    public async Task GetByIdAsync_MissingProject_ThrowsKeyNotFoundException()
+    public async Task GetByIdAsync_MissingProject_ReturnsFailure()
     {
         var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
         var (service, _) = BuildService(users: [currentUser], projectTypes: []);
 
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.GetByIdAsync(currentUser.UserId, 404));
+        var result = await service.GetByIdAsync(currentUser.UserId, 404);
+
+        Assert.False(result.Success);
+        Assert.Equal(400, result.StatusCode);
     }
 
     [Fact]
-    public async Task GetByIdAsync_SoftDeletedProject_ThrowsKeyNotFoundException()
+    public async Task GetByIdAsync_SoftDeletedProject_ReturnsFailure()
     {
         var producer = NewUser(2, EntityType.ProductionCompany, 5);
         var locationManager = NewUser(3, EntityType.ProductionCompany, 5);
@@ -308,8 +694,11 @@ public class ProjectServiceTests
             projects: [project]);
 
         // Mirrors MaydanDbContext's global soft-delete query filter — a deleted project is
-        // invisible to the normal get-by-id path, the same way it would 404 in production.
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.GetByIdAsync(producer.UserId, 10));
+        // invisible to the normal get-by-id path. The current service returns FailureResponse.
+        var result = await service.GetByIdAsync(producer.UserId, 10);
+
+        Assert.False(result.Success);
+        Assert.Equal(400, result.StatusCode);
     }
 
     // ---------------------------------------------------------------------
@@ -364,17 +753,19 @@ public class ProjectServiceTests
     }
 
     [Fact]
-    public async Task UpdateAsync_ProjectNotFound_ThrowsKeyNotFoundException()
+    public async Task UpdateAsync_ProjectNotFound_ReturnsFailure()
     {
         var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
         var (service, _) = BuildService(users: [currentUser], projectTypes: []);
 
-        await Assert.ThrowsAsync<KeyNotFoundException>(
-            () => service.UpdateAsync(404, ValidUpdateDto(2, 3, 1), currentUser.UserId));
+        var result = await service.UpdateAsync(404, ValidUpdateDto(2, 3, 1), currentUser.UserId);
+
+        Assert.False(result.Success);
+        Assert.Equal(400, result.StatusCode);
     }
 
     [Fact]
-    public async Task UpdateAsync_ProjectBelongsToDifferentProductionCompany_ThrowsUnauthorizedAccessException()
+    public async Task UpdateAsync_ProjectBelongsToDifferentProductionCompany_ReturnsFailure()
     {
         var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
         var producer = NewUser(2, EntityType.ProductionCompany, 99);
@@ -387,12 +778,14 @@ public class ProjectServiceTests
             projectTypes: [projectType],
             projects: [project]);
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(
-            () => service.UpdateAsync(10, ValidUpdateDto(producer.UserId, locationManager.UserId, projectType.Id), currentUser.UserId));
+        var result = await service.UpdateAsync(10, ValidUpdateDto(producer.UserId, locationManager.UserId, projectType.Id), currentUser.UserId);
+
+        Assert.False(result.Success);
+        Assert.Equal(403, result.StatusCode);
     }
 
     [Fact]
-    public async Task UpdateAsync_InvalidPayload_ReusesCreateValidation_ThrowsInvalidOperationException()
+    public async Task UpdateAsync_InvalidPayload_ReusesCreateValidation_ReturnsFailure()
     {
         var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
         var producer = NewUser(2, EntityType.ProductionCompany, 5);
@@ -408,7 +801,10 @@ public class ProjectServiceTests
         var dto = ValidUpdateDto(producer.UserId, locationManager.UserId, projectType.Id);
         dto.EndDate = dto.StartDate;
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdateAsync(10, dto, currentUser.UserId));
+        var result = await service.UpdateAsync(10, dto, currentUser.UserId);
+
+        Assert.False(result.Success);
+        Assert.Equal(400, result.StatusCode);
     }
 
     // ---------------------------------------------------------------------
@@ -438,16 +834,19 @@ public class ProjectServiceTests
     }
 
     [Fact]
-    public async Task DeleteAsync_ProjectNotFound_ThrowsKeyNotFoundException()
+    public async Task DeleteAsync_ProjectNotFound_ReturnsFailure()
     {
         var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
         var (service, _) = BuildService(users: [currentUser], projectTypes: []);
 
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.DeleteAsync(404, currentUser.UserId));
+        var result = await service.DeleteAsync(404, currentUser.UserId);
+
+        Assert.False(result.Success);
+        Assert.Equal(400, result.StatusCode);
     }
 
     [Fact]
-    public async Task DeleteAsync_ProjectBelongsToDifferentProductionCompany_ThrowsUnauthorizedAccessException()
+    public async Task DeleteAsync_ProjectBelongsToDifferentProductionCompany_ReturnsFailure()
     {
         var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
         var producer = NewUser(2, EntityType.ProductionCompany, 99);
@@ -460,7 +859,10 @@ public class ProjectServiceTests
             projectTypes: [projectType],
             projects: [project]);
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.DeleteAsync(10, currentUser.UserId));
+        var result = await service.DeleteAsync(10, currentUser.UserId);
+
+        Assert.False(result.Success);
+        Assert.Equal(403, result.StatusCode);
     }
 
     // ---------------------------------------------------------------------
@@ -491,16 +893,19 @@ public class ProjectServiceTests
     }
 
     [Fact]
-    public async Task RestoreAsync_ProjectNotFound_ThrowsKeyNotFoundException()
+    public async Task RestoreAsync_ProjectNotFound_ReturnsFailure()
     {
         var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
         var (service, _) = BuildService(users: [currentUser], projectTypes: []);
 
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.RestoreAsync(404, currentUser.UserId));
+        var result = await service.RestoreAsync(404, currentUser.UserId);
+
+        Assert.False(result.Success);
+        Assert.Equal(400, result.StatusCode);
     }
 
     [Fact]
-    public async Task RestoreAsync_ProjectNotDeleted_ThrowsInvalidOperationException()
+    public async Task RestoreAsync_ProjectNotDeleted_ReturnsFailure()
     {
         var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
         var producer = NewUser(2, EntityType.ProductionCompany, 5);
@@ -513,11 +918,14 @@ public class ProjectServiceTests
             projectTypes: [projectType],
             projects: [project]);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.RestoreAsync(10, currentUser.UserId));
+        var result = await service.RestoreAsync(10, currentUser.UserId);
+
+        Assert.False(result.Success);
+        Assert.Equal(400, result.StatusCode);
     }
 
     [Fact]
-    public async Task RestoreAsync_ProjectBelongsToDifferentProductionCompany_ThrowsUnauthorizedAccessException()
+    public async Task RestoreAsync_ProjectBelongsToDifferentProductionCompany_ReturnsFailure()
     {
         var currentUser = NewUser(1, EntityType.ProductionCompany, 5);
         var producer = NewUser(2, EntityType.ProductionCompany, 99);
@@ -531,7 +939,10 @@ public class ProjectServiceTests
             projectTypes: [projectType],
             projects: [project]);
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.RestoreAsync(10, currentUser.UserId));
+        var result = await service.RestoreAsync(10, currentUser.UserId);
+
+        Assert.False(result.Success);
+        Assert.Equal(403, result.StatusCode);
     }
 
     // ---------------------------------------------------------------------
@@ -651,6 +1062,36 @@ public class ProjectServiceTests
 
             return role;
         }
+
+        public Task<bool> PhoneExistsAsync(string phoneNumber, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<User?> GetAssociationAdminForUpdateAsync(int associationId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<bool> EmailExistsForAnotherUserAsync(string email, int excludedUserId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<bool> PhoneExistsForAnotherUserAsync(string phoneNumber, int excludedUserId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<List<User>> GetAssociationUsersForUpdateAsync(int associationId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<List<User>> GetDeletedAssociationUsersForUpdateAsync(int associationId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     private sealed class FakeProjectTypeRepository : IProjectTypeRepository
@@ -744,6 +1185,26 @@ public class ProjectServiceTests
 
             return Task.FromResult(list);
         }
+
+
+        public Task<bool> HasLocationManagerOverlapAsync(
+            int locationManagerUserId,
+            DateTime projectStartDate,
+            DateTime projectEndDate,
+            int? excludedProjectId,
+            CancellationToken cancellationToken = default)
+        {
+            var hasOverlap = _projectsById.Values.Any(project =>
+                !project.IsDeleted &&
+                project.LocationManagerUserId == locationManagerUserId &&
+                (!excludedProjectId.HasValue ||
+                    project.Id != excludedProjectId.Value) &&
+                project.StartDate.Date <= projectEndDate.Date &&
+                project.EndDate.Date >= projectStartDate.Date);
+
+            return Task.FromResult(hasOverlap);
+        }
+
 
         public Task AddAsync(Project project, CancellationToken cancellationToken = default)
         {

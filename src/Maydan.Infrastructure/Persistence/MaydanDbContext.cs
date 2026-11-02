@@ -40,7 +40,7 @@ public class MaydanDbContext : DbContext
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<SystemConfiguration> SystemConfigurations => Set<SystemConfiguration>();
-
+    public DbSet<WorkerSuggestionRule> WorkerSuggestionRules => Set<WorkerSuggestionRule>();
     public DbSet<Service> ServiceTypes => Set<Service>();
     public DbSet<ServiceRequest> ServiceRequests => Set<ServiceRequest>();
     public DbSet<ServiceRequestWorker> ServiceRequestWorkers { get; set; } = null!;
@@ -54,6 +54,8 @@ public class MaydanDbContext : DbContext
         ProjectTypeSeed.Seed(modelBuilder);
         LocationSeed.Seed(modelBuilder);
         LookupSeed.Seed(modelBuilder);
+        WorkerSuggestionLookupSeed.Seed(modelBuilder);
+
 
         // Global soft-delete filter for every SharedEntities (IsDeleted set by SaveChangesAsync below).
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())

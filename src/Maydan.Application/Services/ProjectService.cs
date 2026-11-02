@@ -379,9 +379,9 @@ public class ProjectService : IProjectService
         var allCompanyUsers = await _unitOfWork.Users.GetByEntityAsync(
             EntityType.ProductionCompany, currentUser.EntityId, search: null, cancellationToken);
 
-   
+
         var availableUsers = allCompanyUsers
-           // 5==producer && 6== Location Manager
+              // 5==producer && 6== Location Manager
               .Where(u => u.RoleId == 5 || u.RoleId == 6)
                      .Where(u => !busyUserIds.Contains(u.UserId))
                          .Select(UserManagementService.MapUserSummary)

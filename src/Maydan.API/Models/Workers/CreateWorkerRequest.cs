@@ -29,6 +29,8 @@ public class CreateWorkerRequest
     [Required]
     public string Nationality { get; set; } = string.Empty;
 
+   
+
     [Required]
     public string PhoneNumber { get; set; } = string.Empty;
 

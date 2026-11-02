@@ -1,5 +1,6 @@
 using Maydan.Application.DTOs.Associations;
 using Maydan.Application.DTOs.Onboarding;
+using Maydan.Application.DTOs.Workers;
 using Maydan.Application.Interfaces;
 using Maydan.Application.Services;
 using Maydan.Domain.Entities;
@@ -526,6 +527,11 @@ public class AssociationServiceTests
             _currentUser = currentUser;
             _users = (users ?? Enumerable.Empty<User>()).ToList();
         }
+
+        public FakeUserRepository()
+        {
+        }
+
         public Task<List<User>> GetAssociationSupervisorsAsync(EntityType entityType, int? entityId = null, CancellationToken cancellationToken = default) =>
       Task.FromResult(_currentUser != null && _currentUser.EntityType == entityType
           ? new List<User> { _currentUser }
@@ -574,6 +580,36 @@ public class AssociationServiceTests
             user.UserId = user.UserId == 0 ? _users.Count + 900 : user.UserId;
             _users.Add(user);
             return Task.CompletedTask;
+        }
+
+        public Task<bool> PhoneExistsAsync(string phoneNumber, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<User?> GetAssociationAdminForUpdateAsync(int associationId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<bool> EmailExistsForAnotherUserAsync(string email, int excludedUserId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<bool> PhoneExistsForAnotherUserAsync(string phoneNumber, int excludedUserId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<List<User>> GetAssociationUsersForUpdateAsync(int associationId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<List<User>> GetDeletedAssociationUsersForUpdateAsync(int associationId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
         }
     }
 
@@ -640,6 +676,31 @@ public class AssociationServiceTests
      DateTime startDate,
      DateTime endDate,
      CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<bool> Remove(Worker worker, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<List<Worker>> QueryAsync(bool isDeleted, int? associationId = null, bool? orderByYearsOfExperienceAscending = null, bool? orderByNameEnAscending = null, bool? orderByNameArAscending = null, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<List<Worker>> GetByAssociationIdForUpdateAsync(int associationId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<List<WorkerDto>> GetAvailableWorkersForRequestAsync(int associationId, int serviceId, DateTime startDate, DateTime endDate, int requestedWorkersCount, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<List<WorkerDto>> GetAvailableWorkersForRequestAsync(int associationId, int serviceId, DateTime startDate, DateTime endDate, int requestedWorkersCount, int serviceRequestId, int projectId, DateTime projectStartDate, DateTime projectEndDate, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
@@ -753,6 +814,11 @@ public class AssociationServiceTests
             }
 
             _pendingRemovals.Clear();
+        }
+
+        public Task<Association?> GetByIdForUpdateAsync(int associationId, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
         }
     }
 
