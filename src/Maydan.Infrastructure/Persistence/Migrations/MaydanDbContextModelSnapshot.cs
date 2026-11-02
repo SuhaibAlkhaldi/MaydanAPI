@@ -524,6 +524,69 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                             EnglishName = "Marital Status",
                             IsActive = true,
                             IsDeleted = false
+                        },
+                        new
+                        {
+                            Id = 1001,
+                            ArabicName = "نوع بيانات المعيار",
+                            Code = "AttributeDataType",
+                            EnglishName = "Attribute Data Type",
+                            IsActive = true,
+                            IsDeleted = false
+                        },
+                        new
+                        {
+                            Id = 1002,
+                            ArabicName = "مصدر بيانات المعيار",
+                            Code = "AttributeSourceType",
+                            EnglishName = "Attribute Source Type",
+                            IsActive = true,
+                            IsDeleted = false
+                        },
+                        new
+                        {
+                            Id = 1003,
+                            ArabicName = "نوع قاعدة الاقتراح",
+                            Code = "SuggestionRuleType",
+                            EnglishName = "Suggestion Rule Type",
+                            IsActive = true,
+                            IsDeleted = false
+                        },
+                        new
+                        {
+                            Id = 1004,
+                            ArabicName = "عملية المقارنة",
+                            Code = "ComparisonOperator",
+                            EnglishName = "Comparison Operator",
+                            IsActive = true,
+                            IsDeleted = false
+                        },
+                        new
+                        {
+                            Id = 1005,
+                            ArabicName = "اتجاه الترتيب",
+                            Code = "SortDirection",
+                            EnglishName = "Sort Direction",
+                            IsActive = true,
+                            IsDeleted = false
+                        },
+                        new
+                        {
+                            Id = 1006,
+                            ArabicName = "الجنس",
+                            Code = "Gender",
+                            EnglishName = "Gender",
+                            IsActive = true,
+                            IsDeleted = false
+                        },
+                        new
+                        {
+                            Id = 1007,
+                            ArabicName = "الحالة الاجتماعية",
+                            Code = "MaritalStatus",
+                            EnglishName = "Marital Status",
+                            IsActive = true,
+                            IsDeleted = false
                         });
                 });
 
@@ -642,6 +705,292 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                             Id = 6,
                             ArabicName = "أرمل",
                             CategoryId = 2,
+                            Code = "Widowed",
+                            EnglishName = "Widowed",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 4
+                        },
+                        new
+                        {
+                            Id = 10001,
+                            ArabicName = "رقم",
+                            CategoryId = 1001,
+                            Code = "Number",
+                            EnglishName = "Number",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = 10002,
+                            ArabicName = "نص",
+                            CategoryId = 1001,
+                            Code = "Text",
+                            EnglishName = "Text",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            Id = 10003,
+                            ArabicName = "منطقي",
+                            CategoryId = 1001,
+                            Code = "Boolean",
+                            EnglishName = "Boolean",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 3
+                        },
+                        new
+                        {
+                            Id = 10004,
+                            ArabicName = "قائمة خيارات",
+                            CategoryId = 1001,
+                            Code = "Lookup",
+                            EnglishName = "Lookup",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 4
+                        },
+                        new
+                        {
+                            Id = 10005,
+                            ArabicName = "تاريخ",
+                            CategoryId = 1001,
+                            Code = "Date",
+                            EnglishName = "Date",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 5
+                        },
+                        new
+                        {
+                            Id = 10006,
+                            ArabicName = "خاصية مباشرة",
+                            CategoryId = 1002,
+                            Code = "DirectProperty",
+                            EnglishName = "Direct Property",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = 10007,
+                            ArabicName = "خاصية محسوبة",
+                            CategoryId = 1002,
+                            Code = "CalculatedProperty",
+                            EnglishName = "Calculated Property",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            Id = 10008,
+                            ArabicName = "خاصية مرتبطة بقائمة",
+                            CategoryId = 1002,
+                            Code = "LookupProperty",
+                            EnglishName = "Lookup Property",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 3
+                        },
+                        new
+                        {
+                            Id = 10009,
+                            ArabicName = "بيانات مرتبطة",
+                            CategoryId = 1002,
+                            Code = "RelatedCollection",
+                            EnglishName = "Related Collection",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 4
+                        },
+                        new
+                        {
+                            Id = 10010,
+                            ArabicName = "تصفية",
+                            CategoryId = 1003,
+                            Code = "Filter",
+                            EnglishName = "Filter",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = 10011,
+                            ArabicName = "ترتيب",
+                            CategoryId = 1003,
+                            Code = "Sort",
+                            EnglishName = "Sort",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            Id = 10012,
+                            ArabicName = "يساوي",
+                            CategoryId = 1004,
+                            Code = "Equal",
+                            EnglishName = "Equal",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = 10013,
+                            ArabicName = "لا يساوي",
+                            CategoryId = 1004,
+                            Code = "NotEqual",
+                            EnglishName = "Not Equal",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            Id = 10014,
+                            ArabicName = "أكبر من",
+                            CategoryId = 1004,
+                            Code = "GreaterThan",
+                            EnglishName = "Greater Than",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 3
+                        },
+                        new
+                        {
+                            Id = 10015,
+                            ArabicName = "أقل من",
+                            CategoryId = 1004,
+                            Code = "LessThan",
+                            EnglishName = "Less Than",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 4
+                        },
+                        new
+                        {
+                            Id = 10016,
+                            ArabicName = "أكبر من أو يساوي",
+                            CategoryId = 1004,
+                            Code = "GreaterThanOrEqual",
+                            EnglishName = "Greater Than or Equal",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 5
+                        },
+                        new
+                        {
+                            Id = 10017,
+                            ArabicName = "أقل من أو يساوي",
+                            CategoryId = 1004,
+                            Code = "LessThanOrEqual",
+                            EnglishName = "Less Than or Equal",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 6
+                        },
+                        new
+                        {
+                            Id = 10018,
+                            ArabicName = "يحتوي على",
+                            CategoryId = 1004,
+                            Code = "Contains",
+                            EnglishName = "Contains",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 7
+                        },
+                        new
+                        {
+                            Id = 10019,
+                            ArabicName = "تصاعدي",
+                            CategoryId = 1005,
+                            Code = "Ascending",
+                            EnglishName = "Ascending",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = 10020,
+                            ArabicName = "تنازلي",
+                            CategoryId = 1005,
+                            Code = "Descending",
+                            EnglishName = "Descending",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            Id = 10021,
+                            ArabicName = "ذكر",
+                            CategoryId = 1006,
+                            Code = "Male",
+                            EnglishName = "Male",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = 10022,
+                            ArabicName = "أنثى",
+                            CategoryId = 1006,
+                            Code = "Female",
+                            EnglishName = "Female",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            Id = 10023,
+                            ArabicName = "أعزب",
+                            CategoryId = 1007,
+                            Code = "Single",
+                            EnglishName = "Single",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = 10024,
+                            ArabicName = "متزوج",
+                            CategoryId = 1007,
+                            Code = "Married",
+                            EnglishName = "Married",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            Id = 10025,
+                            ArabicName = "مطلق",
+                            CategoryId = 1007,
+                            Code = "Divorced",
+                            EnglishName = "Divorced",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 3
+                        },
+                        new
+                        {
+                            Id = 10026,
+                            ArabicName = "أرمل",
+                            CategoryId = 1007,
                             Code = "Widowed",
                             EnglishName = "Widowed",
                             IsActive = true,
@@ -1237,6 +1586,18 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                             Module = "Aseza,BaytAlUrdon",
                             PermissionNameAr = "تسجيل العمليات اين ومتى تمت",
                             PermissionNameEn = "View Audit Trail",
+                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            PermissionId = 44,
+                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Id = 0,
+                            IsActive = true,
+                            IsDeleted = false,
+                            Module = "WorkerSuggestions",
+                            PermissionNameAr = "إدارة قواعد اقتراح العمال",
+                            PermissionNameEn = "Manage Worker Suggestion Rules",
                             UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
                         });
                 });
@@ -2069,6 +2430,12 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
+                            RoleId = 1,
+                            PermissionId = 44,
+                            IsActive = true
+                        },
+                        new
+                        {
                             RoleId = 2,
                             PermissionId = 1,
                             IsActive = true
@@ -2448,7 +2815,7 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<int>("Status")
-                        .HasColumnType("int");
+                       .HasColumnType("int");
 
                     b.Property<decimal>("UnitPriceSnapshot")
                         .HasPrecision(18, 2)
@@ -3011,6 +3378,73 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.ToTable("WorkerServiceLinks", (string)null);
                 });
 
+            modelBuilder.Entity("Maydan.Domain.Entities.WorkerSuggestionRule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AttributeKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("ComparisonLookupItemId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ComparisonValue")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("OperatorId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PriorityOrder")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RuleTypeId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SortDirectionId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ComparisonLookupItemId");
+
+                    b.HasIndex("OperatorId");
+
+                    b.HasIndex("RuleTypeId");
+
+                    b.HasIndex("SortDirectionId");
+
+                    b.HasIndex("IsActive", "PriorityOrder");
+
+                    b.ToTable("WorkerSuggestionRules", (string)null);
+                });
+
             modelBuilder.Entity("Maydan.Domain.Entities.Association", b =>
                 {
                     b.HasOne("Maydan.Domain.Entities.City", "City")
@@ -3352,6 +3786,38 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Navigation("Service");
 
                     b.Navigation("Worker");
+                });
+
+            modelBuilder.Entity("Maydan.Domain.Entities.WorkerSuggestionRule", b =>
+                {
+                    b.HasOne("Maydan.Domain.Entities.LookupItem", "ComparisonLookupItem")
+                        .WithMany()
+                        .HasForeignKey("ComparisonLookupItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Maydan.Domain.Entities.LookupItem", "Operator")
+                        .WithMany()
+                        .HasForeignKey("OperatorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Maydan.Domain.Entities.LookupItem", "RuleType")
+                        .WithMany()
+                        .HasForeignKey("RuleTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Maydan.Domain.Entities.LookupItem", "SortDirection")
+                        .WithMany()
+                        .HasForeignKey("SortDirectionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ComparisonLookupItem");
+
+                    b.Navigation("Operator");
+
+                    b.Navigation("RuleType");
+
+                    b.Navigation("SortDirection");
                 });
 
             modelBuilder.Entity("Maydan.Domain.Entities.Association", b =>
