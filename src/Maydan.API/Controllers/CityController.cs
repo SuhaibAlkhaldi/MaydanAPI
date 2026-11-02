@@ -1,3 +1,4 @@
+using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.Locations;
 using Maydan.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -5,12 +6,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Maydan.API.Controllers;
 
-// Same phase/rationale as CountryController — see that controller's own header comment for why the
-// read endpoint is [AllowAnonymous] (the public Production House signup dropdown) while writes stay
-// [Authorize]-only. Route/verb shape matches workforcment's CitiesService exactly
-// (src/app/features/locations/services/cities.service.ts): the one list endpoint is scoped by
-// country (country-cities?CountryId=), not a flat GET-all — there is no unscoped "all cities"
-// consumer anywhere in the frontend today.
 [Route("api/[controller]")]
 public class CityController : ApiControllerBase
 {
@@ -23,11 +18,12 @@ public class CityController : ApiControllerBase
 
     [AllowAnonymous]
     [HttpGet("country-cities")]
-    public async Task<ActionResult<List<CityDto>>> GetByCountry([FromQuery] int countryId, CancellationToken cancellationToken)
+    public async Task<ActionResult> GetByCountry([FromQuery] int countryId, CancellationToken cancellationToken)
     {
         try
         {
-            return Ok(await _locationService.GetCitiesByCountryAsync(countryId, cancellationToken));
+            var response = await _locationService.GetCitiesByCountryAsync(countryId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -37,17 +33,17 @@ public class CityController : ApiControllerBase
 
     [Authorize]
     [HttpPost]
-    public async Task<ActionResult<CityDto>> Create([FromBody] CreateCityDto dto, CancellationToken cancellationToken)
+    public async Task<ActionResult> Create([FromBody] CreateCityDto dto, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new { message = "Current user id is required." });
+            return Unauthorized(ApiResponse<CityDto>.FailureResponse("Current user id is required.", "مطلوب معرف المستخدم الحالي."));
         }
 
         try
         {
-            var result = await _locationService.CreateCityAsync(dto, currentUserId, cancellationToken);
-            return Created($"/api/City/{result.Id}", result);
+            var response = await _locationService.CreateCityAsync(dto, currentUserId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -57,16 +53,17 @@ public class CityController : ApiControllerBase
 
     [Authorize]
     [HttpPut("{cityId:int}")]
-    public async Task<ActionResult<CityDto>> Update(int cityId, [FromBody] UpdateCityDto dto, CancellationToken cancellationToken)
+    public async Task<ActionResult> Update(int cityId, [FromBody] UpdateCityDto dto, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new { message = "Current user id is required." });
+            return Unauthorized(ApiResponse<CityDto>.FailureResponse("Current user id is required.", "مطلوب معرف المستخدم الحالي."));
         }
 
         try
         {
-            return Ok(await _locationService.UpdateCityAsync(cityId, dto, currentUserId, cancellationToken));
+            var response = await _locationService.UpdateCityAsync(cityId, dto, currentUserId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -76,17 +73,17 @@ public class CityController : ApiControllerBase
 
     [Authorize]
     [HttpDelete("{cityId:int}")]
-    public async Task<IActionResult> Delete(int cityId, CancellationToken cancellationToken)
+    public async Task<ActionResult> Delete(int cityId, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new { message = "Current user id is required." });
+            return Unauthorized(ApiResponse<bool>.FailureResponse("Current user id is required.", "مطلوب معرف المستخدم الحالي."));
         }
 
         try
         {
-            await _locationService.DeleteCityAsync(cityId, currentUserId, cancellationToken);
-            return NoContent();
+            var response = await _locationService.DeleteCityAsync(cityId, currentUserId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -96,16 +93,17 @@ public class CityController : ApiControllerBase
 
     [Authorize]
     [HttpPatch("restore/{cityId:int}")]
-    public async Task<ActionResult<CityDto>> Restore(int cityId, CancellationToken cancellationToken)
+    public async Task<ActionResult> Restore(int cityId, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new { message = "Current user id is required." });
+            return Unauthorized(ApiResponse<CityDto>.FailureResponse("Current user id is required.", "مطلوب معرف المستخدم الحالي."));
         }
 
         try
         {
-            return Ok(await _locationService.RestoreCityAsync(cityId, currentUserId, cancellationToken));
+            var response = await _locationService.RestoreCityAsync(cityId, currentUserId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {

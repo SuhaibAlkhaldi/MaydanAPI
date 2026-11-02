@@ -28,6 +28,8 @@ public class ProductionCompanyDto
     public bool IsActive { get; set; }
     public bool IsSelfRegistered { get; set; }
     public bool IsDeleted { get; set; }
+    public int? CreatedByUserId { get; set; }
+    public int? ApprovedByUserId { get; set; }
 }
 
 // MAYD-82: same {IsActive} shape as UserManagementService's own UpdateUserStatusDto — one bool,

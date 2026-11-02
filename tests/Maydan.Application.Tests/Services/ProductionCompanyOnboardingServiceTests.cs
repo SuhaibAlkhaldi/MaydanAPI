@@ -227,7 +227,7 @@ public class ProductionCompanyOnboardingServiceTests
 
         public Task<ProductionCompany?> GetByIdAsync(int productionCompanyId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<List<ProductionCompany>> GetAllAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<List<ProductionCompany>> QueryAsync(bool isDeleted, string? searchTerm = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<List<ProductionCompany>> QueryAsync( string? searchTerm = null, bool? isActive = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public void Remove(ProductionCompany productionCompany) => throw new NotSupportedException();
     }
 

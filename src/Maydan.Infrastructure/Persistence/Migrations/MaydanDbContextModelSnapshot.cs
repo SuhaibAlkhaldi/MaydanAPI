@@ -1249,6 +1249,9 @@ namespace Maydan.Infrastructure.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("ApprovedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<string>("ArabicName")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -1269,6 +1272,9 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CreatedByUserId")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("DeletedAt")

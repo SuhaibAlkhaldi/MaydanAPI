@@ -39,9 +39,9 @@ public class LocationServiceTests
             new CreateCountryDto { CountryEnglishName = "Jordan", CountryArabicName = "الأردن" },
             currentUser.UserId);
 
-        Assert.Equal("Jordan", result.CountryEnglishName);
-        Assert.Equal("الأردن", result.CountryArabicName);
-        Assert.False(result.IsDeleted);
+        Assert.Equal("Jordan", result.Data!.CountryEnglishName);
+        Assert.Equal("الأردن", result.Data!.CountryArabicName);
+        Assert.False(result.Data!.IsDeleted);
         Assert.NotNull(countryRepository.AddedCountry);
         Assert.Equal(currentUser.UserId, countryRepository.AddedCountry!.CreatedBy);
     }
@@ -68,9 +68,9 @@ public class LocationServiceTests
 
         var result = await service.GetCountriesAsync();
 
-        Assert.Equal(2, result.Count);
-        Assert.Contains(result, c => c.Id == 1 && !c.IsDeleted);
-        Assert.Contains(result, c => c.Id == 2 && c.IsDeleted);
+        Assert.Equal(2, result.Data!.Count);
+        Assert.Contains(result.Data!, c => c.Id == 1 && !c.IsDeleted);
+        Assert.Contains(result.Data!, c => c.Id == 2 && c.IsDeleted);
     }
 
     [Fact]
@@ -108,7 +108,7 @@ public class LocationServiceTests
 
         var result = await service.RestoreCountryAsync(country.Id, currentUser.UserId);
 
-        Assert.False(result.IsDeleted);
+        Assert.False(result.Data!.IsDeleted);
         Assert.False(country.IsDeleted);
         Assert.Null(country.DeletedAt);
     }
@@ -149,8 +149,8 @@ public class LocationServiceTests
             new CreateCityDto { CityEnglishName = "Amman", CityArabicName = "عمان", CountryId = country.Id },
             currentUser.UserId);
 
-        Assert.Equal("Amman", result.CityEnglishName);
-        Assert.Equal(country.Id, result.CountryId);
+        Assert.Equal("Amman", result.Data!.CityEnglishName);
+        Assert.Equal(country.Id, result.Data!.CountryId);
         Assert.NotNull(cityRepository.AddedCity);
         Assert.Equal(currentUser.UserId, cityRepository.AddedCity!.CreatedBy);
     }
@@ -193,9 +193,9 @@ public class LocationServiceTests
 
         var result = await service.GetCitiesByCountryAsync(country.Id);
 
-        Assert.Equal(2, result.Count);
-        Assert.Contains(result, c => c.Id == 1 && !c.IsDeleted);
-        Assert.Contains(result, c => c.Id == 2 && c.IsDeleted);
+        Assert.Equal(2, result.Data!.Count);
+        Assert.Contains(result.Data!, c => c.Id == 1 && !c.IsDeleted);
+        Assert.Contains(result.Data!, c => c.Id == 2 && c.IsDeleted);
     }
 
     [Fact]
@@ -208,7 +208,7 @@ public class LocationServiceTests
 
         var result = await service.RestoreCityAsync(city.Id, currentUser.UserId);
 
-        Assert.False(result.IsDeleted);
+        Assert.False(result.Data!.IsDeleted);
         Assert.False(city.IsDeleted);
         Assert.Null(city.DeletedAt);
     }
@@ -243,10 +243,10 @@ public class LocationServiceTests
             new CreateCityLocationDto { EnglishName = "Downtown", ArabicName = "وسط البلد", CityId = city.Id },
             currentUser.UserId);
 
-        Assert.Equal("Downtown", result.EnglishName);
-        Assert.Equal("وسط البلد", result.ArabicName);
-        Assert.Equal(city.Id, result.CityId);
-        Assert.False(result.IsDeleted);
+        Assert.Equal("Downtown", result.Data!.EnglishName);
+        Assert.Equal("وسط البلد", result.Data!.ArabicName);
+        Assert.Equal(city.Id, result.Data!.CityId);
+        Assert.False(result.Data!.IsDeleted);
         Assert.NotNull(cityLocationRepository.AddedCityLocation);
         Assert.Equal(currentUser.UserId, cityLocationRepository.AddedCityLocation!.CreatedBy);
     }
@@ -289,9 +289,9 @@ public class LocationServiceTests
 
         var result = await service.GetCityLocationsByCityAsync(city.Id);
 
-        Assert.Equal(2, result.Count);
-        Assert.Contains(result, cl => cl.Id == 1 && !cl.IsDeleted);
-        Assert.Contains(result, cl => cl.Id == 2 && cl.IsDeleted);
+        Assert.Equal(2, result.Data!.Count);
+        Assert.Contains(result.Data!, cl => cl.Id == 1 && !cl.IsDeleted);
+        Assert.Contains(result.Data!, cl => cl.Id == 2 && cl.IsDeleted);
     }
 
     [Fact]
@@ -306,8 +306,8 @@ public class LocationServiceTests
 
         var result = await service.GetCityLocationsByCityAsync(cityA.Id);
 
-        Assert.Single(result);
-        Assert.Equal(locationInA.Id, result[0].Id);
+        Assert.Single(result.Data!);
+        Assert.Equal(locationInA.Id, result.Data![0].Id);
     }
 
     [Fact]
@@ -322,7 +322,7 @@ public class LocationServiceTests
             new UpdateCityLocationDto { Id = 1, EnglishName = "Updated", ArabicName = "محدث", CityId = city.Id },
             currentUser.UserId);
 
-        Assert.Equal("Updated", result.EnglishName);
+        Assert.Equal("Updated", result.Data!.EnglishName);
         Assert.Equal("محدث", location.ArabicName);
     }
 
@@ -348,7 +348,7 @@ public class LocationServiceTests
 
         var result = await service.RestoreCityLocationAsync(location.Id, currentUser.UserId);
 
-        Assert.False(result.IsDeleted);
+        Assert.False(result.Data!.IsDeleted);
         Assert.False(location.IsDeleted);
         Assert.Null(location.DeletedAt);
     }
