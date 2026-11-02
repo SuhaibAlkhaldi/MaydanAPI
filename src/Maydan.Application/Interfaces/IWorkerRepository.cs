@@ -13,20 +13,42 @@ public interface IWorkerRepository
     Task<List<Worker>> GetByAssociationIdAsync(int associationId, CancellationToken cancellationToken = default);
     Task<List<Worker>> GetDeletedByAssociationIdAsync(int associationId, CancellationToken cancellationToken = default);
 
+    Task<List<Worker>> GetByAssociationIdForUpdateAsync(int associationId,CancellationToken cancellationToken = default);
+
+
+    Task<bool> Remove(
+        Worker worker,
+        CancellationToken cancellationToken = default);
+
+
     Task AddAsync(Worker worker, CancellationToken cancellationToken = default);
-    void Remove(Worker worker);
+
+    Task<List<Worker>> QueryAsync(
+        bool isDeleted,
+        int? associationId = null,
+        bool? orderByYearsOfExperienceAscending = null,
+        bool? orderByNameEnAscending = null,
+        bool? orderByNameArAscending = null,
+        CancellationToken cancellationToken = default);
 
     Task<(List<WorkerSummaryDto> Items, int TotalCount)> GetAllProjectedAsync(
         int? associationId, string? search, int? serviceId, int page, int pageSize, CancellationToken cancellationToken = default);
 
     Task<WorkerDto?> GetByIdProjectedAsync(int workerId, CancellationToken cancellationToken = default);
+
     Task<List<WorkerDto>> GetAvailableWorkersForRequestAsync(
-    int associationId,
-    int serviceId,
-    DateTime startDate,
-    DateTime endDate,
-    CancellationToken cancellationToken = default);
+        int associationId,
+        int serviceId,
+        DateTime startDate,
+        DateTime endDate,
+        int requestedWorkersCount,
+        int serviceRequestId,
+        int projectId,
+        DateTime projectStartDate,
+        DateTime projectEndDate,
+        CancellationToken cancellationToken = default);
+
     //for assignment workers
-   
+
 }
 
