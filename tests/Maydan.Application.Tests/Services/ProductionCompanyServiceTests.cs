@@ -1,3 +1,5 @@
+using Maydan.Application.DTOs.Auth;
+using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.ProductionCompanies;
 using Maydan.Application.Interfaces;
 using Maydan.Application.Services;
@@ -78,7 +80,7 @@ public class ProductionCompanyServiceTests
         var company = BuildCompany(10, city);
         var (service, _) = BuildService(caller, companies: [company]);
 
-        var result = await service.GetAllAsync(caller.UserId, search: null, isDeleted: false);
+        var result = await service.GetAllAsync(caller.UserId, search: null);
 
         var dto = Assert.Single(result.Data!);
         Assert.Equal("Company 10", dto.EnglishName);
@@ -95,7 +97,7 @@ public class ProductionCompanyServiceTests
         var caller = BuildCaller(1, BuildRole(1, "NoAccess"));
         var (service, _) = BuildService(caller);
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.GetAllAsync(caller.UserId, search: null, isDeleted: false));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.GetAllAsync(caller.UserId, search: null));
     }
 
     [Fact]
@@ -106,7 +108,7 @@ public class ProductionCompanyServiceTests
         var caller = BuildCaller(1, BuildRole(1, "Manager", ManageProductionCompanies));
         var (service, _) = BuildService(caller);
 
-        var result = await service.GetAllAsync(caller.UserId, search: null, isDeleted: false);
+        var result = await service.GetAllAsync(caller.UserId, search: null);
 
         Assert.Empty(result.Data!);
     }
@@ -192,15 +194,148 @@ public class ProductionCompanyServiceTests
         await Assert.ThrowsAsync<KeyNotFoundException>(() =>
             service.UpdateStatusAsync(caller.UserId, 999, new UpdateProductionCompanyStatusDto { IsActive = false }));
     }
+    [Fact]
+    public async Task CreateAsync_WhenCallerHasManagePermission_CreatesActiveCompany()
+    {
+
+        var adminCaller = new User
+        {
+            UserId = 1,
+            IsActive = true,
+            UserPermissions = new List<UserPermission>
+        {
+            new UserPermission { PermissionId = 20, IsActive = true }
+        }
+        };
+
+        var (service, _) = BuildService(adminCaller);
+
+        var dto = new RegisterProductionCompanyDto(
+            CompanyNameEn: "Test Studio",
+            CompanyNameAr: "استوديو تجريبي",
+            RegistrationNumber: "REG-12345",
+            CityId: 1,
+            AdminFirstName: "Ali",
+            AdminLastName: "Ahmad",
+            AdminFirstNameAr: "علي",
+            AdminLastNameAr: "أحمد",
+            MobileCountryCode: "+962",
+            MobileNumber: "790000000",
+            Email: "ali@teststudio.jo",
+            Password: "Password123!");
+
+        var result = await service.CreateAsync(adminCaller.UserId, dto);
+
+
+        Assert.True(result.Success);
+        Assert.Equal(201, result.StatusCode);
+        Assert.NotNull(result.Data);
+        Assert.Equal("Test Studio", result.Data.CompanyNameEn);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WhenCallerLacksPermission_ReturnsFailure()
+    {
+
+        var viewOnlyCaller = new User
+        {
+            UserId = 2,
+            IsActive = true,
+            UserPermissions = new List<UserPermission>
+        {
+            new UserPermission { PermissionId = 19, IsActive = true }
+        }
+        };
+
+        var (service, _) = BuildService(viewOnlyCaller);
+
+        var dto = new RegisterProductionCompanyDto(
+            CompanyNameEn: "Test Studio",
+            CompanyNameAr: "استوديو تجريبي",
+            RegistrationNumber: "REG-12345",
+            CityId: 1,
+            AdminFirstName: "Ali",
+            AdminLastName: "Ahmad",
+            AdminFirstNameAr: "علي",
+            AdminLastNameAr: "أحمد",
+            MobileCountryCode: "+962",
+            MobileNumber: "790000000",
+            Email: "ali@teststudio.jo",
+            Password: "Password123!");
+
+        // Act
+        var result = await service.CreateAsync(viewOnlyCaller.UserId, dto);
+
+        // Assert
+        Assert.False(result.Success);
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_WhenActivatingCompany_ActivatesCompanyUsersAndSetsApprovedBy()
+    {
+
+        var adminCaller = new User
+        {
+            UserId = 5,
+            IsActive = true,
+            UserPermissions = new List<UserPermission>
+        {
+            new UserPermission { PermissionId = 20, IsActive = true }
+        }
+        };
+
+        var inactiveCompany = new ProductionCompany
+        {
+            Id = 10,
+            EnglishName = "Pending Co",
+            ArabicName = "شركة بالانتظار",
+            RegistrationNumber = "REG-99999",
+            CityId = 1,
+            IsActive = false,
+            IsSelfRegistered = true,
+            City = new City
+            {
+                Id = 1,
+                EnglishName = "Amman",
+                ArabicName = "عمان",
+                Country = new Country { Id = 1, EnglishName = "Jordan", ArabicName = "الأردن" }
+            }
+        };
+
+        var inactiveCompanyUser = new User
+        {
+            UserId = 99,
+            EntityType = EntityType.ProductionCompany,
+            EntityId = 10,
+            IsActive = false
+        };
+
+        var (service, _) = BuildService(adminCaller, [inactiveCompany], [inactiveCompanyUser]);
+
+        // Act
+        var result = await service.UpdateStatusAsync(
+            adminCaller.UserId,
+            10,
+            new UpdateProductionCompanyStatusDto { IsActive = true });
+
+
+
+        Assert.True(result.Success);
+        Assert.True(inactiveCompany.IsActive);
+        Assert.Equal(adminCaller.UserId, inactiveCompany.ApprovedByUserId);
+        Assert.True(inactiveCompanyUser.IsActive);
+    }
 
     private static (ProductionCompanyService Service, FakeProductionCompanyRepository Repository) BuildService(
-        User caller, ProductionCompany[]? companies = null, User[]? users = null)
+      User caller, ProductionCompany[]? companies = null, User[]? users = null)
     {
         var userRepository = new FakeUserRepository(caller, users);
         var companyRepository = new FakeProductionCompanyRepository(companies ?? []);
 
         var unitOfWork = new FakeUnitOfWork(userRepository, companyRepository);
-        return (new ProductionCompanyService(unitOfWork), companyRepository);
+        var onboardingService = new FakeProductionCompanyOnboardingService();
+
+        return (new ProductionCompanyService(unitOfWork, onboardingService), companyRepository);
     }
 
     private sealed class FakeUserRepository : IUserRepository
@@ -234,7 +369,24 @@ public class ProductionCompanyServiceTests
         public Task AddAsync(User user, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public void Remove(User user) => throw new NotSupportedException();
     }
+    private sealed class FakeProductionCompanyOnboardingService : IProductionCompanyOnboardingService
+    {
+        public Task<ApiResponse<RegisterProductionCompanyResponseDto>> RegisterAsync(
+            RegisterProductionCompanyDto dto, CancellationToken cancellationToken = default)
+        {
+            var response = new RegisterProductionCompanyResponseDto(
+                1, dto.CompanyNameEn, dto.CompanyNameAr, 10, dto.Email, "Pending admin approval.");
+            return Task.FromResult(ApiResponse<RegisterProductionCompanyResponseDto>.SuccessResponse(response, "Success", "نجاح", 201));
+        }
 
+        public Task<ApiResponse<RegisterProductionCompanyResponseDto>> CreateByAdminAsync(
+            RegisterProductionCompanyDto dto, int adminUserId, CancellationToken cancellationToken = default)
+        {
+            var response = new RegisterProductionCompanyResponseDto(
+                1, dto.CompanyNameEn, dto.CompanyNameAr, 10, dto.Email, "Activated successfully.");
+            return Task.FromResult(ApiResponse<RegisterProductionCompanyResponseDto>.SuccessResponse(response, "Success", "نجاح", 201));
+        }
+    }
     private sealed class FakeProductionCompanyRepository : IProductionCompanyRepository
     {
         private readonly Dictionary<int, ProductionCompany> _companiesById;
@@ -244,8 +396,8 @@ public class ProductionCompanyServiceTests
         public Task<ProductionCompany?> GetByIdAsync(int productionCompanyId, CancellationToken cancellationToken = default) =>
             Task.FromResult(_companiesById.GetValueOrDefault(productionCompanyId));
 
-        public Task<List<ProductionCompany>> QueryAsync(bool isDeleted, string? searchTerm = null, CancellationToken cancellationToken = default) =>
-            Task.FromResult(_companiesById.Values.Where(c => c.IsDeleted == isDeleted).ToList());
+        public Task<List<ProductionCompany>> QueryAsync(string? searchTerm = null, bool? isActive = null, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_companiesById.Values.Where(c => c.IsActive == isActive).ToList());
 
         public Task<List<ProductionCompany>> GetAllAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<bool> RegistrationNumberExistsAsync(string registrationNumber, CancellationToken cancellationToken = default) => throw new NotSupportedException();

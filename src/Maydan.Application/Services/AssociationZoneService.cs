@@ -3,6 +3,7 @@ using Maydan.Application.DTOs.Common;
 using Maydan.Application.Helpers;
 using Maydan.Application.Interfaces;
 using Maydan.Domain.Entities;
+using Maydan.Domain.Common;
 using Maydan.Domain.Enums;
 using NetTopologySuite.Geometries;
 
@@ -150,7 +151,7 @@ public class AssociationZoneService : IAssociationZoneService
                         : dto.AdditionalRequirements,
                     UnitPriceSnapshot = unitPrice,
                     ExpectedTotalAmount = total,
-                    Status = ServiceRequestStatus.PendingWorkerSelection,
+                    StatusId = LookupConstants.ServiceRequestStatus.PendingWorkerSelection,
                     CreatedAt = DateTime.UtcNow,
                     CreatedBy = currentUserId,
                     IsActive = true

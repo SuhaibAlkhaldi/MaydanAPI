@@ -1,3 +1,4 @@
+using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.Locations;
 using Maydan.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -5,23 +6,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Maydan.API.Controllers;
 
-// Associations/Country/City backend gap, Phase 1 (2026-09-25) — see LocationService's own header
-// comment for the full "what was already built vs. what was missing" story.
-//
-// Route/verb shape matches workforcment's CountriesService exactly (src/app/features/locations/
-// services/countries.service.ts), not a convention invented here: GET (list) + GET/{id}, POST, PUT
-// (id in the body — same unusual-but-real convention ProjectsController.Update already uses, see
-// its own comment), DELETE/{countryId}, PATCH restore/{countryId}.
-//
-// Read endpoints are [AllowAnonymous] deliberately, not just [Authorize] like the rest of this
-// controller: AuthController.RegisterProductionCompany (the public, no-session Production House
-// signup flow) is the confirmed real caller of GET /api/Country and GET /api/City/country-cities
-// via ProductionHouseSignupComponent's own country/city dropdowns — the same real bug this whole
-// phase exists to fix. Gating the list endpoints behind [Authorize] would 401 that flow before a
-// user has ever logged in. Writes stay [Authorize]-only (no dedicated permission bit), matching the
-// same house-style precedent GroupsController/ProjectsController already established for
-// comparable CRUD — neither checks a specific permission at the controller or service layer beyond
-// "is this a valid, active, authenticated user."
 [Route("api/[controller]")]
 public class CountryController : ApiControllerBase
 {
@@ -34,11 +18,12 @@ public class CountryController : ApiControllerBase
 
     [AllowAnonymous]
     [HttpGet]
-    public async Task<ActionResult<List<CountryDto>>> GetAll(CancellationToken cancellationToken)
+    public async Task<ActionResult> GetAll(CancellationToken cancellationToken)
     {
         try
         {
-            return Ok(await _locationService.GetCountriesAsync(cancellationToken));
+            var response = await _locationService.GetCountriesAsync(cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -48,11 +33,12 @@ public class CountryController : ApiControllerBase
 
     [AllowAnonymous]
     [HttpGet("{id:int}")]
-    public async Task<ActionResult<CountryDto>> GetById(int id, CancellationToken cancellationToken)
+    public async Task<ActionResult> GetById(int id, CancellationToken cancellationToken)
     {
         try
         {
-            return Ok(await _locationService.GetCountryByIdAsync(id, cancellationToken));
+            var response = await _locationService.GetCountryByIdAsync(id, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -62,17 +48,17 @@ public class CountryController : ApiControllerBase
 
     [Authorize]
     [HttpPost]
-    public async Task<ActionResult<CountryDto>> Create([FromBody] CreateCountryDto dto, CancellationToken cancellationToken)
+    public async Task<ActionResult> Create([FromBody] CreateCountryDto dto, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new { message = "Current user id is required." });
+            return Unauthorized(ApiResponse<CountryDto>.FailureResponse("Current user id is required.", "مطلوب معرف المستخدم الحالي."));
         }
 
         try
         {
-            var result = await _locationService.CreateCountryAsync(dto, currentUserId, cancellationToken);
-            return Created($"/api/Country/{result.Id}", result);
+            var response = await _locationService.CreateCountryAsync(dto, currentUserId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -82,16 +68,17 @@ public class CountryController : ApiControllerBase
 
     [Authorize]
     [HttpPut]
-    public async Task<ActionResult<CountryDto>> Update([FromBody] UpdateCountryDto dto, CancellationToken cancellationToken)
+    public async Task<ActionResult> Update([FromBody] UpdateCountryDto dto, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new { message = "Current user id is required." });
+            return Unauthorized(ApiResponse<CountryDto>.FailureResponse("Current user id is required.", "مطلوب معرف المستخدم الحالي."));
         }
 
         try
         {
-            return Ok(await _locationService.UpdateCountryAsync(dto, currentUserId, cancellationToken));
+            var response = await _locationService.UpdateCountryAsync(dto, currentUserId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -101,17 +88,17 @@ public class CountryController : ApiControllerBase
 
     [Authorize]
     [HttpDelete("{countryId:int}")]
-    public async Task<IActionResult> Delete(int countryId, CancellationToken cancellationToken)
+    public async Task<ActionResult> Delete(int countryId, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new { message = "Current user id is required." });
+            return Unauthorized(ApiResponse<bool>.FailureResponse("Current user id is required.", "مطلوب معرف المستخدم الحالي."));
         }
 
         try
         {
-            await _locationService.DeleteCountryAsync(countryId, currentUserId, cancellationToken);
-            return NoContent();
+            var response = await _locationService.DeleteCountryAsync(countryId, currentUserId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -121,16 +108,17 @@ public class CountryController : ApiControllerBase
 
     [Authorize]
     [HttpPatch("restore/{countryId:int}")]
-    public async Task<ActionResult<CountryDto>> Restore(int countryId, CancellationToken cancellationToken)
+    public async Task<ActionResult> Restore(int countryId, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new { message = "Current user id is required." });
+            return Unauthorized(ApiResponse<CountryDto>.FailureResponse("Current user id is required.", "مطلوب معرف المستخدم الحالي."));
         }
 
         try
         {
-            return Ok(await _locationService.RestoreCountryAsync(countryId, currentUserId, cancellationToken));
+            var response = await _locationService.RestoreCountryAsync(countryId, currentUserId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {

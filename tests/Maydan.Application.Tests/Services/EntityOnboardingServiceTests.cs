@@ -84,9 +84,9 @@ public class EntityOnboardingServiceTests
         var grantedPermissionIds = user.UserPermissions.Select(up => up.PermissionId).OrderBy(id => id).ToList();
         Assert.Equal(new[] { 9, 34 }, grantedPermissionIds);
 
-        Assert.Equal(EntityType.Association, result.EntityType);
-        Assert.Equal(association.Id, result.EntityId);
-        Assert.True(result.MustResetPassword);
+        Assert.Equal(EntityType.Association, result.Data!.EntityType);
+        Assert.Equal(association.Id, result.Data!.EntityId);
+        Assert.True(result.Data!.MustResetPassword);
     }
 
     [Fact]

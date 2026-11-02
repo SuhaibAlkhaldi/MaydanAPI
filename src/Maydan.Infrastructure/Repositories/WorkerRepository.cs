@@ -1,5 +1,6 @@
 using Maydan.Application.DTOs.Workers;
 using Maydan.Application.Interfaces;
+using Maydan.Domain.Common;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
 using Maydan.Infrastructure.Persistence;
@@ -144,12 +145,10 @@ public class WorkerRepository : IWorkerRepository
                 w.IsActive))
             .FirstOrDefaultAsync(cancellationToken);
 
-    public async Task<List<WorkerDto>> GetAvailableWorkersForRequestAsync(
-     int associationId,
-     int serviceId,
-     DateTime startDate,
-     DateTime endDate,
-     CancellationToken cancellationToken = default)
+
+
+    //----------------------Service Request added parts-----------------
+    public async Task<List<WorkerDto>> GetAvailableWorkersForRequestAsync( int associationId,int serviceId,DateTime startDate,DateTime endDate,CancellationToken cancellationToken = default)
     {
 //Make sure if the service require uploading documents
 var serviceRequiresDocs = await _context.Set<Service>()
@@ -164,7 +163,7 @@ var serviceRequiresDocs = await _context.Set<Service>()
             .Where(w => w.WorkerServices.Any(ws => ws.ServiceId == serviceId))
             .Where(w => !serviceRequiresDocs || w.Documents.Any())
             .Where(w => !w.ServiceRequestWorkers.Any(srw =>
-                srw.ServiceRequest.Status == ServiceRequestStatus.InProgress &&
+                srw.ServiceRequest.StatusId == LookupConstants.ServiceRequestStatus.InProgress &&
                 srw.ServiceRequest.StartDate <= endDate &&
                 srw.ServiceRequest.EndDate >= startDate))
             .Select(w => new WorkerDto(
@@ -195,4 +194,20 @@ var serviceRequiresDocs = await _context.Set<Service>()
             ))
             .ToListAsync(cancellationToken);
     }
+    public Task<bool> IsWorkerBusyAsync(int workerId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default) =>
+    _context.Workers.AnyAsync(w => w.Id == workerId &&
+        w.ServiceRequestWorkers.Any(srw =>
+            srw.ServiceRequest.StatusId == LookupConstants.ServiceRequestStatus.InProgress &&
+            srw.ServiceRequest.StartDate <= endDate &&
+            srw.ServiceRequest.EndDate >= startDate), cancellationToken);
+    public Task<Dictionary<int, int>> GetAssociationIdsAsync(IReadOnlyCollection<int> ids, CancellationToken ct = default) =>
+    _context.Workers.AsNoTracking().Where(w => ids.Contains(w.Id))
+        .ToDictionaryAsync(w => w.Id, w => w.AssociationId, ct);
+
+    public async Task<HashSet<int>> GetBusyWorkerIdsAsync(IReadOnlyCollection<int> ids, DateTime start, DateTime end, CancellationToken ct = default) =>
+        (await _context.ServiceRequestWorkers.AsNoTracking()
+            .Where(srw => ids.Contains(srw.WorkerId)
+                && srw.ServiceRequest.StatusId == LookupConstants.ServiceRequestStatus.InProgress
+                && srw.ServiceRequest.StartDate <= end && srw.ServiceRequest.EndDate >= start)
+            .Select(srw => srw.WorkerId).Distinct().ToListAsync(ct)).ToHashSet();
 }

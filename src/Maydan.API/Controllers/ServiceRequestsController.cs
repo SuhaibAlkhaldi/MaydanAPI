@@ -79,9 +79,10 @@ public class ServiceRequestsController : ApiControllerBase
         {
             return StatusCode(result.StatusCode, result);
         }
-        return CreatedResponse(
-$"/api/ServiceRequests/{result.Data!.Id}",
-result);
+        //        return CreatedResponse(
+        //$"/api/ServiceRequests/{result.Data!.Id}",
+        //result);
+        return Created($"/api/ServiceRequests/{result.Data!.Id}", result);   // بدون لفّ إضافي
 
     }
 

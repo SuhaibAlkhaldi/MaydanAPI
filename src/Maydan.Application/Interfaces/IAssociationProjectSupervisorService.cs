@@ -17,6 +17,10 @@ public interface IAssociationProjectSupervisorService
     // ProjectId == 0 or resolve to AssociationId == 0, so treating 0 as null is safe.
     Task<ApiResponse<PagedAssociationProjectSupervisorDto>> GetAllAsync(int currentUserId, int projectId, int associationId, int page, int pageSize, CancellationToken cancellationToken = default);
 
+    Task<ApiResponse<List<AssociationProjectSupervisorDto>>> GetByProjectIdAsync(int projectId, int currentUserId, CancellationToken cancellationToken = default);
+
+    Task<ApiResponse<AssociationProjectSupervisorDto>> GetByIdAsync(int id, int currentUserId, CancellationToken cancellationToken = default);
+
     Task<ApiResponse<AssociationProjectSupervisorDto>> CreateAsync(CreateAssociationProjectSupervisorDto dto, int currentUserId, CancellationToken cancellationToken = default);
     Task<ApiResponse<object?>> DeleteAsync(int id, int currentUserId, CancellationToken cancellationToken = default);
 
