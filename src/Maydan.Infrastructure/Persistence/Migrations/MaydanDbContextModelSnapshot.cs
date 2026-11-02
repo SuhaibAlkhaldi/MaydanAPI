@@ -2815,8 +2815,7 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<int>("Status")
-                        .HasColumnType("int")
-                        .HasColumnName("StatusId");
+                       .HasColumnType("int");
 
                     b.Property<decimal>("UnitPriceSnapshot")
                         .HasPrecision(18, 2)
