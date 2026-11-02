@@ -31,4 +31,6 @@ public class Project : SharedEntities
 
     public int CityLocationId { get; set; }
     public CityLocation CityLocation { get; set; } = null!;
+    public ICollection<WorkerProjectLink> WorkerProjectLinks { get; set; } = new List<WorkerProjectLink>();
+
 }

@@ -27,6 +27,7 @@ public class UnitOfWork : IUnitOfWork
     private IServiceRepository? _services;
     private IServiceRequestRepository? _serviceRequests;
     private ILookupRepository? _lookups;
+    private IWorkerProjectLinkRepository? _workerProjectLinks;
 
     public UnitOfWork(MaydanDbContext context)
     {
@@ -51,6 +52,7 @@ public class UnitOfWork : IUnitOfWork
     public IServiceRepository Services => _services ??= new ServiceRepository(_context);
     public ILookupRepository Lookups => _lookups ??= new LookupRepository(_context);
     public IServiceRequestRepository ServiceRequests => _serviceRequests ??= new ServiceRequestRepository(_context);
+    public IWorkerProjectLinkRepository WorkerProjectLinks => _workerProjectLinks ??= new WorkerProjectLinkRepository(_context);
     public IProjectTypeRepository ProjectTypes =>
     _projectTypes ??= new ProjectTypeRepository(_context);
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>

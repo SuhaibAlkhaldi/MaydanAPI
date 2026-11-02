@@ -22,7 +22,7 @@ public interface IUnitOfWork
     // Optional default implementation so existing test fakes don't need to implement it.
     IServiceRequestRepository ServiceRequests => throw new NotImplementedException();
     ILookupRepository Lookups => throw new NotImplementedException();
-
+    IWorkerProjectLinkRepository WorkerProjectLinks => throw new NotImplementedException();
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 
     // Entity onboarding Stage 1 (2026-09-22): User.EntityId is a soft FK (no EF navigation, see

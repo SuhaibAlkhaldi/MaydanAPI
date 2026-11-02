@@ -36,4 +36,5 @@ public class Worker : SharedEntities
 
 
     public ICollection<WorkerDocument> Documents { get; set; } = new List<WorkerDocument>();
+    public ICollection<WorkerProjectLink> WorkerProjectLinks { get; set; }
 }
