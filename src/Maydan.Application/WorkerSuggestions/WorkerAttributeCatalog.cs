@@ -73,9 +73,20 @@ namespace Maydan.Application.WorkerSuggestions
                     "Age",
                     "Number",
                     "CalculatedProperty",
-                    false,
+                    true,
                     true
                 ),
+
+                new WorkerAttributeDescriptor(
+                     "Nationality",
+                     "Nationality",
+                     "الجنسية",
+                     "Nationality", 
+                     "Text",
+                     "LookupProperty",
+                      true,  
+                      true      
+    ),
 
                 new WorkerAttributeDescriptor(
                     "Gender",

@@ -49,7 +49,7 @@ namespace Maydan.Infrastructure.Persistence.Seed
         public const int ViewTotalAmountForServiceRequest = 41;
         public const int ViewAuditTrail = 42;
 
-        public const int ManageWorkerSuggestionRules = 44;
+        public const int ManageWorkerSuggestionRules = 45;
 
     }
 }

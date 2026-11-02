@@ -97,7 +97,7 @@ namespace Maydan.Infrastructure.Persistence.Seed
                 Seed(41, "View Total Amount for Service Request", "عرض إجمالي تكلفة طلب الخدمة", "ProductionCompanies"),
                 //view TOT-AM  Cause we need to know the how much cost when prod company request service from association
                 Seed(42, "View Audit Trail","تسجيل العمليات اين ومتى تمت", "Aseza,BaytAlUrdon"),
-                Seed(44, "Manage Worker Suggestion Rules","إدارة قواعد اقتراح العمال","WorkerSuggestions")
+                Seed(45, "Manage Worker Suggestion Rules","إدارة قواعد اقتراح العمال","WorkerSuggestions")
             );
         }
     }

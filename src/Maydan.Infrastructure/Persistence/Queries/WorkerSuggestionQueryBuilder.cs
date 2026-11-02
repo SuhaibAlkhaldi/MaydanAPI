@@ -3,8 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Maydan.Infrastructure.Persistence.Queries
 {
@@ -20,7 +18,7 @@ namespace Maydan.Infrastructure.Persistence.Queries
                 .ThenBy(r => r.Id)
                 .ToList();
 
-            // Apply all filters before sorting.
+            // تطبيق كافة فلاتر التصفية أولاً
             foreach (var rule in activeRules
                 .Where(r => r.RuleType?.Code == "Filter"))
             {
@@ -29,7 +27,7 @@ namespace Maydan.Infrastructure.Persistence.Queries
 
             IOrderedQueryable<Worker>? ordered = null;
 
-            // Apply sort rules in priority order.
+            // تطبيق قواعد الترتيب حسب الأولوية
             foreach (var rule in activeRules
                 .Where(r => r.RuleType?.Code == "Sort"))
             {
@@ -42,10 +40,58 @@ namespace Maydan.Infrastructure.Persistence.Queries
         }
 
         private static IQueryable<Worker> ApplyFilter(
-                    IQueryable<Worker> workers,
-                    WorkerSuggestionRule rule)
+            IQueryable<Worker> workers,
+            WorkerSuggestionRule rule)
         {
             var op = rule.Operator?.Code;
+
+            if (rule.AttributeKey == "Age")
+            {
+                if (!int.TryParse(
+                    rule.ComparisonValue,
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture,
+                    out var ageValue))
+                {
+                    throw new InvalidOperationException(
+                        "Invalid Age comparison value.");
+                }
+
+                var today = DateTime.UtcNow.Date;
+                var targetDate = today.AddYears(-ageValue);
+
+                return op switch
+                {
+                    "Equal" => workers.Where(w =>
+                        w.DateOfBirth.HasValue &&
+                        (today.Year - w.DateOfBirth.Value.Year -
+                        (today.DayOfYear < w.DateOfBirth.Value.DayOfYear ? 1 : 0)) == ageValue),
+
+                    "GreaterThan" => workers.Where(w =>
+                        w.DateOfBirth.HasValue &&
+                        w.DateOfBirth.Value < targetDate),
+
+                    "LessThan" => workers.Where(w =>
+                        w.DateOfBirth.HasValue &&
+                        w.DateOfBirth.Value > targetDate),
+
+                    "GreaterThanOrEqual" => workers.Where(w =>
+                        w.DateOfBirth.HasValue &&
+                        w.DateOfBirth.Value <= targetDate),
+
+                    "LessThanOrEqual" => workers.Where(w =>
+                        w.DateOfBirth.HasValue &&
+                        w.DateOfBirth.Value >= targetDate),
+
+                    "NotEqual" => workers.Where(w =>
+                        w.DateOfBirth.HasValue &&
+                        (today.Year - w.DateOfBirth.Value.Year -
+                        (today.DayOfYear < w.DateOfBirth.Value.DayOfYear ? 1 : 0)) != ageValue),
+
+                    _ => throw new InvalidOperationException(
+                        "Unsupported age comparison operator.")
+                };
+            }
 
             if (rule.AttributeKey == "YearsOfExperience")
             {
@@ -59,7 +105,6 @@ namespace Maydan.Infrastructure.Persistence.Queries
                         "Invalid YearsOfExperience comparison value.");
                 }
 
-                // Workers with missing experience are excluded.
                 return op switch
                 {
                     "Equal" => workers.Where(w =>
@@ -108,8 +153,8 @@ namespace Maydan.Infrastructure.Persistence.Queries
                     : workers.Where(w => !w.Documents.Any());
             }
 
-            // إضافة معالجة حقول الـ Lookup (مثل Gender و MaritalStatus)
-            if (rule.AttributeKey == "Gender" || rule.AttributeKey == "MaritalStatus")
+            if (rule.AttributeKey == "Gender" ||
+                rule.AttributeKey == "MaritalStatus")
             {
                 var lookupId = rule.ComparisonLookupItemId;
                 if (!lookupId.HasValue)
@@ -130,6 +175,25 @@ namespace Maydan.Infrastructure.Persistence.Queries
 
                     _ => throw new InvalidOperationException(
                         "Unsupported lookup comparison operator.")
+                };
+            }
+
+            if (rule.AttributeKey == "Nationality")
+            {
+                var nationalityValue = rule.ComparisonValue;
+                if (string.IsNullOrWhiteSpace(nationalityValue))
+                {
+                    throw new InvalidOperationException(
+                        "A comparison value is required for Nationality.");
+                }
+
+                return op switch
+                {
+                    "Equal" => workers.Where(w => w.Nationality != null && w.Nationality == nationalityValue),
+                    "NotEqual" => workers.Where(w => w.Nationality == null || w.Nationality != nationalityValue),
+                    "Contains" => workers.Where(w => w.Nationality != null && w.Nationality.Contains(nationalityValue)),
+                    _ => throw new InvalidOperationException(
+                        "Unsupported nationality comparison operator.")
                 };
             }
 
@@ -154,51 +218,24 @@ namespace Maydan.Infrastructure.Persistence.Queries
             {
                 case "YearsOfExperience":
                     {
-                        // Null values are always last.
                         var withNullOrder = ordered is null
-                            ? workers.OrderBy(w =>
-                                w.YearsOfExperience == null)
-                            : ordered.ThenBy(w =>
-                                w.YearsOfExperience == null);
+                            ? workers.OrderBy(w => w.YearsOfExperience == null)
+                            : ordered.ThenBy(w => w.YearsOfExperience == null);
 
                         return asc
-                            ? withNullOrder.ThenBy(w =>
-                                w.YearsOfExperience)
-                            : withNullOrder.ThenByDescending(w =>
-                                w.YearsOfExperience);
+                            ? withNullOrder.ThenBy(w => w.YearsOfExperience)
+                            : withNullOrder.ThenByDescending(w => w.YearsOfExperience);
                     }
 
-                case "FirstName":
-                    return ordered is null
-                        ? (asc
-                            ? workers.OrderBy(w => w.FirstName)
-                            : workers.OrderByDescending(w => w.FirstName))
-                        : (asc
-                            ? ordered.ThenBy(w => w.FirstName)
-                            : ordered.ThenByDescending(w => w.FirstName));
-
-                case "LastName":
-                    return ordered is null
-                        ? (asc
-                            ? workers.OrderBy(w => w.LastName)
-                            : workers.OrderByDescending(w => w.LastName))
-                        : (asc
-                            ? ordered.ThenBy(w => w.LastName)
-                            : ordered.ThenByDescending(w => w.LastName));
-
-                case "FullName":
+                case "Age":
                     {
-                        var byFirstName = ordered is null
-                            ? (asc
-                                ? workers.OrderBy(w => w.FirstName)
-                                : workers.OrderByDescending(w => w.FirstName))
-                            : (asc
-                                ? ordered.ThenBy(w => w.FirstName)
-                                : ordered.ThenByDescending(w => w.FirstName));
+                        var withNullOrder = ordered is null
+                            ? workers.OrderBy(w => w.DateOfBirth == null)
+                            : ordered.ThenBy(w => w.DateOfBirth == null);
 
                         return asc
-                            ? byFirstName.ThenBy(w => w.LastName)
-                            : byFirstName.ThenByDescending(w => w.LastName);
+                            ? withNullOrder.ThenByDescending(w => w.DateOfBirth)
+                            : withNullOrder.ThenBy(w => w.DateOfBirth);
                     }
 
                 default:

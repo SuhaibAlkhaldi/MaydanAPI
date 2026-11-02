@@ -1590,7 +1590,7 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
-                            PermissionId = 44,
+                            PermissionId = 45,
                             CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
                             Id = 0,
                             IsActive = true,
@@ -2431,7 +2431,7 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         new
                         {
                             RoleId = 1,
-                            PermissionId = 44,
+                            PermissionId = 45,
                             IsActive = true
                         },
                         new
@@ -2815,7 +2815,7 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<int>("Status")
-                       .HasColumnType("int");
+                        .HasColumnType("int");
 
                     b.Property<decimal>("UnitPriceSnapshot")
                         .HasPrecision(18, 2)
