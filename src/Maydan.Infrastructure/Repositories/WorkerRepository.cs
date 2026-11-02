@@ -4,7 +4,9 @@ using Maydan.Domain.Common;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
 using Maydan.Infrastructure.Persistence;
+using Maydan.Infrastructure.Persistence.Queries;
 using Microsoft.EntityFrameworkCore;
+using static Maydan.Domain.Common.LookupConstants;
 
 namespace Maydan.Infrastructure.Repositories;
 
@@ -148,24 +150,95 @@ public class WorkerRepository : IWorkerRepository
 
 
     //----------------------Service Request added parts-----------------
-    public async Task<List<WorkerDto>> GetAvailableWorkersForRequestAsync( int associationId,int serviceId,DateTime startDate,DateTime endDate,CancellationToken cancellationToken = default)
+    public async Task<List<WorkerDto>> GetAvailableWorkersForRequestAsync(
+           int associationId,
+           int serviceId,
+           DateTime startDate,
+           DateTime endDate,
+           int requestedWorkersCount,
+           int serviceRequestId,
+           int projectId,
+           DateTime projectStartDate,
+           DateTime projectEndDate,
+           CancellationToken cancellationToken = default)
     {
-//Make sure if the service require uploading documents
-var serviceRequiresDocs = await _context.Set<Service>()
+        if (requestedWorkersCount <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(requestedWorkersCount));
+        }
+
+        var serviceRequiresDocs = await _context.Set<Service>()
             .Where(s => s.Id == serviceId)
             .Select(s => s.RequiresDocuments)
             .FirstOrDefaultAsync(cancellationToken);
 
-       
-        return await _context.Workers
+        // Step 1: Get eligible workers using eligibleWorkers variable name
+        var eligibleWorkers = _context.Workers
             .AsNoTracking()
-            .Where(w => w.AssociationId == associationId)
-            .Where(w => w.WorkerServices.Any(ws => ws.ServiceId == serviceId))
-            .Where(w => !serviceRequiresDocs || w.Documents.Any())
+            .Where(w =>
+                w.AssociationId == associationId &&
+                w.IsActive)
+            .Where(w => w.WorkerServices.Any(ws =>
+                ws.ServiceId == serviceId))
+            .Where(w =>
+                !serviceRequiresDocs || w.Documents.Any())
             .Where(w => !w.ServiceRequestWorkers.Any(srw =>
-                srw.ServiceRequest.StatusId == LookupConstants.ServiceRequestStatus.InProgress &&
+                srw.ServiceRequest.StatusId ==
+                    ServiceRequestStatus.InProgress &&
                 srw.ServiceRequest.StartDate <= endDate &&
-                srw.ServiceRequest.EndDate >= startDate))
+                srw.ServiceRequest.EndDate >= startDate));
+
+        // Apply overlapping request/project exclusions using eligibleWorkers
+        eligibleWorkers = eligibleWorkers.Where(w =>
+            !w.ServiceRequestWorkers.Any(assignment =>
+                assignment.ServiceRequestId != serviceRequestId &&
+                (
+                    // Same project: different service or overlapping request
+                    (
+                        assignment.ServiceRequest.ProjectId == projectId &&
+                        (
+                            assignment.ServiceRequest.ServiceId != serviceId ||
+                            (
+                                assignment.ServiceRequest.StartDate <= endDate &&
+                                assignment.ServiceRequest.EndDate >= startDate
+                            )
+                        )
+                    )
+
+                    ||
+
+                    // Different project: overlapping project dates
+                    (
+                        assignment.ServiceRequest.ProjectId != projectId &&
+                        assignment.ServiceRequest.Project.StartDate.Date
+                            <= projectEndDate.Date &&
+                        assignment.ServiceRequest.Project.EndDate.Date
+                            >= projectStartDate.Date
+                    )
+                )
+            )
+        );
+
+        // Step 2: Load active dynamic rules.
+        var activeRules = await _context.WorkerSuggestionRules
+            .AsNoTracking()
+            .Where(r => r.IsActive)
+            .Include(r => r.RuleType)
+            .Include(r => r.Operator)
+            .Include(r => r.SortDirection)
+            .OrderBy(r => r.PriorityOrder)
+            .ThenBy(r => r.Id)
+            .ToListAsync(cancellationToken);
+
+        // Step 3: Apply dynamic filters and sorting.
+        var rankedWorkers = WorkerSuggestionQueryBuilder.Apply(
+            eligibleWorkers,
+            activeRules);
+
+        // Step 4: Select the first N workers and project to DTO.
+        return await rankedWorkers
+            .Take(requestedWorkersCount)
             .Select(w => new WorkerDto(
                 w.Id,
                 w.FirstName,
@@ -173,27 +246,54 @@ var serviceRequiresDocs = await _context.Set<Service>()
                 w.LastName,
                 w.CivilId,
                 w.DateOfBirth,
+
+                // Gender Lookup
                 w.GenderId,
-                w.Gender == null ? null : w.Gender.EnglishName,
+                w.Gender != null
+                    ? w.Gender.EnglishName
+                    : null,
+
+                // Marital Status Lookup
                 w.MaritalStatusId,
-                w.MaritalStatus == null ? null : w.MaritalStatus.EnglishName,
+                w.MaritalStatus != null
+                    ? w.MaritalStatus.EnglishName
+                    : null,
+
                 w.Nationality,
+
+                // Country
                 w.Association.City.CountryId,
                 w.Association.City.Country.EnglishName,
+
+                // City
                 w.Association.CityId,
                 w.Association.City.EnglishName,
+
                 w.PhoneNumber,
                 w.YearsOfExperience,
                 w.AssociationId,
                 w.Association.EnglishName,
                 w.QrCode,
-                w.WorkerServices.Select(ws => ws.ServiceId).ToList(),
-                w.WorkerServices.Select(ws => ws.Service.NameEn).ToList(),
-                w.Documents.Select(d => d.FilePath).ToList(),
+
+                // Services
+                w.WorkerServices
+                    .Select(ws => ws.ServiceId)
+                    .ToList(),
+
+                w.WorkerServices
+                    .Select(ws => ws.Service.NameEn)
+                    .ToList(),
+
+                // Documents
+                w.Documents
+                    .Select(d => d.FilePath)
+                    .ToList(),
+
                 w.IsActive
             ))
             .ToListAsync(cancellationToken);
     }
+
     public Task<bool> IsWorkerBusyAsync(int workerId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default) =>
     _context.Workers.AnyAsync(w => w.Id == workerId &&
         w.ServiceRequestWorkers.Any(srw =>

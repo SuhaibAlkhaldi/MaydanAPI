@@ -158,15 +158,15 @@ public class ServiceRequestRepository : IServiceRequestRepository
             .ToListAsync(cancellationToken);
     }
 
-    //public Task<ServiceRequest?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
-    // _context.Set<ServiceRequest>()
-    //    .Include(r => r.Status)
-    //     .Include(r => r.Service)
-    //     .Include(r => r.Project)
-    //     .Include(r => r.Association)
-    //     .Include(r => r.ProductionCompany)
-    //     .Include(r => r.ServiceRequestWorkers)
-    //         .ThenInclude(srw => srw.Worker)
-    //             .ThenInclude(w => w.Documents)
-    //     .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
+    public Task<ServiceRequest?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
+     _context.Set<ServiceRequest>()
+        .Include(r => r.Status)
+         .Include(r => r.Service)
+         .Include(r => r.Project)
+         .Include(r => r.Association)
+         .Include(r => r.ProductionCompany)
+         .Include(r => r.ServiceRequestWorkers)
+             .ThenInclude(srw => srw.Worker)
+                 .ThenInclude(w => w.Documents)
+         .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
 }
