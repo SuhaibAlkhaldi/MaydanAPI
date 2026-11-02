@@ -5,6 +5,7 @@ using Maydan.Domain.Common;
 using Maydan.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace Maydan.API.Controllers;
 
@@ -54,12 +55,38 @@ public class AttendanceController : ApiControllerBase
 
     //Approval (one record at a time) 
     [HttpPost("{attendanceId:int}/approve")]
-    public async Task<IActionResult> Approve(int attendanceId, CancellationToken ct)
+    public async Task<IActionResult> Approve(int attendanceId,
+     [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] ApproveAttendanceDto? dto, CancellationToken ct)
     {
         if (!TryGetCurrentUserId(out var uid)) return NoUser();
-        var r = await _service.ApproveAsync(uid, attendanceId, ct);
+        var r = await _service.ApproveAsync(uid, attendanceId, dto, ct);
         return StatusCode(r.StatusCode, r);
     }
+
+    //------------------------------------------- 
+    [HttpPost("{attendanceId:int}/resolve")]
+    public async Task<IActionResult> Resolve(int attendanceId, [FromBody] ResolveAttendanceDto dto, CancellationToken ct)
+    {
+        if (!TryGetCurrentUserId(out var uid)) return NoUser();
+        var r = await _service.ResolveAsync(uid, attendanceId, dto, ct);
+        return StatusCode(r.StatusCode, r);
+    }
+
+    [HttpGet("pending-resolution")]
+    public async Task<IActionResult> GetPendingResolution(CancellationToken ct)
+    {
+        if (!TryGetCurrentUserId(out var uid)) return NoUser();
+        var r = await _service.GetPendingResolutionAsync(uid, ct);
+        return StatusCode(r.StatusCode, r);
+    }
+
+
+
+    //-----------------------------------------------------
+    /// <param name="attendanceId"></param>
+    /// <param name="dto"></param>
+    /// <param name="ct"></param>
+    /// <returns></returns>
 
     [HttpPost("{attendanceId:int}/reject")]
     public async Task<IActionResult> Reject(int attendanceId, [FromBody] RejectAttendanceDto dto, CancellationToken ct)
@@ -129,4 +156,13 @@ public class AttendanceController : ApiControllerBase
         var r = await _service.RejectOvertimeAsync(uid, overtimeId, dto.Reason, ct);
         return StatusCode(r.StatusCode, r);
     }
+
+    [HttpPost("mark-absent")]
+    public async Task<IActionResult> MarkAbsent([FromBody] MarkAbsentDto dto, CancellationToken ct)
+    {
+        if (!TryGetCurrentUserId(out var uid)) return NoUser();
+        var r = await _service.MarkAbsentAsync(uid, dto, ct);
+        return StatusCode(r.StatusCode, r);
+    }
+
 }

@@ -24,4 +24,5 @@ public class AttendanceTimeWindow
     public int? CreatedBy { get; set; }
     public int? UpdatedBy { get; set; }
     public DateTime? UpdatedDate { get; set; }
+    public DateTime? UnrecordedProcessedDate { get; set; }
 }

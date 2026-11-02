@@ -1,4 +1,4 @@
-namespace Maydan.Domain.Entities;
+﻿namespace Maydan.Domain.Entities;
 
 // One attendance "check-in slot" of one worker on one day.
 // A service with AttendanceFrequency = N produces up to N rows per worker per day
@@ -11,6 +11,9 @@ public class WorkerAttendance
     public int WorkerProjectLinkId { get; set; }
     public WorkerProjectLink WorkerProjectLink { get; set; } = null!;
 
+    //For entry from M and S Association
+    public int? AssociationEntryTypeId { get; set; }          
+    public int? ProductionCompanyEntryTypeId { get; set; }
     // Calendar date the attendance counts for (date only).
     public DateTime AttendanceForDate { get; set; }
 
@@ -34,6 +37,18 @@ public class WorkerAttendance
     public DateTime? ProductionCompanyCheckInDate { get; set; }
     public DateTime? ProductionCompanyCheckOutDate { get; set; }
 
+    //NEW---------------------
+    // WorkerAttendance.cs
+    public DateTime? AssociationRecordedDate { get; set; }
+    public string? AssociationReason { get; set; }
+    public DateTime? ProductionCompanyRecordedDate { get; set; }
+    public string? ProductionCompanyReason { get; set; }
+
+    public string? NotRecordedReason { get; set; }   // "ممثل الجمعية لم يحضر" ...
+    public string? ResolutionNote { get; set; }      // ملاحظة السوبر أدمن
+    public DateTime? LastReminderDate { get; set; }
+
+    // AttendanceTimeWindow.cs
     // Approval by the Production House 
     public int ApprovalStatusId { get; set; }
     public LookupItem ApprovalStatus { get; set; } = null!;

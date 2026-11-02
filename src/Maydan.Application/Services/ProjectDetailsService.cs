@@ -1,5 +1,6 @@
 using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.ProjectDetails;
+using Maydan.Application.DTOs.Projects;
 using Maydan.Application.Interfaces;
 using Maydan.Domain.Common;
 using Maydan.Domain.Constants;
@@ -33,10 +34,9 @@ public class ProjectDetailsService : IProjectDetailsService
         var today = (DateTime.UtcNow + LocalOffset).Date;
 
         var supervisors = await _uow.AssociationProjectSupervisors.GetByProjectIdAsync(projectId, ct);
-        var workerLinks = await _linkRepo.ListByProjectAsync(projectId, ct);
-        var allServiceRequests = await _uow.ServiceRequests.GetAllAsync(ct);
-        var projectServiceRequests = allServiceRequests.Where(sr => sr.ProjectId == projectId).ToList();
-
+        var workerLinks = await _linkRepo.ListWorkerRowsByProjectAsync(projectId, ct);
+        //var allServiceRequests = await _uow.ServiceRequests.GetAllAsync(ct);
+        var projectServiceRequests = await _uow.ServiceRequests.ListByProjectForDetailsAsync(projectId, ct);
         var dto = new ProjectDetailsDto
         {
             Project = new ProjectDetailsInfoDto
@@ -122,7 +122,7 @@ public class ProjectDetailsService : IProjectDetailsService
         if (error is not null) return error;
 
         var today = (DateTime.UtcNow + LocalOffset).Date;
-        var workerLinks = await _linkRepo.ListByProjectAsync(projectId, ct);
+        var workerLinks = await _linkRepo.ListWorkerRowsByProjectAsync(projectId, ct);
 
         return ApiResponse<List<ProjectDetailsWorkerDto>>.SuccessResponse(
             workerLinks.Select(wl => ToWorkerDto(wl, today)).ToList(),
@@ -181,27 +181,26 @@ public class ProjectDetailsService : IProjectDetailsService
         PhoneNumber = u.PhoneNumber
     };
 
-    private static ProjectDetailsWorkerDto ToWorkerDto(WorkerProjectLink wl, DateTime today) => new()
+    private static ProjectDetailsWorkerDto ToWorkerDto(ProjectWorkerRow r, DateTime today) => new()
     {
-        WorkerProjectLinkId = wl.Id,
-        WorkerId = wl.WorkerId,
-        WorkerFullName = wl.Worker != null ? $"{wl.Worker.FirstName} {wl.Worker.LastName}" : null,
-        CivilId = wl.Worker?.CivilId,
-        PhoneNumber = wl.Worker?.PhoneNumber,
-        IsWorkerActive = wl.IsWorkerActive,
-        DailyWageAmount = wl.DailyWageAmount,
-        ServiceRequestId = wl.ServiceRequestId,
-        ServiceNameEn = wl.ServiceRequest?.Service?.NameEn,
-        ServiceNameAr = wl.ServiceRequest?.Service?.NameAr,
-        ServicePrice = wl.ServiceRequest?.Service?.Price,
-        AssociationName = wl.ServiceRequest?.Association?.EnglishName,
-        CreatedDate = wl.CreatedDate,
-        ServiceStartDate = wl.ServiceRequest?.StartDate,
-        ServiceEndDate = wl.ServiceRequest?.EndDate,
-        ServiceRequestStatus = wl.ServiceRequest is null ? null : LookupConstants.ServiceRequestStatusCode(wl.ServiceRequest.StatusId),
-        IsCurrent = wl.IsWorkerActive
-                    && wl.ServiceRequest != null
-                    && wl.ServiceRequest.StatusId == LookupConstants.ServiceRequestStatus.InProgress
-                    && wl.ServiceRequest.EndDate >= today
+        WorkerProjectLinkId = r.WorkerProjectLinkId,
+        WorkerId = r.WorkerId,
+        WorkerFullName = $"{r.FirstName} {r.LastName}",
+        CivilId = r.CivilId,
+        PhoneNumber = r.PhoneNumber,
+        IsWorkerActive = r.IsWorkerActive,
+        DailyWageAmount = r.DailyWageAmount,
+        ServiceRequestId = r.ServiceRequestId,
+        ServiceNameEn = r.ServiceNameEn,
+        ServiceNameAr = r.ServiceNameAr,
+        ServicePrice = r.ServicePrice,
+        AssociationName = r.AssociationName,
+        CreatedDate = r.CreatedDate,
+        ServiceStartDate = r.ServiceStartDate,
+        ServiceEndDate = r.ServiceEndDate,
+        ServiceRequestStatus = LookupConstants.ServiceRequestStatusCode(r.ServiceRequestStatusId),
+        IsCurrent = r.IsWorkerActive
+                    && r.ServiceRequestStatusId == LookupConstants.ServiceRequestStatus.InProgress
+                    && r.ServiceEndDate >= today
     };
 }

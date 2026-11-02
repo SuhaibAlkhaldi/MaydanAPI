@@ -19,13 +19,12 @@ public interface IWorkerRepository
     Task<(List<WorkerSummaryDto> Items, int TotalCount)> GetAllProjectedAsync(
         int? associationId, string? search, int? serviceId, int page, int pageSize, CancellationToken cancellationToken = default);
 
+
+    //---------------------------Service Request Part-----------------
     Task<WorkerDto?> GetByIdProjectedAsync(int workerId, CancellationToken cancellationToken = default);
-    Task<List<WorkerDto>> GetAvailableWorkersForRequestAsync(
-    int associationId,
-    int serviceId,
-    DateTime startDate,
-    DateTime endDate,
-    CancellationToken cancellationToken = default);
+    Task<List<WorkerDto>> GetAvailableWorkersForRequestAsync(int associationId,int serviceId,DateTime startDate,DateTime endDate,CancellationToken cancellationToken = default);
+    Task<Dictionary<int, int>> GetAssociationIdsAsync(IReadOnlyCollection<int> ids, CancellationToken ct = default);
+    Task<HashSet<int>> GetBusyWorkerIdsAsync(IReadOnlyCollection<int> ids, DateTime start, DateTime end, CancellationToken ct = default);
     //for assignment workers
     Task<bool> IsWorkerBusyAsync(int workerId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default);
 }

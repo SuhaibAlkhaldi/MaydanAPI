@@ -4,6 +4,7 @@ using Maydan.Application.DTOs.Lookups;
 using Maydan.Domain.Common;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
+using System.Linq;
 
 namespace Maydan.Application.Services;
 
@@ -41,7 +42,7 @@ public partial class WorkerAttendanceService
             return Fail<WorkerOvertimeDto>($"Overtime hours must be between {MinOvertimeHours} and {MaxOvertimeHours}, in steps of 0.5.",
                 $"ساعات الوقت الإضافي يجب أن تكون بين {MinOvertimeHours} و{MaxOvertimeHours} وبمضاعفات 0.5.");
 
-        var sr = await _uow.ServiceRequests.GetByIdAsync(dto.ServiceRequestId, ct);
+        var sr = await _uow.ServiceRequests.GetAttendanceInfoAsync(dto.ServiceRequestId, ct);
         if (sr is null) return Fail<WorkerOvertimeDto>("Service request was not found.", "طلب الخدمة غير موجود.", 404);
 
         if (sr.StatusId != LookupConstants.ServiceRequestStatus.InProgress)
@@ -65,15 +66,18 @@ public partial class WorkerAttendanceService
 
         // Rule: overtime can only be entered AFTER the worker's check-out of that day.
         var rows = await _repo.ListByLinkAndDateAsync(link.Id, date, ct);
+        // كل طرف سجّل دخول لازم يكون عمل خروج، ولازم يكون في خروج واحد على الأقل
         var checkedOut = rows.Any(r => r.EntryTypeId == LookupConstants.AttendanceEntryType.Present
                                     && r.ApprovalStatusId != LookupConstants.AttendanceApprovalStatus.Rejected
+                                    && (r.AssociationCheckInDate == null || r.AssociationCheckOutDate != null)
+                                    && (r.ProductionCompanyCheckInDate == null || r.ProductionCompanyCheckOutDate != null)
                                     && (r.AssociationCheckOutDate != null || r.ProductionCompanyCheckOutDate != null));
         if (!checkedOut)
             return Fail<WorkerOvertimeDto>("Overtime can only be recorded after the worker's check-out for that day.",
                 "لا يمكن تسجيل وقت إضافي إلا بعد تسجيل خروج العامل في ذلك اليوم.");
 
         // Priced like the service: one unit wage covers HoursPerUnit hours.
-        var hoursPerUnit = HoursPerUnit(sr.Service.CalculationType);
+        var hoursPerUnit = HoursPerUnit(sr.CalculationType);
         var amount = Math.Round(link.DailyWageAmount * dto.Hours / hoursPerUnit, 2, MidpointRounding.AwayFromZero);
 
         var overtime = await _repo.GetOvertimeAsync(link.Id, date, ct);
@@ -103,7 +107,9 @@ public partial class WorkerAttendanceService
         overtime.RejectionReason = null;
 
         await _uow.SaveChangesAsync(ct);
-        overtime = (await _repo.GetOvertimeByIdAsync(overtime.Id, ct))!;   
+        overtime = (await _repo.GetOvertimeByIdAsync(
+    overtime.Id,
+    cancellationToken: ct))!;   
         return ApiResponse<WorkerOvertimeDto>.SuccessResponse(ToOvertimeDto(overtime, link),
             "Overtime recorded. It is not counted until Bayt Al Urdon approves it.", "تم تسجيل الوقت الإضافي ولن يُحتسب إلا بعد موافقة بيت الأردن.", 201);
     }
@@ -131,17 +137,24 @@ public partial class WorkerAttendanceService
     {
         var user = await GetActiveUserAsync(currentUserId, ct);
         if (user is null) return Unauthorized<List<WorkerOvertimeDto>>();
+
         if (!CanApproveOvertime(user))
-            return Fail<List<WorkerOvertimeDto>>("Only Bayt Al Urdon can review overtime.", "فقط بيت الأردن يمكنه مراجعة الوقت الإضافي.", 403);
+            return Fail<List<WorkerOvertimeDto>>(
+                "You are not allowed to review overtime.",
+                "غير مصرّح لك بمراجعة الوقت الإضافي.", 403);
 
-        var list = await _repo.ListOvertimeByStatusAsync(LookupConstants.AttendanceApprovalStatus.Pending, ct);
+        int? companyScope = user.EntityType == EntityType.ProductionCompany ? user.EntityId : null;
+
+        var list = await _repo.ListOvertimeByStatusAsync(
+            LookupConstants.AttendanceApprovalStatus.Pending, companyScope, ct);
+
         return ApiResponse<List<WorkerOvertimeDto>>.SuccessResponse(
-            list.Select(o => ToOvertimeDto(o)).ToList(), "Pending overtime fetched.", "تم جلب الوقت الإضافي المعلّق.");
+            list.Select(o => ToOvertimeDto(o)).ToList(),
+            "Pending overtime fetched.",
+            "تم جلب الوقت الإضافي المعلّق.");
     }
-
-    
     //  Approve / Reject (Bayt Al Urdon only)
-    
+
     public Task<ApiResponse<WorkerOvertimeDto>> ApproveOvertimeAsync(int currentUserId, int overtimeId, CancellationToken ct = default) =>
         ReviewOvertimeAsync(currentUserId, overtimeId, approve: true, reason: null, ct);
 
@@ -159,7 +172,8 @@ public partial class WorkerAttendanceService
         if (!approve && string.IsNullOrWhiteSpace(reason))
             return Fail<WorkerOvertimeDto>("A rejection reason is required.", "سبب الرفض مطلوب.");
 
-        var overtime = await _repo.GetOvertimeByIdAsync(overtimeId, ct);
+        int? companyScope = user.EntityType == EntityType.ProductionCompany ? user.EntityId : null;
+        var overtime = await _repo.GetOvertimeByIdAsync(overtimeId, companyScope, ct);
         if (overtime is null) return Fail<WorkerOvertimeDto>("Overtime record was not found.", "سجل الوقت الإضافي غير موجود.", 404);
 
         if (overtime.ApprovalStatusId != LookupConstants.AttendanceApprovalStatus.Pending)
@@ -181,7 +195,8 @@ public partial class WorkerAttendanceService
     }
 
     private static bool CanApproveOvertime(User user) =>
-        user.EntityType == EntityType.BaytAlUrdon && Permissions(user).Contains(ApproveOvertimePermission);
+    (user.EntityType == EntityType.BaytAlUrdon || user.EntityType == EntityType.ProductionCompany)
+    && Permissions(user).Contains(ApproveOvertimePermission);
 
     private static WorkerOvertimeDto ToOvertimeDto(WorkerOvertime o, WorkerProjectLink? link = null)
     {

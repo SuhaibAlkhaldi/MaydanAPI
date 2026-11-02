@@ -634,13 +634,10 @@ public class AssociationServiceTests
         public Task AddAsync(Worker worker, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<(List<Maydan.Application.DTOs.Workers.WorkerSummaryDto> Items, int TotalCount)> GetAllProjectedAsync(int? associationId, string? search, int? serviceId, int page, int pageSize, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Maydan.Application.DTOs.Workers.WorkerDto?> GetByIdProjectedAsync(int workerId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Dictionary<int, int>> GetAssociationIdsAsync(IReadOnlyCollection<int> ids, CancellationToken ct = default)=> throw new NotImplementedException();
 
-        public Task<List<Maydan.Application.DTOs.Workers.WorkerDto>> GetAvailableWorkersForRequestAsync(
-     int associationId,
-     int serviceId,
-     DateTime startDate,
-     DateTime endDate,
-     CancellationToken cancellationToken = default)
+        public Task<HashSet<int>> GetBusyWorkerIdsAsync(IReadOnlyCollection<int> ids, DateTime start, DateTime end, CancellationToken ct = default)=> throw new NotImplementedException();
+        public Task<List<Maydan.Application.DTOs.Workers.WorkerDto>> GetAvailableWorkersForRequestAsync(int associationId,int serviceId,DateTime startDate,DateTime endDate,CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }

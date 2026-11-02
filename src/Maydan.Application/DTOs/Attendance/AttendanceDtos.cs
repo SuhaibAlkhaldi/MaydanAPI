@@ -1,4 +1,5 @@
-using Maydan.Domain.Common;
+﻿using Maydan.Domain.Common;
+using System.Text.Json.Serialization;
 
 namespace Maydan.Application.DTOs.Attendance;
 
@@ -14,7 +15,10 @@ public class RecordAttendanceDto
     //Date the attendance counts for. Defaults to today (Jordan time).
     public DateTime? AttendanceForDate { get; set; }
 
-    public int EntryTypeId { get; set; } = LookupConstants.AttendanceEntryType.Present;
+    //public int EntryTypeId { get; set; } = LookupConstants.AttendanceEntryType.Present;
+    //[JsonConverter(typeof(JsonStringEnumConverter))]
+    //public LookupConstants.AttendanceEntryTypeInput EntryTypeId { get; set; }
+    //= LookupConstants.AttendanceEntryTypeInput.Present;
 }
 
 public class RejectAttendanceDto
@@ -79,7 +83,21 @@ public class WorkerAttendanceDto
     public int? ReviewedByUserId { get; set; }
     public DateTime? ReviewedDate { get; set; }
     public string? RejectionReason { get; set; }
-   
+
+
+    public int? AssociationEntryTypeId { get; set; }
+    public string? AssociationEntryType { get; set; }
+    public DateTime? AssociationRecordedDate { get; set; }
+    public string? AssociationReason { get; set; }
+
+    public int? ProductionCompanyEntryTypeId { get; set; }
+    public string? ProductionCompanyEntryType { get; set; }
+    public DateTime? ProductionCompanyRecordedDate { get; set; }
+    public string? ProductionCompanyReason { get; set; }
+
+    public string? NotRecordedReason { get; set; }
+    public string? ResolutionNote { get; set; }
+    public bool IsConflict { get; set; }
 }
 
 public class DayRosterItemDto
@@ -93,6 +111,7 @@ public class DayRosterItemDto
     public int ApprovedCheckIns { get; set; }
     public int PendingCheckIns { get; set; }
     public List<WorkerAttendanceDto> Entries { get; set; } = new();
+    public List<SlotStatusDto> SlotStatuses { get; set; } = new();
 }
 
 public class DayRosterDto
@@ -103,6 +122,7 @@ public class DayRosterDto
     public int? CurrentSlotNumber { get; set; }     // the slot open right now (null if none)
     public List<AttendanceTimeWindowDto> Slots { get; set; } = new();
     public List<DayRosterItemDto> Workers { get; set; } = new();
+    public string? MySide { get; set; }   // "Association" | "ProductionCompany" | null
 }
 
 public class AttendanceSummaryItemDto
@@ -142,8 +162,22 @@ public class AttendanceSummaryDto
     public decimal TotalPendingOvertimeAmount { get; set; }
     public decimal TotalPayableAmount { get; set; }
     public List<AttendanceSummaryItemDto> Workers { get; set; } = new();
+    public bool CanFinalize { get; set; }
+}
+public class ApproveAttendanceDto
+{
+    // مطلوب بس لو الطرفين سجّلوا رأيين مختلفين
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public LookupConstants.AttendanceEntryTypeInput? FinalEntryTypeId { get; set; }
 }
 
+public class PendingResolutionDto
+{
+    public WorkerAttendanceDto Attendance { get; set; } = null!;
+    public int ServiceRequestId { get; set; }
+    public DateTime DeadlineDate { get; set; }
+    public bool IsOverdue { get; set; }
+}
 //Overtime 
 public class RecordOvertimeDto
 {
@@ -181,4 +215,26 @@ public class WorkerOvertimeDto
     public string? RejectionReason { get; set; }
     public string? ApprovalStatusNameEn { get; set; }
     public string? ApprovalStatusNameAr { get; set; }
+}
+public class MarkAbsentDto
+{
+    public int ServiceRequestId { get; set; }
+    public int WorkerProjectLinkId { get; set; }
+    public DateTime? AttendanceForDate { get; set; }
+    public string? Reason { get; set; }
+}
+
+public class ResolveAttendanceDto
+{
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public LookupConstants.AttendanceEntryTypeInput FinalEntryTypeId { get; set; }
+    public string? Note { get; set; }
+}
+public class SlotStatusDto
+{
+    public int SlotNumber { get; set; }
+    public string Status { get; set; } = "NotRecorded";                 // NotRecorded | Present | Absent | Conflict
+    public string AssociationStatus { get; set; } = "NotRecorded";
+    public string ProductionCompanyStatus { get; set; } = "NotRecorded";
+    public int? AttendanceId { get; set; }
 }

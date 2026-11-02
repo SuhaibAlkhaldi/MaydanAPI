@@ -11,7 +11,12 @@ public interface IWorkerAttendanceService
 
     Task<ApiResponse<WorkerAttendanceDto>> CheckInAsync(int currentUserId, RecordAttendanceDto dto, CancellationToken cancellationToken = default);
     Task<ApiResponse<WorkerAttendanceDto>> CheckOutAsync(int currentUserId, RecordAttendanceDto dto, CancellationToken cancellationToken = default);
-    Task<ApiResponse<WorkerAttendanceDto>> ApproveAsync(int currentUserId, int attendanceId, CancellationToken cancellationToken = default);
+    Task<ApiResponse<WorkerAttendanceDto>> ApproveAsync(int currentUserId, int attendanceId, ApproveAttendanceDto? dto, CancellationToken cancellationToken = default);
+    Task<ApiResponse<WorkerAttendanceDto>> ResolveAsync(int currentUserId, int attendanceId, ResolveAttendanceDto dto, CancellationToken cancellationToken = default);
+    Task<ApiResponse<List<PendingResolutionDto>>> GetPendingResolutionAsync(int currentUserId, CancellationToken cancellationToken = default);
+
+    Task<int> ProcessClosedSlotsAsync(CancellationToken cancellationToken = default);
+    Task<int> SendUnresolvedRemindersAsync(CancellationToken cancellationToken = default);
     Task<ApiResponse<WorkerAttendanceDto>> RejectAsync(int currentUserId, int attendanceId, string reason, CancellationToken cancellationToken = default);
 
     Task<ApiResponse<DayRosterDto>> GetDayRosterAsync(int currentUserId, int serviceRequestId, DateTime? date, CancellationToken cancellationToken = default);
@@ -23,4 +28,6 @@ public interface IWorkerAttendanceService
     Task<ApiResponse<List<WorkerOvertimeDto>>> GetPendingOvertimeAsync(int currentUserId, CancellationToken cancellationToken = default);
     Task<ApiResponse<WorkerOvertimeDto>> ApproveOvertimeAsync(int currentUserId, int overtimeId, CancellationToken cancellationToken = default);
     Task<ApiResponse<WorkerOvertimeDto>> RejectOvertimeAsync(int currentUserId, int overtimeId, string reason, CancellationToken cancellationToken = default);
+    Task<ApiResponse<WorkerAttendanceDto>> MarkAbsentAsync(int currentUserId, MarkAbsentDto dto, CancellationToken cancellationToken = default);
+
 }

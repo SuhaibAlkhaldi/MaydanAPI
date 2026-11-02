@@ -1,13 +1,13 @@
+using Maydan.Application.DTOs.Projects;
 using Maydan.Domain.Entities;
 
 namespace Maydan.Application.Interfaces;
 
 public interface IWorkerProjectLinkRepository
 {
-    Task<WorkerProjectLink?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
+    //Task<WorkerProjectLink?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
     Task<WorkerProjectLink?> GetByProjectAndWorkerAsync(int projectId, int workerId, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<WorkerProjectLink>> ListByProjectAsync(int projectId, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<WorkerProjectLink>> ListByWorkerAsync(int workerId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ProjectWorkerRow>> ListWorkerRowsByProjectAsync(int projectId, CancellationToken cancellationToken = default); Task<IReadOnlyList<WorkerProjectLink>> ListByWorkerAsync(int workerId, CancellationToken cancellationToken = default);
     Task AddAsync(WorkerProjectLink link, CancellationToken cancellationToken = default);
     Task UpdateAsync(WorkerProjectLink link, CancellationToken cancellationToken = default);
 
@@ -15,6 +15,9 @@ public interface IWorkerProjectLinkRepository
     Task DeactivateAsync(WorkerProjectLink link, CancellationToken cancellationToken = default);
     Task<List<WorkerProjectLink>> ListActiveByServiceRequestAsync(int serviceRequestId, CancellationToken cancellationToken = default);
     Task<WorkerProjectLink?> GetActiveByRequestAndWorkerAsync(int serviceRequestId, int workerId, CancellationToken cancellationToken = default);
+    Task<HashSet<int>> ListActiveWorkerIdsAsync(int serviceRequestId, IReadOnlyCollection<int> workerIds, CancellationToken ct = default);
+
+
 
 
 }

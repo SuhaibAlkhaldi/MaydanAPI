@@ -9,6 +9,7 @@ public class ServiceRequestDetailsDto
     public string ServiceNameEn { get; set; } = string.Empty;
     public string ServiceNameAr { get; set; } = string.Empty;
 
+    public int ProductionCompanyId { get; set; }
     // Project
     public int ProjectId { get; set; }
     public string ProjectNameEn { get; set; } = string.Empty;

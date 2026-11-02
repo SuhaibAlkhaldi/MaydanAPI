@@ -22,6 +22,12 @@ public static class LookupConstants
     {
         public const int Present = 15;
         public const int Absent = 16;
+        public const int NotRecorded= 17;
+    }
+    public enum AttendanceEntryTypeInput
+    {
+        Present = AttendanceEntryType.Present, // 15
+        Absent = AttendanceEntryType.Absent   // 16
     }
 
     public static string ServiceRequestStatusCode(int id) => id switch
@@ -46,6 +52,8 @@ public static class LookupConstants
     {
         AttendanceEntryType.Present => "Present",
         AttendanceEntryType.Absent => "Absent",
+        AttendanceEntryType.NotRecorded => "NotRecorded",   // NEW
+
         _ => id.ToString()
     };
 }

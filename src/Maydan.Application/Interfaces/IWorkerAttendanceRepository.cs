@@ -18,10 +18,26 @@ public interface IWorkerAttendanceRepository
     Task AddWindowAsync(AttendanceTimeWindow window, CancellationToken cancellationToken = default);
 
     //Overtime
-    Task<WorkerOvertime?> GetOvertimeByIdAsync(int id, CancellationToken cancellationToken = default);
+    //Task<WorkerOvertime?> GetOvertimeByIdAsync(int id, CancellationToken cancellationToken = default);
     Task<WorkerOvertime?> GetOvertimeAsync(int workerProjectLinkId, DateTime date, CancellationToken cancellationToken = default);
     Task<List<WorkerOvertime>> ListOvertimeByServiceRequestAsync(int serviceRequestId, DateTime from, DateTime to, CancellationToken cancellationToken = default);
     //Task<List<WorkerOvertime>> ListOvertimeByStatusAsync(AttendanceApprovalStatus status, CancellationToken cancellationToken = default);
-    Task<List<WorkerOvertime>> ListOvertimeByStatusAsync(int statusId, CancellationToken cancellationToken = default);
+    //Task<List<WorkerOvertime>> ListOvertimeByStatusAsync(int statusId, CancellationToken cancellationToken = default);
     Task AddOvertimeAsync(WorkerOvertime overtime, CancellationToken cancellationToken = default);
+    Task<WorkerAttendance?> GetForReviewAsync(int id, CancellationToken cancellationToken = default);
+    Task<WorkerOvertime?> GetOvertimeByIdAsync(int id, int? productionCompanyId = null, CancellationToken cancellationToken = default);
+   Task<List<WorkerOvertime>> ListOvertimeByStatusAsync(int statusId, int? productionCompanyId = null, CancellationToken cancellationToken = default);
+    //-----------------------------------------------------------------------------
+
+    Task<List<WorkerAttendance>> ListPendingResolutionAsync(CancellationToken cancellationToken = default);
+    Task<List<AttendanceTimeWindow>> ListUnprocessedClosedWindowsAsync(DateTime nowUtc, CancellationToken cancellationToken = default);
+    Task<List<WorkerAttendance>> ListBySlotAsync(int serviceRequestId, DateTime date, int slotNumber, CancellationToken cancellationToken = default);
+    Task<List<WorkerAttendance>> ListRemindableAsync(DateTime reminderBeforeUtc, CancellationToken cancellationToken = default);
+    Task<bool> HasUnresolvedAsync(int serviceRequestId, DateTime nowUtc, CancellationToken cancellationToken = default);
+
+    Task<WorkerProjectLink?> GetActiveLinkByIdAsync(int linkId, int serviceRequestId, CancellationToken cancellationToken = default);
+
+
+
+
 }

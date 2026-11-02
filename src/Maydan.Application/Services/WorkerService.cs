@@ -577,7 +577,7 @@ public class WorkerService : IWorkerService
      CancellationToken cancellationToken = default)
     {
         var request = await _unitOfWork.ServiceRequests
-            .GetByIdAsync(serviceRequestId, cancellationToken);
+            .GetAttendanceInfoAsync(serviceRequestId, cancellationToken);
 
         if (request is null)
         {

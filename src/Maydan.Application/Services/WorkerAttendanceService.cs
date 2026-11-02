@@ -1,5 +1,6 @@
 using Maydan.Application.DTOs.Attendance;
 using Maydan.Application.DTOs.Common;
+using Maydan.Application.DTOs.ServiceRequests;
 using Maydan.Application.Interfaces;
 using Maydan.Domain.Common;
 using Maydan.Domain.Entities;
@@ -11,6 +12,7 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
 {
     private const string ViewPermission = "View Attendance";
     private const string ManagePermission = "Manage Attendance";
+    private const string ResolvePermission = "Resolve Attendance";
     private const int MaxRangeDays = 366;
 
     // Jordan is permanently UTC+3 (no daylight saving since 2022).
@@ -19,11 +21,14 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
 
     private readonly IUnitOfWork _uow;
     private readonly IWorkerAttendanceRepository _repo;
+    private readonly IEmailSender _email;
 
-    public WorkerAttendanceService(IUnitOfWork uow, IWorkerAttendanceRepository repo)
+
+    public WorkerAttendanceService(IUnitOfWork uow, IWorkerAttendanceRepository repo,IEmailSender email)
     {
         _uow = uow;
         _repo = repo;
+        _email = email;
     }
 
     private enum Side { None, Association, ProductionCompany }
@@ -39,7 +44,7 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
         var user = await GetActiveUserAsync(currentUserId, ct);
         if (user is null) return Unauthorized<List<AttendanceTimeWindowDto>>();
 
-        var sr = await _uow.ServiceRequests.GetByIdAsync(serviceRequestId, ct);
+        var sr = await _uow.ServiceRequests.GetAttendanceInfoAsync(serviceRequestId, ct);
         if (sr is null) return Fail<List<AttendanceTimeWindowDto>>("Service request was not found.", "طلب الخدمة غير موجود.", 404);
 
         if (!Permissions(user).Contains(ManagePermission) || !IsProductionHouseOf(user, sr))
@@ -145,67 +150,127 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
         if (string.IsNullOrWhiteSpace(dto.QrCode))
             return Fail<WorkerAttendanceDto>("The worker's QR code is required.", "رمز QR الخاص بالعامل مطلوب.");
 
-        var sr = await _uow.ServiceRequests.GetByIdAsync(dto.ServiceRequestId, ct);
+        var sr = await _uow.ServiceRequests.GetAttendanceInfoAsync(dto.ServiceRequestId, ct);
         if (sr is null) return Fail<WorkerAttendanceDto>("Service request was not found.", "طلب الخدمة غير موجود.", 404);
 
-        // The worker is identified ONLY by his own QR code, and must be assigned to this very request.
+        // العامل بيتحدد بالـ QR تبعه بس، ولازم يكون مسجل بنفس الطلب
         var link = await _repo.GetActiveLinkByQrAsync(dto.QrCode.Trim(), sr.Id, ct);
         if (link is null)
             return Fail<WorkerAttendanceDto>("This QR code does not belong to a worker assigned to this service request.",
                 "رمز QR هذا لا يخص عاملاً مسجلاً في طلب الخدمة هذا.", 404);
 
-        var now = DateTime.UtcNow;
-        var date = (dto.AttendanceForDate ?? (now + LocalOffset)).Date;
+        var date = (dto.AttendanceForDate ?? (DateTime.UtcNow + LocalOffset)).Date;
+        return await RecordSideAsync(user, sr, link, date, LookupConstants.AttendanceEntryType.Present, null, ct);
+    }
 
+    public async Task<ApiResponse<WorkerAttendanceDto>> MarkAbsentAsync(int currentUserId, MarkAbsentDto dto, CancellationToken ct = default)
+    {
+        var user = await GetActiveUserAsync(currentUserId, ct);
+        if (user is null) return Unauthorized<WorkerAttendanceDto>();
+
+        var sr = await _uow.ServiceRequests.GetAttendanceInfoAsync(dto.ServiceRequestId, ct);
+        if (sr is null) return Fail<WorkerAttendanceDto>("Service request was not found.", "طلب الخدمة غير موجود.", 404);
+
+        // العامل بيتحدد من القائمة (بدون QR)
+        var link = await _repo.GetActiveLinkByIdAsync(dto.WorkerProjectLinkId, sr.Id, ct);
+        if (link is null)
+            return Fail<WorkerAttendanceDto>("This worker is not assigned to this service request.",
+                "هذا العامل غير مسجل في طلب الخدمة هذا.", 404);
+
+        var date = (dto.AttendanceForDate ?? (DateTime.UtcNow + LocalOffset)).Date;
+        return await RecordSideAsync(user, sr, link, date, LookupConstants.AttendanceEntryType.Absent, dto.Reason, ct);
+    }
+
+    // الميثود المشتركة: الطرف (جمعية / شركة إنتاج) بيسجل رأيه بالفتحة المفتوحة، حضور أو غياب
+    private async Task<ApiResponse<WorkerAttendanceDto>> RecordSideAsync(
+        User user, ServiceRequestAttendanceInfo sr, WorkerProjectLink link,
+        DateTime date, int entryTypeId, string? reason, CancellationToken ct)
+    {
+        reason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
+        if (reason is { Length: > 500 })
+            return Fail<WorkerAttendanceDto>("The reason is too long (max 500 characters).", "السبب طويل جداً (الحد الأقصى 500 حرف).");
+
+        var now = DateTime.UtcNow;
+
+        // نفس قيد الفتحة المسموحة للحضور والغياب
         var gate = await ValidateRecordingAsync(user, sr, date, now, true, ct);
         if (gate.En is not null) return Fail<WorkerAttendanceDto>(gate.En, gate.Ar!, gate.Status);
 
         if (sr.AttendanceFrequency <= 0)
             return Fail<WorkerAttendanceDto>("Attendance frequency is not configured for this service request.", "عدد مرات تسجيل الحضور غير محدد لطلب الخدمة.");
 
-        // The scan belongs to the window that is open right now, and a worker can be scanned ONCE per window.
         var slot = gate.Slot!;
         if (slot.SlotNumber > sr.AttendanceFrequency)
             return Fail<WorkerAttendanceDto>("This window exceeds the required number of check-ins.", "هذه الفتحة تتجاوز عدد مرات التسجيل المطلوبة.");
 
-        var existing = await _repo.ListByLinkAndDateAsync(link.Id, date, ct);
-        if (existing.Any(a => a.CheckInNumber == slot.SlotNumber))
-            return Fail<WorkerAttendanceDto>($"This worker was already scanned in the current window (#{slot.SlotNumber}). Wait for the next window.",
-                $"تم تسجيل هذا العامل مسبقاً في فتحة التسجيل الحالية (#{slot.SlotNumber}). انتظر الفتحة التالية.", 409);
+        var isAssoc = gate.Side == Side.Association;
+        var isPresent = entryTypeId == LookupConstants.AttendanceEntryType.Present;
 
-        var entry = new WorkerAttendance
-        {
-            WorkerProjectLinkId = link.Id,
-            AttendanceForDate = date,
-            CheckInNumber = slot.SlotNumber,
-            EntryTypeId = dto.EntryTypeId != 0 ? dto.EntryTypeId : LookupConstants.AttendanceEntryType.Present,
-            CityId = sr.Association.CityId,
-            CreatedBy = user.UserId
-        };
+        var row = (await _repo.ListByLinkAndDateAsync(link.Id, date, ct))
+                    .FirstOrDefault(a => a.CheckInNumber == slot.SlotNumber);
+        var isNew = row is null;
 
-        if (gate.Side == Side.Association)
+        // كل طرف بيسجل مرة وحدة بالفتحة
+        if (row is not null && (isAssoc ? row.AssociationEntryTypeId : row.ProductionCompanyEntryTypeId) is not null)
+            return Fail<WorkerAttendanceDto>(
+                $"You already recorded this worker in the current window (#{slot.SlotNumber}).",
+                $"سجّلت هذا العامل مسبقاً في فتحة التسجيل الحالية (#{slot.SlotNumber}).", 409);
+
+        // لو السجل انراجع (معتمد/مرفوض) ما بنعدّل عليه
+        if (row is not null && row.ApprovalStatusId != LookupConstants.AttendanceApprovalStatus.Pending)
+            return Fail<WorkerAttendanceDto>("This record was already reviewed.", "تمت مراجعة هذا السجل مسبقاً.", 409);
+
+        if (row is null)
         {
-            entry.AssociationUserId = user.UserId;
-            entry.AssociationCheckInDate = now;
-            entry.ApprovalStatusId = LookupConstants.AttendanceApprovalStatus.Pending;   // waits for the Production House
+            row = new WorkerAttendance
+            {
+                WorkerProjectLinkId = link.Id,
+                AttendanceForDate = date,
+                CheckInNumber = slot.SlotNumber,
+                EntryTypeId = entryTypeId,   // أول تسجيل، وبيصير النهائي عند الاعتماد
+                CityId = sr.CityId,
+                ApprovalStatusId = LookupConstants.AttendanceApprovalStatus.Pending,   // دايماً Pending، حتى لو سجّل ممثل الشركة
+                CreatedBy = user.UserId
+            };
+            await _repo.AddAsync(row, ct);
+        }
+
+        if (isAssoc)
+        {
+            row.AssociationEntryTypeId = entryTypeId;
+            row.AssociationUserId = user.UserId;
+            row.AssociationRecordedDate = now;
+            row.AssociationReason = reason;
+            if (isPresent) row.AssociationCheckInDate = now;
         }
         else
         {
-            entry.ProductionCompanyUserId = user.UserId;
-            entry.ProductionCompanyCheckInDate = now;
-            entry.ApprovalStatusId = LookupConstants.AttendanceApprovalStatus.Approved;  // the Production House is the approver
-            entry.ReviewedByUserId = user.UserId;
-            entry.ReviewedDate = now;
+            row.ProductionCompanyEntryTypeId = entryTypeId;
+            row.ProductionCompanyUserId = user.UserId;
+            row.ProductionCompanyRecordedDate = now;
+            row.ProductionCompanyReason = reason;
+            if (isPresent) row.ProductionCompanyCheckInDate = now;
         }
 
-        await _repo.AddAsync(entry, ct);
-        await _uow.SaveChangesAsync(ct);
+        if (!isNew) { row.UpdatedBy = user.UserId; row.UpdatedDate = now; }
 
-        var saved = (await _repo.GetByIdAsync(entry.Id, ct))!;     // reloads with the lookup names
-        var result = ToDto(saved);
+        try
+        {
+            await _uow.SaveChangesAsync(ct);
+        }
+        catch (Exception) when (isNew)
+        {
+            // الطرفين سجّلوا بنفس اللحظة وانضرب الـ unique index؛ الفرونت بيعيد المحاولة
+            return Fail<WorkerAttendanceDto>("The other representative recorded this worker at the same moment. Please try again.",
+                "الممثل الآخر سجّل هذا العامل بنفس اللحظة. أعد المحاولة.", 409);
+        }
+
+        var result = ToDto(row);
         result.WorkerId = link.WorkerId;
-        result.WorkerName = link.Worker is null ? null : $"{link.Worker.FirstName} {link.Worker.LastName}";   // lets the scanner confirm who was scanned
-        return ApiResponse<WorkerAttendanceDto>.SuccessResponse(result, "Attendance recorded.", "تم تسجيل الحضور.", 201);
+        result.WorkerName = link.Worker is null ? null : $"{link.Worker.FirstName} {link.Worker.LastName}";
+        return ApiResponse<WorkerAttendanceDto>.SuccessResponse(result,
+            isPresent ? "Attendance recorded." : "Absence recorded.",
+            isPresent ? "تم تسجيل الحضور." : "تم تسجيل الغياب.", isNew ? 201 : 200);
     }
     public async Task<ApiResponse<WorkerAttendanceDto>> CheckOutAsync(int currentUserId, RecordAttendanceDto dto, CancellationToken ct = default)
     {
@@ -215,7 +280,7 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
         if (string.IsNullOrWhiteSpace(dto.QrCode))
             return Fail<WorkerAttendanceDto>("The worker's QR code is required.", "رمز QR الخاص بالعامل مطلوب.");
 
-        var sr = await _uow.ServiceRequests.GetByIdAsync(dto.ServiceRequestId, ct);
+        var sr = await _uow.ServiceRequests.GetAttendanceInfoAsync(dto.ServiceRequestId, ct);
         if (sr is null) return Fail<WorkerAttendanceDto>("Service request was not found.", "طلب الخدمة غير موجود.", 404);
 
         var link = await _repo.GetActiveLinkByQrAsync(dto.QrCode.Trim(), sr.Id, ct);
@@ -231,11 +296,12 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
         // Close the latest check-in of this worker that THIS side opened and has not closed yet.
         var rows = await _repo.ListByLinkAndDateAsync(link.Id, date, ct);
         var open = rows.LastOrDefault(r =>
-            r.EntryTypeId == LookupConstants.AttendanceEntryType.Present &&
-            r.ApprovalStatusId != LookupConstants.AttendanceApprovalStatus.Rejected &&
-            (gate.Side == Side.Association
-                ? r.AssociationCheckInDate != null && r.AssociationCheckOutDate == null
-                : r.ProductionCompanyCheckInDate != null && r.ProductionCompanyCheckOutDate == null));
+     r.ApprovalStatusId != LookupConstants.AttendanceApprovalStatus.Rejected &&
+     (gate.Side == Side.Association
+         ? r.AssociationEntryTypeId == LookupConstants.AttendanceEntryType.Present
+             && r.AssociationCheckInDate != null && r.AssociationCheckOutDate == null
+         : r.ProductionCompanyEntryTypeId == LookupConstants.AttendanceEntryType.Present
+             && r.ProductionCompanyCheckInDate != null && r.ProductionCompanyCheckOutDate == null));
 
         if (open is null)
             return Fail<WorkerAttendanceDto>("This worker has no open check-in to close.", "لا يوجد تسجيل دخول مفتوح لهذا العامل.");
@@ -252,13 +318,16 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
     }
 
     //  3) Approval (Production House, one record = one worker at a time)
-    public Task<ApiResponse<WorkerAttendanceDto>> ApproveAsync(int currentUserId, int attendanceId, CancellationToken ct = default) =>
-        ReviewAsync(currentUserId, attendanceId, approve: true, reason: null, ct);
+    public Task<ApiResponse<WorkerAttendanceDto>> ApproveAsync(int currentUserId, int attendanceId, ApproveAttendanceDto? dto, CancellationToken ct = default) =>
+    ReviewAsync(currentUserId, attendanceId, approve: true, reason: null, finalType: dto?.FinalEntryTypeId, ct);
+
+
 
     public Task<ApiResponse<WorkerAttendanceDto>> RejectAsync(int currentUserId, int attendanceId, string reason, CancellationToken ct = default) =>
-        ReviewAsync(currentUserId, attendanceId, approve: false, reason, ct);
+     ReviewAsync(currentUserId, attendanceId, approve: false, reason, finalType: null, ct);
 
-    private async Task<ApiResponse<WorkerAttendanceDto>> ReviewAsync(int currentUserId, int attendanceId, bool approve, string? reason, CancellationToken ct)
+    private async Task<ApiResponse<WorkerAttendanceDto>> ReviewAsync(int currentUserId, int attendanceId, bool approve, string? reason,
+    LookupConstants.AttendanceEntryTypeInput? finalType, CancellationToken ct)
     {
         var user = await GetActiveUserAsync(currentUserId, ct);
         if (user is null) return Unauthorized<WorkerAttendanceDto>();
@@ -266,10 +335,10 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
         if (!approve && string.IsNullOrWhiteSpace(reason))
             return Fail<WorkerAttendanceDto>("A rejection reason is required.", "سبب الرفض مطلوب.");
 
-        var a = await _repo.GetByIdAsync(attendanceId, ct);
+        var a = await _repo.GetForReviewAsync(attendanceId, ct);
         if (a is null) return Fail<WorkerAttendanceDto>("Attendance record was not found.", "سجل الحضور غير موجود.", 404);
 
-        var sr = await _uow.ServiceRequests.GetByIdAsync(a.WorkerProjectLink.ServiceRequestId, ct);
+        var sr = await _uow.ServiceRequests.GetAttendanceInfoAsync(a.WorkerProjectLink.ServiceRequestId, ct);
         if (sr is null) return Fail<WorkerAttendanceDto>("Service request was not found.", "طلب الخدمة غير موجود.", 404);
 
         if (!Permissions(user).Contains(ManagePermission) || !IsProductionHouseOf(user, sr))
@@ -282,7 +351,27 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
         if (a.ApprovalStatusId != LookupConstants.AttendanceApprovalStatus.Pending)
             return Fail<WorkerAttendanceDto>("This attendance record was already reviewed.", "تمت مراجعة سجل الحضور هذا مسبقاً.");
 
+        //------------------------------------------------ 
+        var bothSides = a.AssociationEntryTypeId is not null && a.ProductionCompanyEntryTypeId is not null;
+        if (!bothSides || a.EntryTypeId == LookupConstants.AttendanceEntryType.NotRecorded)
+            return Fail<WorkerAttendanceDto>("A representative did not record this worker; only Bayt Al Urdon can resolve it.",
+                "أحد الممثلين لم يسجّل هذا العامل؛ فقط بيت الأردن يمكنه معالجته.", 403);
+
+        if (approve)
+        {
+            if (a.AssociationEntryTypeId == a.ProductionCompanyEntryTypeId)
+                a.EntryTypeId = a.AssociationEntryTypeId!.Value;                       
+            else if (finalType is null)
+                return Fail<WorkerAttendanceDto>("The two representatives disagree; choose the final entry type (Present or Absent).",
+                    "الممثلان مختلفان؛ اختر النوع النهائي (حاضر أو غائب).");
+            else
+                a.EntryTypeId = (int)finalType.Value;                                   
+        }
+
         var now = DateTime.UtcNow;
+
+//----------------------------------------------------------------------
+
         a.ApprovalStatusId = approve
             ? LookupConstants.AttendanceApprovalStatus.Approved
             : LookupConstants.AttendanceApprovalStatus.Rejected;
@@ -301,7 +390,7 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
     //  4) Reads: day roster + summary (final wages preview)
     public async Task<ApiResponse<DayRosterDto>> GetDayRosterAsync(int currentUserId, int serviceRequestId, DateTime? date, CancellationToken ct = default)
     {
-        var (_, sr, error) = await LoadForViewAsync(currentUserId, serviceRequestId, ct);
+        var (user, sr, error) = await LoadForViewAsync(currentUserId, serviceRequestId, ct);
         if (error is not null) return Fail<DayRosterDto>(error.En!, error.Ar!, error.Status);
 
         var day = (date ?? (DateTime.UtcNow + LocalOffset)).Date;
@@ -318,12 +407,16 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
             Slots = slots.Select(ToDto).ToList(),
             CurrentSlotNumber = slots.FirstOrDefault(x => now >= x.OpensAtUtc && now < x.ClosesAtUtc)?.SlotNumber
         };
+        var mySide = await ResolveSideAsync(user!, sr!, ct);
+        dto.MySide = mySide == Side.None ? null : mySide.ToString();
 
         foreach (var link in links)
         {
             var mine = rows.Where(r => r.WorkerProjectLinkId == link.Id).ToList();
             dto.Workers.Add(new DayRosterItemDto
             {
+                SlotStatuses = slots.Select(s => ToSlotStatus(s.SlotNumber, mine.FirstOrDefault(r => r.CheckInNumber == s.SlotNumber))).ToList(),
+
                 WorkerProjectLinkId = link.Id,
                 WorkerId = link.WorkerId,
                 WorkerName = link.Worker is null ? null : $"{link.Worker.FirstName} {link.Worker.LastName}",
@@ -411,40 +504,47 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
             dto.TotalPayableAmount += item.PayableAmount;
             dto.Workers.Add(item);
         }
+        dto.CanFinalize = dto.Workers.All(w => w.PendingApprovalDays == 0 && w.OpenDays == 0);
 
         return ApiResponse<AttendanceSummaryDto>.SuccessResponse(dto, "Attendance summary fetched.", "تم جلب ملخص الحضور.");
     }
 
-    
+
     //  Business rules
-    
+
 
     // Day outcome. Present only if ALL required check-ins are recorded AND approved.
     //Otherwise, once the day is over (window closed) the worker is automatically Absent for the whole day.
     //Computed on read, so nothing needs a background job and approvals made later are picked up automatically.
     private static AttendanceDayStatus ComputeDayStatus(int frequency, DateTime date, IReadOnlyList<AttendanceTimeWindow> slots,
-        IReadOnlyList<WorkerAttendance> rows, DateTime nowUtc)
+      IReadOnlyList<WorkerAttendance> rows, DateTime nowUtc)
     {
         if (slots.Count == 0 && rows.Count == 0) return AttendanceDayStatus.NotScheduled;
 
-        var approvedPresent = rows.Count(r => r.EntryTypeId == LookupConstants.AttendanceEntryType.Present && r.ApprovalStatusId == LookupConstants.AttendanceApprovalStatus.Approved);
+        var approvedPresent = rows.Count(r => r.EntryTypeId == LookupConstants.AttendanceEntryType.Present
+                                           && r.ApprovalStatusId == LookupConstants.AttendanceApprovalStatus.Approved);
         if (frequency > 0 && approvedPresent >= frequency) return AttendanceDayStatus.Present;
 
-        // A rejected record or an approved absence decides the day immediately.
+        // رفض أو غياب معتمد بيحسم اليوم فوراً (زي ما كان)
         if (rows.Any(r => r.ApprovalStatusId == LookupConstants.AttendanceApprovalStatus.Rejected ||
                           (r.EntryTypeId == LookupConstants.AttendanceEntryType.Absent && r.ApprovalStatusId == LookupConstants.AttendanceApprovalStatus.Approved)))
             return AttendanceDayStatus.Absent;
 
-        var closesAt = slots.Count > 0 ? slots.Max(x => x.ClosesAtUtc) : date.AddDays(1) - LocalOffset;   // day ends when its LAST window closes
-        if (nowUtc <= closesAt)
-            return rows.Any(r => r.ApprovalStatusId == LookupConstants.AttendanceApprovalStatus.Pending)
-                ? AttendanceDayStatus.PendingApproval
-                : AttendanceDayStatus.Open;
+        // أي سجل بانتظار قرار (شركة الإنتاج أو بيت الأردن) = بانتظار، بغض النظر عن الوقت
+        if (rows.Any(r => r.ApprovalStatusId == LookupConstants.AttendanceApprovalStatus.Pending))
+            return AttendanceDayStatus.PendingApproval;
 
-        return AttendanceDayStatus.Absent;   // automatic absence for the entire day
+        var closesAt = slots.Count > 0 ? slots.Max(x => x.ClosesAtUtc) : date.AddDays(1) - LocalOffset;
+        if (nowUtc <= closesAt) return AttendanceDayStatus.Open;
+
+        // بعد نهاية اليوم: فتحة بدون سجل = الجوب لسا ما عالجها، فلسا مش غياب
+        if (slots.Any(s => rows.All(r => r.CheckInNumber != s.SlotNumber)))
+            return AttendanceDayStatus.PendingApproval;
+
+        return AttendanceDayStatus.Absent;
     }
 
-    private async Task<Gate> ValidateRecordingAsync(User user, ServiceRequest sr, DateTime date, DateTime nowUtc, bool requireOpenSlot, CancellationToken ct)
+    private async Task<Gate> ValidateRecordingAsync(User user, ServiceRequestAttendanceInfo sr, DateTime date, DateTime nowUtc, bool requireOpenSlot, CancellationToken ct)
     {
         if (!Permissions(user).Contains(ManagePermission))
             return new Gate(Side.None, "You do not have permission to record attendance.", "ليس لديك صلاحية تسجيل الحضور.", 403);
@@ -474,11 +574,11 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
         return new Gate(side, Slot: open);
     }
 
-    private async Task<Side> ResolveSideAsync(User user, ServiceRequest sr, CancellationToken ct)
+    private async Task<Side> ResolveSideAsync(User user, ServiceRequestAttendanceInfo sr, CancellationToken ct)
     {
         // Production House side = the Location Manager assigned to the project (the person who is physically on site).
         if (IsProductionHouseOf(user, sr))
-            return sr.Project.LocationManagerUserId == user.UserId ? Side.ProductionCompany : Side.None;
+            return sr.LocationManagerUserId == user.UserId ? Side.ProductionCompany : Side.None;
 
         // Association Representative = an Association user assigned as supervisor on the request's project.
         if (user.EntityType == EntityType.Association && user.EntityId == sr.AssociationId)
@@ -489,15 +589,15 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
         return Side.None;
     }
 
-    private static bool IsProductionHouseOf(User user, ServiceRequest sr) =>
+    private static bool IsProductionHouseOf(User user, ServiceRequestAttendanceInfo sr) =>
         user.EntityType == EntityType.ProductionCompany && user.EntityId == sr.ProductionCompanyId;
 
-    private async Task<(User? User, ServiceRequest? Sr, Gate? Error)> LoadForViewAsync(int currentUserId, int serviceRequestId, CancellationToken ct)
+    private async Task<(User? User, ServiceRequestAttendanceInfo? Sr, Gate? Error)> LoadForViewAsync(int currentUserId, int serviceRequestId, CancellationToken ct)
     {
         var user = await GetActiveUserAsync(currentUserId, ct);
         if (user is null) return (null, null, new Gate(Side.None, "Current user was not found or is inactive.", "لم يتم العثور على المستخدم الحالي أو أن حسابه غير نشط.", 401));
 
-        var sr = await _uow.ServiceRequests.GetByIdAsync(serviceRequestId, ct);
+        var sr = await _uow.ServiceRequests.GetAttendanceInfoAsync(serviceRequestId, ct);
         if (sr is null) return (user, null, new Gate(Side.None, "Service request was not found.", "طلب الخدمة غير موجود.", 404));
 
         var perms = Permissions(user);
@@ -520,7 +620,8 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
         var u = await _uow.Users.GetWithPermissionsAsync(id, ct);
         return u is { IsActive: true } ? u : null;
     }
-
+    private static bool CanResolveAttendance(User user) =>
+    user.EntityType == EntityType.BaytAlUrdon && Permissions(user).Contains(ResolvePermission);
     private static HashSet<string> Permissions(User user)
     {
         var role = user.Role.RolePermissions
@@ -538,6 +639,33 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
         var r = ApiResponse<T>.FailureResponse(en, ar);
         r.StatusCode = status;
         return r;
+    }
+    private static string SideCode(int? id) =>
+    id is null ? "NotRecorded" : LookupConstants.AttendanceEntryTypeCode(id.Value);
+
+    private static SlotStatusDto ToSlotStatus(int slotNumber, WorkerAttendance? row)
+    {
+        var dto = new SlotStatusDto
+        {
+            SlotNumber = slotNumber,
+            AttendanceId = row?.Id,
+            AssociationStatus = SideCode(row?.AssociationEntryTypeId),
+            ProductionCompanyStatus = SideCode(row?.ProductionCompanyEntryTypeId)
+        };
+
+        if (row is null) return dto;   // Status = NotRecorded
+
+        // قرار نهائي معتمد (شركة الإنتاج أو بيت الأردن)
+        if (row.ApprovalStatusId == LookupConstants.AttendanceApprovalStatus.Approved)
+        { dto.Status = LookupConstants.AttendanceEntryTypeCode(row.EntryTypeId); return dto; }
+
+        var a = row.AssociationEntryTypeId;
+        var p = row.ProductionCompanyEntryTypeId;
+        if (a is not null && p is not null)
+            dto.Status = a == p ? LookupConstants.AttendanceEntryTypeCode(a.Value) : "Conflict";
+        // طرف واحد بس: بيضل NotRecorded، والتفصيل بالـ side statuses
+
+        return dto;
     }
 
     private static ApiResponse<T> Unauthorized<T>() =>
@@ -577,6 +705,18 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
         ProductionCompanyCheckOutDate = a.ProductionCompanyCheckOutDate,
         ReviewedByUserId = a.ReviewedByUserId,
         ReviewedDate = a.ReviewedDate,
+        AssociationEntryTypeId = a.AssociationEntryTypeId,
+        AssociationEntryType = a.AssociationEntryTypeId is null ? null : LookupConstants.AttendanceEntryTypeCode(a.AssociationEntryTypeId.Value),
+        AssociationRecordedDate = a.AssociationRecordedDate,
+        AssociationReason = a.AssociationReason,
+        ProductionCompanyEntryTypeId = a.ProductionCompanyEntryTypeId,
+        ProductionCompanyEntryType = a.ProductionCompanyEntryTypeId is null ? null : LookupConstants.AttendanceEntryTypeCode(a.ProductionCompanyEntryTypeId.Value),
+        ProductionCompanyRecordedDate = a.ProductionCompanyRecordedDate,
+        ProductionCompanyReason = a.ProductionCompanyReason,
+        NotRecordedReason = a.NotRecordedReason,
+        ResolutionNote = a.ResolutionNote,
+        IsConflict = a.AssociationEntryTypeId != null && a.ProductionCompanyEntryTypeId != null
+             && a.AssociationEntryTypeId != a.ProductionCompanyEntryTypeId,
         RejectionReason = a.RejectionReason
     };
 }

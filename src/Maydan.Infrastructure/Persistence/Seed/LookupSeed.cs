@@ -32,6 +32,7 @@ public static class LookupSeed
     // Attendance Entry Type (15-16)
     public const int AttendanceEntryTypePresentItemId = 15;
     public const int AttendanceEntryTypeAbsentItemId = 16;
+    public const int AttendanceEntryTypeNotRecordedItemId = 17;
     public static void Seed(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<LookupCategory>().HasData(
@@ -63,7 +64,8 @@ public static class LookupSeed
             new LookupItem { Id = AttendanceApprovalStatusRejectedItemId, CategoryId = AttendanceApprovalStatusCategoryId, Code = "Rejected", ArabicName = "مرفوض", EnglishName = "Rejected", SortOrder = 3, IsActive = true, IsDeleted = false },
             // Attendance Entry Type
             new LookupItem { Id = AttendanceEntryTypePresentItemId, CategoryId = AttendanceEntryTypeCategoryId, Code = "Present", ArabicName = "حاضر", EnglishName = "Present", SortOrder = 1, IsActive = true, IsDeleted = false },
-            new LookupItem { Id = AttendanceEntryTypeAbsentItemId, CategoryId = AttendanceEntryTypeCategoryId, Code = "Absent", ArabicName = "غائب", EnglishName = "Absent", SortOrder = 2, IsActive = true, IsDeleted = false }
+            new LookupItem { Id = AttendanceEntryTypeAbsentItemId, CategoryId = AttendanceEntryTypeCategoryId, Code = "Absent", ArabicName = "غائب", EnglishName = "Absent", SortOrder = 2, IsActive = true, IsDeleted = false },
+            new LookupItem { Id = AttendanceEntryTypeNotRecordedItemId, CategoryId = AttendanceEntryTypeCategoryId, Code = "NotRecorded", ArabicName = "لم يُسجَّل", EnglishName = "Not Recorded", SortOrder = 3, IsActive = true, IsDeleted = false }
         );
     }
 }

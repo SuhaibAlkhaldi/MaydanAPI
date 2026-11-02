@@ -160,6 +160,9 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Property<int>("SlotNumber")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("UnrecordedProcessedDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<int?>("UpdatedBy")
                         .HasColumnType("int");
 
@@ -167,6 +170,8 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("UnrecordedProcessedDate", "ClosesAtUtc");
 
                     b.HasIndex("ServiceRequestId", "AttendanceDate", "SlotNumber")
                         .IsUnique();
@@ -829,6 +834,17 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                             IsActive = true,
                             IsDeleted = false,
                             SortOrder = 2
+                        },
+                        new
+                        {
+                            Id = 17,
+                            ArabicName = "لم يُسجَّل",
+                            CategoryId = 5,
+                            Code = "NotRecorded",
+                            EnglishName = "Not Recorded",
+                            IsActive = true,
+                            IsDeleted = false,
+                            SortOrder = 3
                         });
                 });
 
@@ -1431,6 +1447,18 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                             Module = "Attendance",
                             PermissionNameAr = "اعتماد الوقت الإضافي",
                             PermissionNameEn = "Approve Overtime",
+                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            PermissionId = 44,
+                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Id = 0,
+                            IsActive = true,
+                            IsDeleted = false,
+                            Module = "Attendance",
+                            PermissionNameAr = "معالجة حالات الحضور غير المسجلة",
+                            PermissionNameEn = "Resolve Attendance",
                             UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
                         });
                 });
@@ -2269,6 +2297,12 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
+                            RoleId = 1,
+                            PermissionId = 44,
+                            IsActive = true
+                        },
+                        new
+                        {
                             RoleId = 2,
                             PermissionId = 1,
                             IsActive = true
@@ -2433,6 +2467,12 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         {
                             RoleId = 3,
                             PermissionId = 17,
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 3,
+                            PermissionId = 43,
                             IsActive = true
                         },
                         new
@@ -3151,6 +3191,16 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("AssociationCheckOutDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("AssociationEntryTypeId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("AssociationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("AssociationRecordedDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<int?>("AssociationUserId")
                         .HasColumnType("int");
 
@@ -3176,16 +3226,37 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         .HasColumnType("int")
                         .HasDefaultValue(15);
 
+                    b.Property<DateTime?>("LastReminderDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NotRecordedReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<DateTime?>("ProductionCompanyCheckInDate")
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("ProductionCompanyCheckOutDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("ProductionCompanyEntryTypeId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProductionCompanyReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("ProductionCompanyRecordedDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<int?>("ProductionCompanyUserId")
                         .HasColumnType("int");
 
                     b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ResolutionNote")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
@@ -3208,11 +3279,15 @@ namespace Maydan.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ApprovalStatusId");
 
+                    b.HasIndex("AssociationEntryTypeId");
+
                     b.HasIndex("AttendanceForDate");
 
                     b.HasIndex("CityId");
 
-                    b.HasIndex("EntryTypeId");
+                    b.HasIndex("ProductionCompanyEntryTypeId");
+
+                    b.HasIndex("EntryTypeId", "ApprovalStatusId");
 
                     b.HasIndex("WorkerProjectLinkId", "AttendanceForDate", "CheckInNumber")
                         .IsUnique();
@@ -3770,6 +3845,11 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Maydan.Domain.Entities.LookupItem", null)
+                        .WithMany()
+                        .HasForeignKey("AssociationEntryTypeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Maydan.Domain.Entities.City", "City")
                         .WithMany()
                         .HasForeignKey("CityId")
@@ -3781,6 +3861,11 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         .HasForeignKey("EntryTypeId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("Maydan.Domain.Entities.LookupItem", null)
+                        .WithMany()
+                        .HasForeignKey("ProductionCompanyEntryTypeId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Maydan.Domain.Entities.WorkerProjectLink", "WorkerProjectLink")
                         .WithMany()

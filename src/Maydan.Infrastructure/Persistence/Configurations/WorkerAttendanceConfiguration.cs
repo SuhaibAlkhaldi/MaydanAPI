@@ -1,4 +1,4 @@
-using Maydan.Domain.Entities;
+﻿using Maydan.Domain.Entities;
 using Maydan.Infrastructure.Persistence.Seed;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -17,6 +17,11 @@ public class WorkerAttendanceConfiguration : IEntityTypeConfiguration<WorkerAtte
         builder.Property(x => x.CheckInNumber).IsRequired();
         builder.Property(x => x.RejectionReason).HasMaxLength(500);
         builder.Property(x => x.CreatedDate).IsRequired().HasDefaultValueSql("SYSUTCDATETIME()");
+        // NEW: الأسباب وملاحظات المعالجة
+        builder.Property(x => x.AssociationReason).HasMaxLength(500);
+        builder.Property(x => x.ProductionCompanyReason).HasMaxLength(500);
+        builder.Property(x => x.NotRecordedReason).HasMaxLength(500);
+        builder.Property(x => x.ResolutionNote).HasMaxLength(500);
 
         builder.Property(x => x.EntryTypeId)
             .IsRequired()
@@ -45,12 +50,20 @@ public class WorkerAttendanceConfiguration : IEntityTypeConfiguration<WorkerAtte
             .WithMany()
             .HasForeignKey(x => x.CityId)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<LookupItem>().WithMany()
+    .HasForeignKey(x => x.AssociationEntryTypeId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<LookupItem>().WithMany()
+            .HasForeignKey(x => x.ProductionCompanyEntryTypeId).OnDelete(DeleteBehavior.Restrict);
+
+        // A worker cannot have two rows for the same check-in slot of the same day.
+        // NEW: عشان الجوب يجيب الحالات المعلقة بسرعة (NotRecorded + Pending)
+        builder.HasIndex(x => new { x.EntryTypeId, x.ApprovalStatusId });
 
         // A worker cannot have two rows for the same check-in slot of the same day.
         builder.HasIndex(x => new { x.WorkerProjectLinkId, x.AttendanceForDate, x.CheckInNumber }).IsUnique();
         builder.HasIndex(x => x.AttendanceForDate);
     }
-}
+    }
 
 public class AttendanceTimeWindowConfiguration : IEntityTypeConfiguration<AttendanceTimeWindow>
 {
@@ -71,6 +84,8 @@ public class AttendanceTimeWindowConfiguration : IEntityTypeConfiguration<Attend
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.Property(x => x.SlotNumber).IsRequired();
+        builder.HasIndex(x => new { x.UnrecordedProcessedDate, x.ClosesAtUtc });
         builder.HasIndex(x => new { x.ServiceRequestId, x.AttendanceDate, x.SlotNumber }).IsUnique();
+
     }
 }

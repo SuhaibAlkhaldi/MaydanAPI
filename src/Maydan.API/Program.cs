@@ -21,6 +21,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 
 builder.Services.AddControllers(options => options.Filters.Add<SystemConfigurationGateFilter>());
+
 //builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -77,6 +78,7 @@ builder.Services.AddScoped<IWorkerAttendanceRepository, WorkerAttendanceReposito
 builder.Services.AddScoped<IWorkerAttendanceService, WorkerAttendanceService>();
 
 builder.Services.AddHostedService<Maydan.API.HostedServices.ServiceRequestReminderHostedService>();
+builder.Services.AddHostedService<Maydan.API.HostedServices.AttendanceSlotsHostedService>();
 
 var uploadsRootPath = Path.Combine(
     builder.Environment.WebRootPath ?? Path.Combine(builder.Environment.ContentRootPath, "wwwroot"),

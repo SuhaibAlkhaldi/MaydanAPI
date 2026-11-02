@@ -1,3 +1,4 @@
+using Azure.Core;
 using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.ServiceRequests;
 using Maydan.Application.Exceptions;
@@ -301,45 +302,80 @@ public class ServiceRequestService : IServiceRequestService
             }
         }
 
+        var statuses = await _unitOfWork.Lookups.GetItemsByCategoryCodeAsync("ServiceRequestStatus", cancellationToken);
+        var status = statuses.FirstOrDefault(s => s.Id == serviceRequestInfo.StatusId);
+
         var creationResult = new ServiceRequestDto
         {
             Id = serviceRequestInfo.Id,
-            StatusId = serviceRequestInfo.StatusId
+            StatusId = serviceRequestInfo.StatusId,
+            StatusNameEn = status?.EnglishName,
+            StatusNameAr = status?.ArabicName
         };
 
         return ApiResponse<ServiceRequestDto>.SuccessResponse(
             creationResult,
+            "Service request created successfully.",
             "تم إنشاء طلب الخدمة بنجاح.",
-            "Service request created successfully.");
+            201);
     }
+    //public async Task<ApiResponse<List<ServiceRequestDto>>> GetAllAsync(int currentUserId, CancellationToken cancellationToken = default)
+    //{
+    //    var (currentUser, authError) = await GetCurrentUserAsync<List<ServiceRequestDto>>(currentUserId, cancellationToken);
+    //    if (authError is not null)
+    //    {
+    //        return authError;
+    //    }
+    //    var permissionError = EnsureCanViewServiceRequests<List<ServiceRequestDto>>(currentUser!);
+    //    if (permissionError is not null) { 
+    //        return permissionError;
+    //    }
+    //    List<ServiceRequest> AllServiceRequests;
+    //    if (currentUser!.EntityType == EntityType.ProductionCompany)
+    //    {
+    //        AllServiceRequests = await _unitOfWork.ServiceRequests.ListSummariesByProductionCompanyAsync(currentUser.EntityId, cancellationToken);
+    //    }
+
+    //    else if (currentUser.EntityType == EntityType.Association)
+    //    {
+    //        AllServiceRequests = await _unitOfWork.ServiceRequests.ListSummariesByAssociationAsync(currentUser.EntityId, cancellationToken);
+    //    }
+    //    else
+    //    {
+    //        AllServiceRequests = new List<ServiceRequest>();
+    //    }
+    //    //var response = AllServiceRequests.Select(r =>
+    //    //    new ServiceRequestDto { Id = r.Id, StatusId = r.StatusId }).ToList();
+    //    return ApiResponse<List<ServiceRequestDto>>.SuccessResponse(AllServiceRequests, "تم جلب طلبات الخدمة بنجاح.", "Service requests retrieved successfully.");
+    //}
+
     public async Task<ApiResponse<List<ServiceRequestDto>>> GetAllAsync(int currentUserId, CancellationToken cancellationToken = default)
     {
         var (currentUser, authError) = await GetCurrentUserAsync<List<ServiceRequestDto>>(currentUserId, cancellationToken);
         if (authError is not null)
-        {
             return authError;
-        }
+
         var permissionError = EnsureCanViewServiceRequests<List<ServiceRequestDto>>(currentUser!);
-        if (permissionError is not null) { 
+        if (permissionError is not null)
             return permissionError;
-        }
-        List<ServiceRequest> AllServiceRequests;
+
+        List<ServiceRequestDto> response;
         if (currentUser!.EntityType == EntityType.ProductionCompany)
         {
-            AllServiceRequests = await _unitOfWork.ServiceRequests.GetByProductionCompanyIdAsync(currentUser.EntityId, cancellationToken);
+            response = await _unitOfWork.ServiceRequests.ListSummariesByProductionCompanyAsync(currentUser.EntityId, cancellationToken);
         }
         else if (currentUser.EntityType == EntityType.Association)
         {
-            AllServiceRequests = await _unitOfWork.ServiceRequests.GetByAssociationIdAsync(currentUser.EntityId, cancellationToken);
+            response = await _unitOfWork.ServiceRequests.ListSummariesByAssociationAsync(currentUser.EntityId, cancellationToken);
         }
         else
         {
-            AllServiceRequests = new List<ServiceRequest>();
+            response = new List<ServiceRequestDto>();
         }
-        var response = AllServiceRequests.Select(r =>
-            new ServiceRequestDto { Id = r.Id, StatusId = r.StatusId }).ToList();
+
         return ApiResponse<List<ServiceRequestDto>>.SuccessResponse(response, "تم جلب طلبات الخدمة بنجاح.", "Service requests retrieved successfully.");
     }
+
     public async Task<ApiResponse<ServiceRequestDetailsDto>> GetByIdAsync(int currentUserId, int id, CancellationToken cancellationToken = default)
     {
         var (currentUser, authError) = await GetCurrentUserAsync<ServiceRequestDetailsDto>(currentUserId, cancellationToken); if (authError is not null)
@@ -351,58 +387,72 @@ public class ServiceRequestService : IServiceRequestService
         {
             return permissionError;
         }
-        var CurrentRequestId = await _unitOfWork.ServiceRequests.GetByIdAsync(id, cancellationToken); if (CurrentRequestId is null)
+        var CurrentRequestId = await _unitOfWork.ServiceRequests.GetDetailsAsync(id, cancellationToken); 
+        if (CurrentRequestId is null)
         {
             return ApiResponse<ServiceRequestDetailsDto>.FailureResponse("لم يتم العثور على طلب الخدمة.", "Service request was not found.");
         } // Ensure caller is allowed to view this request
-        if (currentUser!.EntityType == EntityType.ProductionCompany && currentUser.EntityId != CurrentRequestId.ProductionCompanyId)
-        {
-            return ApiResponse<ServiceRequestDetailsDto>.FailureResponse("ليس لديك الصلاحية لعرض طلب الخدمة هذا.", "Caller is not authorized to view this service request.");
-        }
-        if (currentUser.EntityType == EntityType.Association && currentUser.EntityId != CurrentRequestId.AssociationId)
-        {
-            return ApiResponse<ServiceRequestDetailsDto>.FailureResponse("ليس لديك الصلاحية لعرض طلب الخدمة هذا.", "Caller is not authorized to view this service request.");
-        }
-        var ServiceRequestDetails = new ServiceRequestDetailsDto
-        {
-            Id = CurrentRequestId.Id,
-            ServiceId = CurrentRequestId.ServiceId,
-            ServiceNameEn = CurrentRequestId.Service?.NameEn ?? string.Empty,
-            ServiceNameAr = CurrentRequestId.Service?.NameAr ?? string.Empty,
-            ProjectId = CurrentRequestId.ProjectId,
-            ProjectNameEn = CurrentRequestId.Project?.ProjectNameEn ?? string.Empty,
-            ProjectNameAr = CurrentRequestId.Project?.ProjectNameAr ?? string.Empty,
-            AssociationId = CurrentRequestId.AssociationId,
-            AssociationNameEn = CurrentRequestId.Association?.EnglishName ?? string.Empty,
-            AssociationNameAr = CurrentRequestId.Association?.ArabicName ?? string.Empty,
-            CityId = CurrentRequestId.Association?.CityId ?? 0,
-            StartDate = CurrentRequestId.StartDate,
-            EndDate = CurrentRequestId.EndDate,
-            ShiftsCount = CurrentRequestId.ShiftsCount,
-            RequestedWorkersCount = CurrentRequestId.RequestedWorkersCount,
-            SelectedWorkersCount = CurrentRequestId.SelectedWorkersCount,
-            AttendanceFrequency = CurrentRequestId.AttendanceFrequency,
-            UnitPriceSnapshot = CurrentRequestId.UnitPriceSnapshot,
-            ExpectedTotalAmount = CurrentRequestId.ExpectedTotalAmount,
-// get assigned workers with their documents
-            AssignedWorkers = CurrentRequestId.ServiceRequestWorkers
-            .Select(srw => new AssignedWorkerDto(
-            srw.Worker.Id,
-            $"{srw.Worker.FirstName} {srw.Worker.LastName}".Trim(),
-            srw.Worker.PhoneNumber,
-            srw.Worker.Nationality,
-            srw.Worker.YearsOfExperience,
-            srw.Worker.Documents.Select(d => d.FilePath).ToList())).ToList(),
 
-            StatusId = CurrentRequestId.StatusId,
-            StatusNameEn = CurrentRequestId.Status?.EnglishName,
-            StatusNameAr = CurrentRequestId.Status?.ArabicName,
-            RejectionReason = CurrentRequestId.RejectionReason,
-            CreatedAt = CurrentRequestId.CreatedAt,
-            CancelledAt = CurrentRequestId.CancelledAt,
-            AdditionalRequirements = CurrentRequestId.AdditionalRequirements
-        };
-        return ApiResponse<ServiceRequestDetailsDto>.SuccessResponse(ServiceRequestDetails, "تم جلب طلب الخدمة بنجاح.", "Service request retrieved successfully.");
+        var isNotAllowed =
+        (currentUser!.EntityType == EntityType.ProductionCompany && currentUser.EntityId != CurrentRequestId.ProductionCompanyId) ||
+        (currentUser.EntityType == EntityType.Association && currentUser.EntityId != CurrentRequestId.AssociationId);
+
+        if (isNotAllowed)
+        {
+            return ApiResponse<ServiceRequestDetailsDto>.FailureResponse(
+                "Caller is not authorized to view this service request.",
+                "ليس لديك الصلاحية لعرض طلب الخدمة هذا.");
+        }
+
+        //if (currentUser!.EntityType == EntityType.ProductionCompany && currentUser.EntityId != CurrentRequestId.ProductionCompanyId) ||
+        //{
+
+        //    return ApiResponse<ServiceRequestDetailsDto>.FailureResponse("ليس لديك الصلاحية لعرض طلب الخدمة هذا.", "Caller is not authorized to view this service request.");
+        //}
+        //if (currentUser.EntityType == EntityType.Association && currentUser.EntityId != CurrentRequestId.AssociationId)
+        //{
+        //    return ApiResponse<ServiceRequestDetailsDto>.FailureResponse("ليس لديك الصلاحية لعرض طلب الخدمة هذا.", "Caller is not authorized to view this service request.");
+        //}
+//        var ServiceRequestDetails = new ServiceRequestDetailsDto
+//        {
+//            Id = CurrentRequestId.Id,
+//            ServiceId = CurrentRequestId.ServiceId,
+//            ServiceNameEn = CurrentRequestId.Service?.NameEn ?? string.Empty,
+//            ServiceNameAr = CurrentRequestId.Service?.NameAr ?? string.Empty,
+//            ProjectId = CurrentRequestId.ProjectId,
+//            ProjectNameEn = CurrentRequestId.Project?.ProjectNameEn ?? string.Empty,
+//            ProjectNameAr = CurrentRequestId.Project?.ProjectNameAr ?? string.Empty,
+//            AssociationId = CurrentRequestId.AssociationId,
+//            AssociationNameEn = CurrentRequestId.Association?.EnglishName ?? string.Empty,
+//            AssociationNameAr = CurrentRequestId.Association?.ArabicName ?? string.Empty,
+//            CityId = CurrentRequestId.Association?.CityId ?? 0,
+//            StartDate = CurrentRequestId.StartDate,
+//            EndDate = CurrentRequestId.EndDate,
+//            ShiftsCount = CurrentRequestId.ShiftsCount,
+//            RequestedWorkersCount = CurrentRequestId.RequestedWorkersCount,
+//            SelectedWorkersCount = CurrentRequestId.SelectedWorkersCount,
+//            AttendanceFrequency = CurrentRequestId.AttendanceFrequency,
+//            UnitPriceSnapshot = CurrentRequestId.UnitPriceSnapshot,
+//            ExpectedTotalAmount = CurrentRequestId.ExpectedTotalAmount,
+//// get assigned workers with their documents
+//            AssignedWorkers = CurrentRequestId.ServiceRequestWorkers
+//            .Select(srw => new AssignedWorkerDto(
+//            srw.Worker.Id,
+//            $"{srw.Worker.FirstName} {srw.Worker.LastName}".Trim(),
+//            srw.Worker.PhoneNumber,
+//            srw.Worker.Nationality,
+//            srw.Worker.YearsOfExperience,
+//            srw.Worker.Documents.Select(d => d.FilePath).ToList())).ToList(),
+
+//            StatusId = CurrentRequestId.StatusId,
+//            StatusNameEn = CurrentRequestId.Status?.EnglishName,
+//            StatusNameAr = CurrentRequestId.Status?.ArabicName,
+//            RejectionReason = CurrentRequestId.RejectionReason,
+//            CreatedAt = CurrentRequestId.CreatedAt,
+//            CancelledAt = CurrentRequestId.CancelledAt,
+//            AdditionalRequirements = CurrentRequestId.AdditionalRequirements
+//        };
+        return ApiResponse<ServiceRequestDetailsDto>.SuccessResponse(CurrentRequestId, "تم جلب طلب الخدمة بنجاح.", "Service request retrieved successfully.");
     }
 
     public async Task<ApiResponse<object?>> CancelAsync(int currentUserId, int id, CancellationToken cancellationToken = default)
@@ -417,7 +467,7 @@ public class ServiceRequestService : IServiceRequestService
         {
             return permissionError;
         }
-        var CanceledRequestId = await _unitOfWork.ServiceRequests.GetByIdAsync(id, cancellationToken);
+        var CanceledRequestId = await _unitOfWork.ServiceRequests.GetForUpdateAsync(id, cancellationToken);
         if (CanceledRequestId is null)
         {
             return ApiResponse<object?>.FailureResponse("لم يتم العثور على طلب الخدمة.", "Service request was not found.");
@@ -528,7 +578,7 @@ public class ServiceRequestService : IServiceRequestService
         var (currentUser, authError) = await GetCurrentUserAsync<object?>(currentUserId, cancellationToken);
         if (authError is not null)
             return authError;
-        var RejectedRequestId = await _unitOfWork.ServiceRequests.GetByIdAsync(id, cancellationToken);
+        var RejectedRequestId = await _unitOfWork.ServiceRequests.GetForUpdateAsync(id, cancellationToken);
         if (RejectedRequestId is null)
             return ApiResponse<object?>.FailureResponse("لم يتم العثور على طلب الخدمة.", "Service request was not found.");
 
@@ -548,98 +598,109 @@ public class ServiceRequestService : IServiceRequestService
         // Optional: Send Email to Production Company here that their request was rejected.
         return ApiResponse<object?>.SuccessResponse(null, "تم رفض طلب الخدمة بنجاح.", "Service request rejected successfully.");
     }
-    
+
 
     public async Task<ApiResponse<object?>> ApproveAndAssignAsync(int currentUserId, int id, List<int> workerIds, CancellationToken cancellationToken = default)
     {
         var (currentUser, authError) = await GetCurrentUserAsync<object?>(currentUserId, cancellationToken);
         if (authError is not null) return authError;
 
-        var CurrentRequestToApprove = await _unitOfWork.ServiceRequests.GetByIdAsync(id, cancellationToken);
-        
-
-        if (CurrentRequestToApprove is null)
+        var request = await _unitOfWork.ServiceRequests.GetForAssignmentAsync(id, cancellationToken);
+        if (request is null)
         {
             return ApiResponse<object?>.FailureResponse(
                 "Service request was not found.",
                 "طلب الخدمة غير موجود.");
         }
-        if (currentUser!.EntityType != EntityType.Association || currentUser.EntityId != CurrentRequestToApprove.AssociationId)
-                {
-                    return ApiResponse<object?>.FailureResponse("ليس لديك الصلاحية للموافقة على طلب الخدمة هذا.", "Only the assigned association may approve this request.");
-               }
-       
+
+        if (currentUser!.EntityType != EntityType.Association || currentUser.EntityId != request.AssociationId)
+        {
+            return ApiResponse<object?>.FailureResponse(
+                "Only the assigned association may approve this request.",
+                "ليس لديك الصلاحية للموافقة على طلب الخدمة هذا.");
+        }
+
         // Make sure the request is in the correct status
-        if (CurrentRequestToApprove.StatusId != LookupConstants.ServiceRequestStatus.PendingWorkerSelection)
+        if (request.StatusId != LookupConstants.ServiceRequestStatus.PendingWorkerSelection)
         {
             return ApiResponse<object?>.FailureResponse(
                 "Cannot approve and assign workers for the request in its current status.",
                 "لا يمكن الموافقة وتعيين العمال في حالة الطلب الحالية.");
         }
-        if (workerIds is null || workerIds.Count != CurrentRequestToApprove.RequestedWorkersCount)
+
+        if (workerIds is null || workerIds.Count != request.RequestedWorkersCount)
         {
-            return ApiResponse<object?>.FailureResponse("عدد العمال المحدد لا يتطابق مع العدد المطلوب.", "Worker count mismatch.");
+            return ApiResponse<object?>.FailureResponse(
+                "Worker count mismatch.",
+                "عدد العمال المحدد لا يتطابق مع العدد المطلوب.");
         }
 
         // Reject duplicate worker IDs
-        if (workerIds is null ||
-            workerIds.Count != workerIds.Distinct().Count())
+        if (workerIds.Count != workerIds.Distinct().Count())
         {
             return ApiResponse<object?>.FailureResponse(
                 "Worker IDs must be unique.",
                 "يجب عدم تكرار العمال.");
         }
 
+        // 3 queries ثابتة بغض النظر عن عدد العمال
+        var associationByWorker = await _unitOfWork.Workers.GetAssociationIdsAsync(workerIds, cancellationToken);
+        var busy = await _unitOfWork.Workers.GetBusyWorkerIdsAsync(workerIds, request.StartDate, request.EndDate, cancellationToken);
+        var linked = await _unitOfWork.WorkerProjectLinks.ListActiveWorkerIdsAsync(request.Id, workerIds, cancellationToken);
+
+        // 1) تحقق من الكل أولاً (بالذاكرة)
         foreach (var workerId in workerIds)
         {
-            var worker = await _unitOfWork.Workers
-                .GetByIdAsync(workerId, cancellationToken);
-
-            if (worker is null)
+            if (!associationByWorker.TryGetValue(workerId, out var assocId))
             {
                 return ApiResponse<object?>.FailureResponse(
                     $"Worker with ID {workerId} was not found.",
                     $"العامل ذو الرقم {workerId} غير موجود.");
             }
 
-            if (worker.AssociationId != CurrentRequestToApprove.AssociationId)
+            if (assocId != request.AssociationId)
             {
                 return ApiResponse<object?>.FailureResponse(
                     $"Worker {workerId} does not belong to the request association.",
                     $"العامل ذو الرقم {workerId} لا يتبع الجمعية المرتبطة بالطلب.");
             }
-            if (await _unitOfWork.Workers.IsWorkerBusyAsync(workerId, CurrentRequestToApprove.StartDate, CurrentRequestToApprove.EndDate, cancellationToken))
+
+            if (busy.Contains(workerId))
             {
                 return ApiResponse<object?>.FailureResponse(
                     $"Worker {workerId} is already assigned to another request in the same period.",
                     $"العامل ذو الرقم {workerId} معيّن على طلب آخر في نفس الفترة.");
             }
-            await _unitOfWork.ServiceRequests
-            .AssignToServiceRequestAsync(id,workerId,cancellationToken);
-            var existingLink = await _unitOfWork.WorkerProjectLinks
-     .GetActiveByRequestAndWorkerAsync(CurrentRequestToApprove.Id, workerId, cancellationToken);
+        }
 
-            if (existingLink is null)
+        // 2) بعدين الكتابة
+        foreach (var workerId in workerIds)
+        {
+            await _unitOfWork.ServiceRequests.AssignToServiceRequestAsync(request.Id, workerId, cancellationToken);
+
+            if (!linked.Contains(workerId))
             {
                 await _unitOfWork.WorkerProjectLinks.AddAsync(new WorkerProjectLink
                 {
-                    ProjectId = CurrentRequestToApprove.ProjectId,
+                    ProjectId = request.ProjectId,
                     WorkerId = workerId,
-                    ServiceRequestId = CurrentRequestToApprove.Id,
-                    DailyWageAmount = CurrentRequestToApprove.Service.Price,
+                    ServiceRequestId = request.Id,
+                    DailyWageAmount = request.Service.Price,
                     IsWorkerActive = true,
                     CreatedBy = currentUserId
                 }, cancellationToken);
             }
         }
 
-
-        CurrentRequestToApprove.SelectedWorkersCount = workerIds.Count;
-        CurrentRequestToApprove.StatusId = LookupConstants.ServiceRequestStatus.InProgress;
+        request.SelectedWorkersCount = workerIds.Count;
+        request.StatusId = LookupConstants.ServiceRequestStatus.InProgress;
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return ApiResponse<object?>.SuccessResponse(null, "تمت الموافقة وتعيين العمال بنجاح.", "Workers assigned successfully.");
+        return ApiResponse<object?>.SuccessResponse(
+            null,
+            "Workers assigned successfully.",
+            "تمت الموافقة وتعيين العمال بنجاح.");
     }
 
 }

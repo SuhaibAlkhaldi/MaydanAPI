@@ -112,8 +112,9 @@ namespace Maydan.Infrastructure.Persistence.Seed
                 SystemPermissions.ManageProductionCompanyUsers,
                 SystemPermissions.ViewTotalAmountForServiceRequest,
                 SystemPermissions.CreateUsers,
-                SystemPermissions.ManageServiceRequests
-            };
+                SystemPermissions.ManageServiceRequests,
+                SystemPermissions.ApproveOvertime
+    };
 
             var associationPermissions = new[]
             {
@@ -132,7 +133,7 @@ namespace Maydan.Infrastructure.Persistence.Seed
                 SystemPermissions.CreateUsers
             };
             
-            var allPermissionIds = Enumerable.Range(1, 43);
+            var allPermissionIds = Enumerable.Range(1, 44);
 
             var grants = ForRole(BaytAlUrdon, allPermissionIds)
                 .Concat(ForRole(Aseza, asezaPermissions))
