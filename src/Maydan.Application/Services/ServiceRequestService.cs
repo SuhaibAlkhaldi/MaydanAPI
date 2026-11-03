@@ -98,7 +98,7 @@ public class ServiceRequestService : IServiceRequestService
         var association = await _unitOfWork.Associations.GetByCityIdAsync(cityId, cancellationToken);
         if (association is null)
         {
-            return ApiResponse<AssociationLookupDto>.FailureResponse("لم يتم العثور على جمعية مرتبطة بالمدينة المحددة.", "No association found for the specified city.");
+            return ApiResponse<AssociationLookupDto>.FailureResponse("No association found for the specified city.","لم يتم العثور على جمعية مرتبطة بالمدينة المحددة.");
         }
         var AssociationsInfo = new AssociationLookupDto
         {
@@ -109,7 +109,7 @@ public class ServiceRequestService : IServiceRequestService
             Latitude = association.Latitude,
             Longitude = association.Longitude
         };
-        return ApiResponse<AssociationLookupDto>.SuccessResponse(AssociationsInfo, "تم العثور على الجمعية بنجاح.", "Association found successfully.");
+        return ApiResponse<AssociationLookupDto>.SuccessResponse(AssociationsInfo, "Association found successfully.", "تم العثور على الجمعية بنجاح.");
     }
 
 
@@ -137,16 +137,16 @@ public class ServiceRequestService : IServiceRequestService
         // Validate request values
         if (dto.RequestedWorkersCount <= 0 || dto.ShiftsCount <= 0)
         {
-            return ApiResponse<ServiceRequestDto>.FailureResponse(
-                "عدد العمال والمدة يجب أن يكونا أكبر من صفر.",
-                "Workers count and duration must be greater than zero.");
+            return ApiResponse<ServiceRequestDto>.FailureResponse("Workers count and duration must be greater than zero.",
+                "عدد العمال والمدة يجب أن يكونا أكبر من صفر."
+                );
         }
 
         if (dto.EndDate < dto.StartDate)
         {
             return ApiResponse<ServiceRequestDto>.FailureResponse(
-                "تاريخ النهاية يجب ألا يسبق تاريخ البداية.",
-                "End date cannot be earlier than start date.");
+                
+                "End date cannot be earlier than start date.", "تاريخ النهاية يجب ألا يسبق تاريخ البداية.");
         }
 
         // Validate project
@@ -156,16 +156,16 @@ public class ServiceRequestService : IServiceRequestService
         if (project is null)
         {
             return ApiResponse<ServiceRequestDto>.FailureResponse(
-                "لم يتم العثور على المشروع.",
-                "Project was not found.");
+                "Project was not found.", "لم يتم العثور على المشروع."
+               );
         }
 
         if (currentUser!.EntityType != EntityType.ProductionCompany ||
             currentUser.EntityId != project.ProductionCompanyId)
         {
             return ApiResponse<ServiceRequestDto>.FailureResponse(
-                "يجب أن ينتمي المستخدم إلى شركة الإنتاج التي تملك المشروع.",
-                "Caller must belong to the production company that owns the project.");
+                
+                "Caller must belong to the production company that owns the project.", "يجب أن ينتمي المستخدم إلى شركة الإنتاج التي تملك المشروع.");
         }
 
         // Find association in the requested city
@@ -175,8 +175,8 @@ public class ServiceRequestService : IServiceRequestService
         if (association is null)
         {
             return ApiResponse<ServiceRequestDto>.FailureResponse(
-                "لم يتم العثور على جمعية مرتبطة بالمدينة المحددة.",
-                "No association found for the specified city.");
+                
+                "No association found for the specified city.", "لم يتم العثور على جمعية مرتبطة بالمدينة المحددة.");
         }
 
         // Prevent duplicate requests
@@ -203,16 +203,16 @@ public class ServiceRequestService : IServiceRequestService
         if (service is null)
         {
             return ApiResponse<ServiceRequestDto>.FailureResponse(
-                "لم يتم العثور على الخدمة.",
-                "Service was not found.");
+               
+                "Service was not found.", "لم يتم العثور على الخدمة.");
         }
 
         // Validate the service's calculation type
         if (!Enum.IsDefined(typeof(CalculationType), service.CalculationType))
         {
             return ApiResponse<ServiceRequestDto>.FailureResponse(
-                "نوع احتساب سعر الخدمة غير صالح.",
-                "Invalid service calculation type.");
+                
+                "Invalid service calculation type.", "نوع احتساب سعر الخدمة غير صالح.");
         }
 
         // Calculate payment using the service's actual unit price
@@ -373,7 +373,7 @@ public class ServiceRequestService : IServiceRequestService
             response = new List<ServiceRequestDto>();
         }
 
-        return ApiResponse<List<ServiceRequestDto>>.SuccessResponse(response, "تم جلب طلبات الخدمة بنجاح.", "Service requests retrieved successfully.");
+        return ApiResponse<List<ServiceRequestDto>>.SuccessResponse(response,  "Service requests retrieved successfully.", "تم جلب طلبات الخدمة بنجاح.");
     }
 
     public async Task<ApiResponse<ServiceRequestDetailsDto>> GetByIdAsync(int currentUserId, int id, CancellationToken cancellationToken = default)
@@ -390,7 +390,7 @@ public class ServiceRequestService : IServiceRequestService
         var CurrentRequestId = await _unitOfWork.ServiceRequests.GetDetailsAsync(id, cancellationToken); 
         if (CurrentRequestId is null)
         {
-            return ApiResponse<ServiceRequestDetailsDto>.FailureResponse("لم يتم العثور على طلب الخدمة.", "Service request was not found.");
+            return ApiResponse<ServiceRequestDetailsDto>.FailureResponse("Service request was not found.","لم يتم العثور على طلب الخدمة.");
         } // Ensure caller is allowed to view this request
 
         var isNotAllowed =
@@ -470,7 +470,7 @@ public class ServiceRequestService : IServiceRequestService
         var CanceledRequestId = await _unitOfWork.ServiceRequests.GetForUpdateAsync(id, cancellationToken);
         if (CanceledRequestId is null)
         {
-            return ApiResponse<object?>.FailureResponse("لم يتم العثور على طلب الخدمة.", "Service request was not found.");
+            return ApiResponse<object?>.FailureResponse("Service request was not found.", "لم يتم العثور على طلب الخدمة.");
         }
         // Admin can cancel any request. 
         // Otherwise, caller must be the owning production company.
@@ -480,15 +480,15 @@ public class ServiceRequestService : IServiceRequestService
         {
             if (currentUser!.EntityType != EntityType.ProductionCompany || currentUser.EntityId != CanceledRequestId.ProductionCompanyId)
             {
-                return ApiResponse<object?>.FailureResponse("ليس لديك الصلاحية لإلغاء طلب الخدمة هذا.", "Only the owning production company may cancel this request.");
+                return ApiResponse<object?>.FailureResponse("Only the owning production company may cancel this request.", "ليس لديك الصلاحية لإلغاء طلب الخدمة هذا.");
             }
         }
         if (CanceledRequestId.StatusId != LookupConstants.ServiceRequestStatus.PendingWorkerSelection)
         {
-            return ApiResponse<object?>.FailureResponse("لا تستطيع الغاء طلبك ", "Cannot cancel the request after worker assignment has started.");
+            return ApiResponse<object?>.FailureResponse("Cannot cancel the request after worker assignment has started.", "لا تستطيع الغاء طلبك ");
         }
         CanceledRequestId.StatusId = LookupConstants.ServiceRequestStatus.Cancelled; CanceledRequestId.CancelledAt = DateTime.UtcNow; await _unitOfWork.SaveChangesAsync(cancellationToken);
-        return ApiResponse<object?>.SuccessResponse(null, "تم إلغاء طلب الخدمة بنجاح.", "Service request cancelled successfully.");
+        return ApiResponse<object?>.SuccessResponse(null, "Service request cancelled successfully.", "تم إلغاء طلب الخدمة بنجاح.");
     }
 
 
@@ -521,25 +521,24 @@ public class ServiceRequestService : IServiceRequestService
         if (service is null)
         {
             return ApiResponse<ExpectedPaymentCalculationDto>
-                .FailureResponse(
-                    "لم يتم العثور على الخدمة.",
-                    "Service was not found.");
+                .FailureResponse("Service was not found.",
+                    "لم يتم العثور على الخدمة."
+                    );
         }
 
         if (requestedWorkers <= 0 || durationCount <= 0)
         {
             return ApiResponse<ExpectedPaymentCalculationDto>
                 .FailureResponse(
-                    "عدد العمال والمدة يجب أن يكونا أكبر من صفر.",
-                    "Workers count and duration must be greater than zero.");
+                  "Workers count and duration must be greater than zero.",  "عدد العمال والمدة يجب أن يكونا أكبر من صفر.");
         }
 
         if (!Enum.IsDefined(typeof(CalculationType), service.CalculationType))
         {
             return ApiResponse<ExpectedPaymentCalculationDto>
-                .FailureResponse(
-                    "نوع احتساب سعر الخدمة غير صالح.",
-                    "Invalid service calculation type.");
+                .FailureResponse("Invalid service calculation type.",
+                    "نوع احتساب سعر الخدمة غير صالح."
+                    );
         }
 
         // Price is already the price per hour, shift, or day.
@@ -577,23 +576,23 @@ public class ServiceRequestService : IServiceRequestService
             return authError;
         var RejectedRequestId = await _unitOfWork.ServiceRequests.GetForUpdateAsync(id, cancellationToken);
         if (RejectedRequestId is null)
-            return ApiResponse<object?>.FailureResponse("لم يتم العثور على طلب الخدمة.", "Service request was not found.");
+            return ApiResponse<object?>.FailureResponse("Service request was not found.", "لم يتم العثور على طلب الخدمة.");
 
         // Validate caller is the Association assigned to this request
         if (currentUser!.EntityType != EntityType.Association || currentUser.EntityId != RejectedRequestId.AssociationId)
         {
-            return ApiResponse<object?>.FailureResponse("ليس لديك الصلاحية لرفض طلب الخدمة هذا.", "Only the assigned association may reject this request.");
+            return ApiResponse<object?>.FailureResponse("Only the assigned association may reject this request.", "ليس لديك الصلاحية لرفض طلب الخدمة هذا.");
         }
         if (RejectedRequestId.StatusId != LookupConstants.ServiceRequestStatus.PendingWorkerSelection)
         {
-            return ApiResponse<object?>.FailureResponse("لا يمكن رفض الطلب في حالته الحالية.", "Cannot reject request in its current status.");
+            return ApiResponse<object?>.FailureResponse("Cannot reject request in its current status.", "لا يمكن رفض الطلب في حالته الحالية.");
         }
         RejectedRequestId.StatusId = LookupConstants.ServiceRequestStatus.Rejected;
         // If you add a RejectionReason property to ServiceRequest entity, you can set it here:
         RejectedRequestId.RejectionReason = reason;
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         // Optional: Send Email to Production Company here that their request was rejected.
-        return ApiResponse<object?>.SuccessResponse(null, "تم رفض طلب الخدمة بنجاح.", "Service request rejected successfully.");
+        return ApiResponse<object?>.SuccessResponse(null, "Service request rejected successfully.","تم رفض طلب الخدمة بنجاح.");
     }
 
 

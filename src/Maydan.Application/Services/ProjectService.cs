@@ -36,7 +36,7 @@ public class ProjectService : IProjectService
 
         if (currentUser!.EntityType != EntityType.ProductionCompany)
         {
-            return new ApiResponse<ProjectDto>(false, "يمكن لمستخدمي شركات الإنتاج فقط إنشاء المشاريع.", "Only Production Company users can create projects.", default, 403);
+            return new ApiResponse<ProjectDto>(false, "Only Production Company users can create projects.", "يمكن لمستخدمي شركات الإنتاج فقط إنشاء المشاريع.", default, 403);
         }
 
         var validationError = await ValidateProjectPayloadAsync<ProjectDto>(
@@ -96,7 +96,7 @@ public class ProjectService : IProjectService
         var createdProject = await _unitOfWork.Projects.GetByIdAsync(project.Id, cancellationToken);
         if (createdProject is null)
         {
-            return new ApiResponse<ProjectDto>(false, "تعذر تحميل المشروع بعد الإنشاء.", "Project could not be loaded after creation.", default, 500);
+            return new ApiResponse<ProjectDto>(false, "Project could not be loaded after creation.", "تعذر تحميل المشروع بعد الإنشاء.", default, 500);
         }
 
         return ApiResponse<ProjectDto>.SuccessResponse(MapToDto(createdProject),
@@ -140,18 +140,18 @@ public class ProjectService : IProjectService
 
         if (currentUser!.EntityType != EntityType.BaytAlUrdon)
         {
-            return new ApiResponse<ProjectDto>(false, "غير مصرح لك باعتماد المشاريع.", "Only Bayt Al Urdon can approve projects.", default, 403);
+            return new ApiResponse<ProjectDto>(false, "Only Bayt Al Urdon can approve projects.", "غير مصرح لك باعتماد المشاريع.", default, 403);
         }
 
         var project = await _unitOfWork.Projects.GetByIdAsync(id, cancellationToken);
         if (project is null)
         {
-            return new ApiResponse<ProjectDto>(false, "المشروع غير موجود.", "Project was not found.", default, 404);
+            return new ApiResponse<ProjectDto>(false,  "Project was not found.", "المشروع غير موجود.", default, 404);
         }
 
         if (project.IsActive)
         {
-            return ApiResponse<ProjectDto>.FailureResponse("المشروع مفعل مسبقاً.", "Project is already active.");
+            return ApiResponse<ProjectDto>.FailureResponse("Project is already active.","المشروع مفعل مسبقاً.");
         }
 
         project.IsActive = true;
@@ -173,12 +173,12 @@ public class ProjectService : IProjectService
         var project = await _unitOfWork.Projects.GetByIdAsync(id, cancellationToken);
         if (project is null)
         {
-            return new ApiResponse<ProjectDto>(false, "المشروع غير موجود.", "Project was not found.", default, 404);
+            return new ApiResponse<ProjectDto>(false, "Project was not found.","المشروع غير موجود.", default, 404);
         }
 
         if (!CanViewProject(currentUser!, project))
         {
-            return new ApiResponse<ProjectDto>(false, "لا تملك صلاحية الوصول لهذا المشروع.", "Cannot view a project outside the caller's authorized scope.", default, 403);
+            return new ApiResponse<ProjectDto>(false, "Cannot view a project outside the caller's authorized scope.","لا تملك صلاحية الوصول لهذا المشروع.", default, 403);
         }
 
         return ApiResponse<ProjectDto>.SuccessResponse(MapToDto(project), "Project retrieved successfully.", "تم جلب بيانات المشروع بنجاح.");
@@ -199,7 +199,7 @@ public class ProjectService : IProjectService
         var project = await _unitOfWork.Projects.GetByIdAsync(id, cancellationToken);
         if (project is null)
         {
-            return new ApiResponse<ProjectDto>(false, "المشروع غير موجود.", "Project was not found.", default, 404);
+            return new ApiResponse<ProjectDto>(false, "Project was not found.","المشروع غير موجود.", default, 404);
         }
 
         var companyError = EnsureSameProductionCompany<ProjectDto>(project, currentUser!);
@@ -262,7 +262,7 @@ public class ProjectService : IProjectService
         var updatedProject = await _unitOfWork.Projects.GetByIdAsync(project.Id, cancellationToken);
         if (updatedProject is null)
         {
-            return new ApiResponse<ProjectDto>(false, "تعذر تحميل المشروع بعد التحديث.", "Project could not be loaded after update.", default, 500);
+            return new ApiResponse<ProjectDto>(false, "Project could not be loaded after update.", "تعذر تحميل المشروع بعد التحديث.", default, 500);
         }
 
         return ApiResponse<ProjectDto>.SuccessResponse(MapToDto(updatedProject), "Project updated successfully.", "تم تحديث بيانات المشروع بنجاح.");
@@ -282,7 +282,7 @@ public class ProjectService : IProjectService
         var project = await _unitOfWork.Projects.GetByIdAsync(id, cancellationToken);
         if (project is null)
         {
-            return new ApiResponse<object?>(false, "المشروع غير موجود.", "Project was not found.", default, 404);
+            return new ApiResponse<object?>(false, "Project was not found.", "المشروع غير موجود.", default, 404);
         }
 
         var companyError = EnsureSameProductionCompany<object?>(project, currentUser!);
@@ -311,7 +311,7 @@ public class ProjectService : IProjectService
         var project = await _unitOfWork.Projects.GetByIdIncludingDeletedAsync(id, cancellationToken);
         if (project is null)
         {
-            return new ApiResponse<ProjectDto>(false, "المشروع غير موجود.", "Project was not found.", default, 404);
+            return new ApiResponse<ProjectDto>(false, "Project was not found.", "المشروع غير موجود.", default, 404);
         }
 
         var companyError = EnsureSameProductionCompany<ProjectDto>(project, currentUser!);

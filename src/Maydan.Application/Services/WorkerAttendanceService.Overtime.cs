@@ -5,10 +5,10 @@ using Maydan.Domain.Common;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
 using System.Linq;
-
 namespace Maydan.Application.Services;
 
-// Overtime = hours worked AFTER the check-out. Recorded on site, counted in the total only after
+// Overtime = hours worked AFTER the check-out.
+// Recorded on site, counted in the total only after
 // Bayt Al Urdon approves it.
 public partial class WorkerAttendanceService
 {
@@ -17,6 +17,7 @@ public partial class WorkerAttendanceService
     private const decimal MaxOvertimeHours = 12m;
 
     //Hours covered by one unit of the service price (see ServiceTimeUnit: shift = 12h, day = 9h).
+
     private static int HoursPerUnit(CalculationType type) => type switch
     {
         CalculationType.PerShift => 12,
@@ -154,8 +155,8 @@ public partial class WorkerAttendanceService
             "Pending overtime fetched.",
             "تم جلب الوقت الإضافي المعلّق.");
     }
-    //  Approve / Reject (Bayt Al Urdon only)
 
+    //  Approve / Reject (Bayt Al Urdon only)
     public Task<ApiResponse<WorkerOvertimeDto>> ApproveOvertimeAsync(int currentUserId, int overtimeId, CancellationToken ct = default) =>
         ReviewOvertimeAsync(currentUserId, overtimeId, approve: true, reason: null, ct);
 
