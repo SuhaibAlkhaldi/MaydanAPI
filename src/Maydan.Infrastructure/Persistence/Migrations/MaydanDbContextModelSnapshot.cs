@@ -2126,6 +2126,12 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                             RoleId = 4,
                             PermissionId = 2,
                             IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = 4,
+                            PermissionId = 9,
+                            IsActive = true
                         });
                 });
 
