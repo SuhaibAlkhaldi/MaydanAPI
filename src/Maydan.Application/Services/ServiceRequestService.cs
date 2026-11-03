@@ -30,10 +30,10 @@ public class ServiceRequestService : IServiceRequestService
     private async Task<(User? CurrentUser, ApiResponse<T>? Error)> GetCurrentUserAsync<T>(int currentUserId, CancellationToken cancellationToken)
     {
         var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken);
-        if (currentUser is null) { return (null, ApiResponse<T>.FailureResponse("لم يتم العثور على المستخدم الحالي.", "Current user was not found.")); }
+        if (currentUser is null) { return (null, ApiResponse<T>.FailureResponse("Current user was not found.","لم يتم العثور على المستخدم الحالي.")); }
         if (!currentUser.IsActive)
         {
-            return (null, ApiResponse<T>.FailureResponse("حساب المستخدم الحالي غير نشط.", "Current user is inactive."));
+            return (null, ApiResponse<T>.FailureResponse("Current user is inactive.", "حساب المستخدم الحالي غير نشط."));
         }
         return (currentUser, null);
     }
@@ -44,9 +44,9 @@ public class ServiceRequestService : IServiceRequestService
         if (!permissions.Contains(RequestServicePermission) &&
             !permissions.Contains(ManageServiceRequestsPermission))
         {
-            return ApiResponse<T>.FailureResponse(
-                "لا يملك المستخدم صلاحية طلب الخدمة.",
-                "Caller does not hold Request Service permission.");
+            return ApiResponse<T>.FailureResponse("Caller does not hold Request Service permission.",
+                "لا يملك المستخدم صلاحية طلب الخدمة."
+               );
         }
 
         return null;
@@ -58,9 +58,9 @@ public class ServiceRequestService : IServiceRequestService
 
         if (!permissions.Contains(ViewServiceRequestsPermission))
         {
-            return ApiResponse<T>.FailureResponse(
-                "لا يملك المستخدم صلاحية عرض طلبات الخدمة.",
-                "Caller does not hold View Service Requests permission.");
+            return ApiResponse<T>.FailureResponse ("Caller does not hold View Service Requests permission.",
+                "لا يملك المستخدم صلاحية عرض طلبات الخدمة."
+               );
         }
 
         return null;
@@ -568,10 +568,7 @@ public class ServiceRequestService : IServiceRequestService
         };
 
         return ApiResponse<ExpectedPaymentCalculationDto>
-            .SuccessResponse(
-                calculationInfo,
-                "تم حساب المبلغ المتوقع بنجاح.",
-                "Expected payment calculated successfully.");
+            .SuccessResponse(calculationInfo, "Expected payment calculated successfully.", "تم حساب المبلغ المتوقع بنجاح.");
     }
     public async Task<ApiResponse<object?>> RejectAsync(int currentUserId, int id, string? reason, CancellationToken cancellationToken = default)
     {

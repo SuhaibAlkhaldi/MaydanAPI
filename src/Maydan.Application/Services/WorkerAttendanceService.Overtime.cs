@@ -111,7 +111,8 @@ public partial class WorkerAttendanceService
     overtime.Id,
     cancellationToken: ct))!;   
         return ApiResponse<WorkerOvertimeDto>.SuccessResponse(ToOvertimeDto(overtime, link),
-            "Overtime recorded. It is not counted until Bayt Al Urdon approves it.", "تم تسجيل الوقت الإضافي ولن يُحتسب إلا بعد موافقة بيت الأردن.", 201);
+            "Overtime recorded. It is not counted until Bayt Al Urdon approves it.", "تم تسجيل الوقت الإضافي ولن يُحتسب إلا بعد موافقة بيت الأردن."+ "  او شركة اللانتاج " 
+        , 201);
     }
 
     
@@ -167,7 +168,7 @@ public partial class WorkerAttendanceService
         if (user is null) return Unauthorized<WorkerOvertimeDto>();
 
         if (!CanApproveOvertime(user))
-            return Fail<WorkerOvertimeDto>("Only Bayt Al Urdon can approve or reject overtime.", "فقط بيت الأردن يمكنه اعتماد أو رفض الوقت الإضافي.", 403);
+            return Fail<WorkerOvertimeDto>("Only Bayt Al Urdon can approve or reject overtime.", "فقط بيت الأردن (اوموظف  شركة الانتاج)يمكنه اعتماد أو رفض الوقت الإضافي.", 403);
 
         if (!approve && string.IsNullOrWhiteSpace(reason))
             return Fail<WorkerOvertimeDto>("A rejection reason is required.", "سبب الرفض مطلوب.");
