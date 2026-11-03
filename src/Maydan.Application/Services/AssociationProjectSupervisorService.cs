@@ -9,6 +9,9 @@ namespace Maydan.Application.Services;
 
 public class AssociationProjectSupervisorService : IAssociationProjectSupervisorService
 {
+    // الصلاحية المطلوبة للجمعية لتعيين وحذف المشرفين التابعين لها
+    private const int ManageAssociationUsersPermissionId = 39;
+
     private readonly IUnitOfWork _unitOfWork;
 
     public AssociationProjectSupervisorService(IUnitOfWork unitOfWork)
@@ -46,7 +49,6 @@ public class AssociationProjectSupervisorService : IAssociationProjectSupervisor
                 return new ApiResponse<PagedAssociationProjectSupervisorDto>(false, "غير مصرح لك بالوصول لبيانات هذا المشروع.", "Forbidden.", default, 403);
         }
 
-
         int? forcedProductionCompanyId = (user.EntityType == EntityType.ProductionCompany && projectId <= 0)
             ? user.EntityId
             : null;
@@ -76,11 +78,18 @@ public class AssociationProjectSupervisorService : IAssociationProjectSupervisor
 
     public async Task<ApiResponse<AssociationProjectSupervisorDto>> CreateAsync(CreateAssociationProjectSupervisorDto dto, int currentUserId, CancellationToken cancellationToken = default)
     {
-        var currentUser = await _unitOfWork.Users.GetByIdAsync(currentUserId, cancellationToken);
-        if (currentUser == null || !currentUser.IsActive)
-            return new ApiResponse<AssociationProjectSupervisorDto>(false, "المستخدم الحالي غير مصرح له.", "Unauthorized.", default, 401);
+        // استخدام AuthorizeAsync لفحص الصلاحية 39
+        var (currentUser, authError) = await AuthorizeAsync<AssociationProjectSupervisorDto>(
+            currentUserId,
+            new[] { ManageAssociationUsersPermissionId },
+            cancellationToken);
 
-        if (currentUser.EntityType == EntityType.ProductionCompany)
+        if (authError is not null)
+        {
+            return authError;
+        }
+
+        if (currentUser!.EntityType == EntityType.ProductionCompany)
         {
             return new ApiResponse<AssociationProjectSupervisorDto>(
                 false, "شركة الإنتاج غير مخولة بتعيين مشرفي الجمعيات.", "Forbidden: Production companies cannot assign association supervisors.", default, 403);
@@ -93,6 +102,7 @@ public class AssociationProjectSupervisorService : IAssociationProjectSupervisor
         var supervisorUser = await _unitOfWork.Users.GetByIdAsync(dto.AssociationUserId, cancellationToken);
         if (supervisorUser == null)
             return new ApiResponse<AssociationProjectSupervisorDto>(false, "المستخدم غير موجود.", "User was not found.", default, 404);
+
         // pleaseeee keep this code here cause we need to know if the client want to assing specific roles to project supervisors
         // supervisor must be a 4 roles in assonciation 
         var allowedRoles = new[] { SystemRoles.Association_Representative };
@@ -102,6 +112,7 @@ public class AssociationProjectSupervisorService : IAssociationProjectSupervisor
                 "Supervisor must be an Association user with an eligible supervisory role.",
                 "يجب أن يكون المشرف مستخدماً تابعاً لجمعية ويمتلك صلاحية إشراف.");
         }
+
         if (currentUser.EntityType == EntityType.Association && supervisorUser.EntityId != currentUser.EntityId)
         {
             return new ApiResponse<AssociationProjectSupervisorDto>(
@@ -156,71 +167,111 @@ public class AssociationProjectSupervisorService : IAssociationProjectSupervisor
 
     public async Task<ApiResponse<object?>> DeleteAsync(int supervisorId, int currentUserId, CancellationToken cancellationToken = default)
     {
-       var currentUser = await _unitOfWork.Users.GetByIdAsync(currentUserId, cancellationToken);
-    if (currentUser == null || !currentUser.IsActive)
-        return new ApiResponse<object?>(false, "المستخدم الحالي غير مصرح له.", "Unauthorized.", default, 401);
+        // استخدام AuthorizeAsync لفحص الصلاحية 39
+        var (currentUser, authError) = await AuthorizeAsync<object?>(
+            currentUserId,
+            new[] { ManageAssociationUsersPermissionId },
+            cancellationToken);
 
-    var supervisorRecord = await _unitOfWork.AssociationProjectSupervisors.GetByIdAsync(supervisorId, cancellationToken);
-    if (supervisorRecord == null)
-        return new ApiResponse<object?>(false, "سجل الإشراف غير موجود.", "Supervisor record not found.", default, 404);
+        if (authError is not null)
+        {
+            return authError;
+        }
 
+        var supervisorRecord = await _unitOfWork.AssociationProjectSupervisors.GetByIdAsync(supervisorId, cancellationToken);
+        if (supervisorRecord == null)
+            return new ApiResponse<object?>(false, "سجل الإشراف غير موجود.", "Supervisor record not found.", default, 404);
 
-    var allowedRoles = new[] { SystemRoles.Association_Representative };
-    
-    if (supervisorRecord.User == null || !allowedRoles.Contains(supervisorRecord.User.RoleId))
+        var allowedRoles = new[] { SystemRoles.Association_Representative };
+
+        if (supervisorRecord.User == null || !allowedRoles.Contains(supervisorRecord.User.RoleId))
+        {
+            return ApiResponse<object?>.FailureResponse(
+                "Target user does not have an eligible supervisory role.",
+                "المستخدم المستهدف لا يمتلك صلاحية إشراف صالحة حالياً.");
+        }
+
+        if (currentUser!.EntityType == EntityType.Association && supervisorRecord.User.EntityId != currentUser.EntityId)
+        {
+            return new ApiResponse<object?>(false, "لا يمكنك حذف مشرف من جمعية أخرى.", "Forbidden.", default, 403);
+        }
+        else if (currentUser.EntityType == EntityType.ProductionCompany)
+        {
+            return new ApiResponse<object?>(false, "شركة الإنتاج غير مخولة بحذف مشرفي الجمعيات.", "Forbidden.", default, 403);
+        }
+
+        _unitOfWork.AssociationProjectSupervisors.Remove(supervisorRecord);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return ApiResponse<object?>.SuccessResponse(null, "Supervisor removed successfully.", "تم حذف المشرف بنجاح.");
+    }
+
+    #region Helpers
+
+    private async Task<(User? User, ApiResponse<T>? Error)> AuthorizeAsync<T>(
+        int currentUserId,
+        int[] requiredPermissionIds,
+        CancellationToken cancellationToken)
     {
-        return ApiResponse<object?>.FailureResponse(
-            "Target user does not have an eligible supervisory role.",
-            "المستخدم المستهدف لا يمتلك صلاحية إشراف صالحة حالياً.");
+        // نستخدم GetWithPermissionsAsync عشان نجيب الصلاحيات الحقيقية لليوزر
+        var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken);
+        if (currentUser is null)
+        {
+            return (null, ApiResponse<T>.FailureResponse("Current user was not found.", "المستخدم الحالي غير موجود."));
+        }
+
+        if (!currentUser.IsActive)
+        {
+            return (null, ApiResponse<T>.FailureResponse("Current user is inactive.", "المستخدم الحالي غير فعّال."));
+        }
+
+        if (!GetEffectivePermissionIds(currentUser).Overlaps(requiredPermissionIds))
+        {
+            return (null, ApiResponse<T>.FailureResponse("Caller does not hold the required permission to manage association supervisors.", "لا تملك الصلاحية المطلوبة لإدارة مشرفي الجمعية."));
+        }
+
+        return (currentUser, null);
     }
 
-    if (currentUser.EntityType == EntityType.Association && supervisorRecord.User.EntityId != currentUser.EntityId)
+    private static HashSet<int> GetEffectivePermissionIds(User user)
     {
-         return new ApiResponse<object?>(false, "لا يمكنك حذف مشرف من جمعية أخرى.", "Forbidden.", default, 403);
+        var rolePermissionIds = user.Role?.RolePermissions?
+            .Where(rp => rp.IsActive && (rp.Permission == null || rp.Permission.IsActive))
+            .Select(rp => rp.PermissionId) ?? Enumerable.Empty<int>();
+
+        var directPermissionIds = user.UserPermissions?
+            .Where(up => up.IsActive && (up.Permission == null || up.Permission.IsActive))
+            .Select(up => up.PermissionId) ?? Enumerable.Empty<int>();
+
+        var groupPermissionIds = user.UserGroups?
+            .Where(ug => ug.Group != null && ug.Group.IsActive)
+            .SelectMany(ug => ug.Group.GroupPermissions ?? new List<GroupPermission>())
+            .Where(gp => gp.IsActive && (gp.Permission == null || gp.Permission.IsActive))
+            .Select(gp => gp.PermissionId) ?? Enumerable.Empty<int>();
+
+        return rolePermissionIds.Concat(directPermissionIds).Concat(groupPermissionIds).ToHashSet();
     }
-    else if (currentUser.EntityType == EntityType.ProductionCompany)
+
+    private async Task<Dictionary<int, string>> ResolveAssociationNamesAsync(IEnumerable<AssociationProjectSupervisor> supervisors, CancellationToken cancellationToken)
     {
-         return new ApiResponse<object?>(false, "شركة الإنتاج غير مخولة بحذف مشرفي الجمعيات.", "Forbidden.", default, 403);
+        var associationIds = supervisors
+            .Where(s => s.User != null && s.User.EntityType == EntityType.Association)
+            .Select(s => s.User.EntityId)
+            .Distinct()
+            .ToList();
+
+        if (!associationIds.Any())
+            return new Dictionary<int, string>();
+
+        // ضربة وحدة عالداتابيس بتجيب كل الجمعيات المطلوبة
+        var associations = await _unitOfWork.Associations.GetByIdsAsync(associationIds, cancellationToken);
+
+        // تحويل النتيجة لـ Dictionary في الـ Memory
+        return associations.ToDictionary(
+            a => a.Id,
+            a => a.EnglishName
+        );
     }
-
-    _unitOfWork.AssociationProjectSupervisors.Remove(supervisorRecord);
-    await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-    return ApiResponse<object?>.SuccessResponse(null, "Supervisor removed successfully.", "تم حذف المشرف بنجاح.");
-    }
-
-    private async Task<ApiResponse<T>?> GetCurrentUserErrorAsync<T>(int currentUserId, CancellationToken cancellationToken)
-    {
-        var user = await _unitOfWork.Users.GetByIdAsync(currentUserId, cancellationToken);
-        if (user == null)
-            return new ApiResponse<T>(false, "المستخدم الحالي غير موجود.", "Current user was not found.", default, 401);
-
-        if (!user.IsActive)
-            return new ApiResponse<T>(false, "المستخدم الحالي غير فعّال.", "Current user is inactive.", default, 401);
-
-        return null;
-    }
-
-   private async Task<Dictionary<int, string>> ResolveAssociationNamesAsync(IEnumerable<AssociationProjectSupervisor> supervisors, CancellationToken cancellationToken)
-{
-    var associationIds = supervisors
-        .Where(s => s.User != null && s.User.EntityType == EntityType.Association)
-        .Select(s => s.User.EntityId)
-        .Distinct()
-        .ToList();
-
-    if (!associationIds.Any())
-        return new Dictionary<int, string>();
-
-    // ضربة وحدة عالداتابيس بتجيب كل الجمعيات المطلوبة
-    var associations = await _unitOfWork.Associations.GetByIdsAsync(associationIds, cancellationToken);
-
-    // تحويل النتيجة لـ Dictionary في الـ Memory
-    return associations.ToDictionary(
-        a => a.Id, 
-        a => a.EnglishName
-    );
-}
 
     private static AssociationProjectSupervisorDto MapToDto(AssociationProjectSupervisor supervisor, IReadOnlyDictionary<int, string> associationNames)
     {
@@ -240,4 +291,6 @@ public class AssociationProjectSupervisorService : IAssociationProjectSupervisor
             PhoneNumber = supervisor.User.PhoneNumber
         };
     }
+
+    #endregion
 }
