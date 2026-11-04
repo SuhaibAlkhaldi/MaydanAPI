@@ -1,4 +1,7 @@
+﻿using FirebaseAdmin;
 using FluentValidation;
+using Google.Apis.Auth.OAuth2;
+using Hangfire;
 using Maydan.API.Filters;
 using Maydan.API.Security;
 using Maydan.Application.Interfaces;
@@ -48,6 +51,9 @@ builder.Services.AddDbContext<MaydanDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("MaydanDb"), sqlOpts => sqlOpts.CommandTimeout(60))
            .EnableSensitiveDataLogging(builder.Environment.IsDevelopment())
 );
+//Regarding HangFire 
+builder.Services.AddHangfire(cfg => cfg.SetDataCompatibilityLevel(CompatibilityLevel.Version_180).UseSimpleAssemblyNameTypeSerializer().UseRecommendedSerializerSettings().UseSqlServerStorage(builder.Configuration.GetConnectionString("MaydanDB"),new Hangfire.SqlServer.SqlServerStorageOptions { SchemaName = "hangfire", PrepareSchemaIfNecessary = true }));
+builder.Services.AddHangfireServer(o => o.WorkerCount = 2);
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IUserManagementService, UserManagementService>();
@@ -65,6 +71,12 @@ builder.Services.AddScoped<IFrontendLinkBuilder, FrontendLinkBuilder>();
 builder.Services.AddScoped<IWorkerProjectLinkRepository, WorkerProjectLinkRepository>();
 builder.Services.AddScoped<IProjectDetailsService, ProjectDetailsService>();
 builder.Services.AddScoped<IEmailSender, LoggingEmailSender>();
+//NEW For Hangfire and notifications
+
+// الإشعارات
+//builder.Services.AddScoped<INotificationService, NotificationService>();
+//builder.Services.AddScoped<IPushDispatcher, HangfirePushDispatcher>();
+//builder.Services.AddScoped<PushNotificationJob>();
 
 
 builder.Services.AddDataProtection();
@@ -89,6 +101,10 @@ builder.Services.AddSingleton<ICivilIdHasher, HmacCivilIdHasher>();
 builder.Services.AddSingleton<IPasswordHasher, PasswordHasher>();
 
 builder.Services.AddValidatorsFromAssembly(typeof(Maydan.Application.AssemblyReference).Assembly);
+// Firebase: مرة وحدة بالإقلاع
+var fbPath = builder.Configuration["Firebase:CredentialsPath"];
+if (!string.IsNullOrWhiteSpace(fbPath) && File.Exists(fbPath))
+    FirebaseApp.Create(new AppOptions { Credential = GoogleCredential.FromFile(fbPath) });
 
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
 builder.Services.AddCors(options =>
@@ -140,6 +156,7 @@ app.UseCors("Frontend");
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseHangfireDashboard("/hangfire");   
 
 app.MapControllers();
 

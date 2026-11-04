@@ -36,7 +36,9 @@ public interface IWorkerAttendanceRepository
     Task<bool> HasUnresolvedAsync(int serviceRequestId, DateTime nowUtc, CancellationToken cancellationToken = default);
 
     Task<WorkerProjectLink?> GetActiveLinkByIdAsync(int linkId, int serviceRequestId, CancellationToken cancellationToken = default);
-
+    //Pendings for Production Company
+    Task<List<WorkerAttendance>> ListPendingApprovalAsync(int productionCompanyId, int? serviceRequestId,
+    DateTime? from, DateTime? to, CancellationToken cancellationToken = default);
 
 
 

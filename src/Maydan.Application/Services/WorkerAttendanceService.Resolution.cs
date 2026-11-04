@@ -43,6 +43,8 @@ public partial class WorkerAttendanceService
         await _uow.SaveChangesAsync(ct);
 
         var result = ToDto(a);
+        ApplyWorker(result, a.WorkerProjectLink);
+
         await FillLookupNamesAsync(result, ct);
         return ApiResponse<WorkerAttendanceDto>.SuccessResponse(result, "Attendance resolved.", "تمت معالجة الحضور.");
         //return ApiResponse<WorkerAttendanceDto>.SuccessResponse(ToDto(a), "Attendance resolved.", "تمت معالجة الحضور.");

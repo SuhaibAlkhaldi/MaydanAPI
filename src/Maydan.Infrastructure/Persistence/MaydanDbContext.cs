@@ -48,6 +48,8 @@ public class MaydanDbContext : DbContext
     public DbSet<WorkerAttendance> WorkerAttendances { get; set; } = null!;
     public DbSet<AttendanceTimeWindow> AttendanceTimeWindows { get; set; } = null!;
     public DbSet<WorkerOvertime> WorkerOvertimes { get; set; } = null!;
+    public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
+    public DbSet<UserDevice> UserDevices => Set<UserDevice>();
 
 
 
