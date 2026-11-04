@@ -130,7 +130,8 @@ namespace Maydan.Infrastructure.Persistence.Seed
                SystemPermissions. ViewAttendance,
                 SystemPermissions.ManageAttendance,
                 SystemPermissions.ViewPayments,
-                SystemPermissions.CreateUsers
+                SystemPermissions.CreateUsers,
+                SystemPermissions.ViewAssociations
             };
             
             var allPermissionIds = Enumerable.Range(1, 44);

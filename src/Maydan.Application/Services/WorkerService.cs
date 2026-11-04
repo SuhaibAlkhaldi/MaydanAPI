@@ -564,10 +564,10 @@ public class WorkerService : IWorkerService
     private async Task<(User? CurrentUser, ApiResponse<T>? Error)> GetCurrentUserAsync<T>(int currentUserId, CancellationToken cancellationToken)
     {
         var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken);
-        if (currentUser is null) { return (null, ApiResponse<T>.FailureResponse("لم يتم العثور على المستخدم الحالي.", "Current user was not found.")); }
+        if (currentUser is null) { return (null, ApiResponse<T>.FailureResponse("Current user was not found.","لم يتم العثور على المستخدم الحالي.")); }
         if (!currentUser.IsActive)
         {
-            return (null, ApiResponse<T>.FailureResponse("حساب المستخدم الحالي غير نشط.", "Current user is inactive."));
+            return (null, ApiResponse<T>.FailureResponse("Current user is inactive.","حساب المستخدم الحالي غير نشط."));
         }
         return (currentUser, null);
     }

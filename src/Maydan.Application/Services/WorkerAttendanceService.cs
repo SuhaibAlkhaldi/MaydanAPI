@@ -266,6 +266,7 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
         }
 
         var result = ToDto(row);
+        await FillLookupNamesAsync(result, ct);
         result.WorkerId = link.WorkerId;
         result.WorkerName = link.Worker is null ? null : $"{link.Worker.FirstName} {link.Worker.LastName}";
         return ApiResponse<WorkerAttendanceDto>.SuccessResponse(result,
@@ -312,6 +313,7 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
 
         await _uow.SaveChangesAsync(ct);
         var result = ToDto(open);
+        await FillLookupNamesAsync(result, ct);
         result.WorkerId = link.WorkerId;
         result.WorkerName = link.Worker is null ? null : $"{link.Worker.FirstName} {link.Worker.LastName}";
         return ApiResponse<WorkerAttendanceDto>.SuccessResponse(result, "Check-out recorded.", "تم تسجيل الخروج.");
@@ -382,7 +384,10 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
 
         await _uow.SaveChangesAsync(ct);
         a = (await _repo.GetByIdAsync(a.Id, ct))!;
-        return ApiResponse<WorkerAttendanceDto>.SuccessResponse(ToDto(a),
+        var result = ToDto(a);
+        await FillLookupNamesAsync(result, ct);
+        //return ApiResponse<WorkerAttendanceDto>.SuccessResponse(result,"","");
+        return ApiResponse<WorkerAttendanceDto>.SuccessResponse(result,
             approve ? "Attendance approved." : "Attendance rejected.",
             approve ? "تم اعتماد الحضور." : "تم رفض الحضور.");
     }
@@ -428,7 +433,7 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
                 Entries = mine.Select(ToDto).ToList()
             });
         }
-
+        await FillLookupNamesAsync(dto.Workers.SelectMany(w => w.Entries), ct);
         return ApiResponse<DayRosterDto>.SuccessResponse(dto, "Attendance roster fetched.", "تم جلب كشف الحضور.");
     }
 
@@ -543,7 +548,33 @@ public partial class WorkerAttendanceService : IWorkerAttendanceService
 
         return AttendanceDayStatus.Absent;
     }
+    //-------------New
+    private Task FillLookupNamesAsync(WorkerAttendanceDto dto, CancellationToken ct) =>
+    FillLookupNamesAsync(new[] { dto }, ct);
 
+    private async Task FillLookupNamesAsync(IEnumerable<WorkerAttendanceDto> items, CancellationToken ct)
+    {
+        var list = items as IList<WorkerAttendanceDto> ?? items.ToList();
+        if (list.Count == 0) return;
+
+        var entryTypes = (await _uow.Lookups.GetItemsByCategoryCodeAsync("AttendanceEntryType", ct)).ToDictionary(x => x.Id);
+        var statuses = (await _uow.Lookups.GetItemsByCategoryCodeAsync("AttendanceApprovalStatus", ct)).ToDictionary(x => x.Id);
+
+        foreach (var d in list)
+        {
+            if (entryTypes.TryGetValue(d.EntryTypeId, out var et))
+            {
+                d.EntryTypeNameEn = et.EnglishName;
+                d.EntryTypeNameAr = et.ArabicName;
+            }
+            if (statuses.TryGetValue(d.ApprovalStatusId, out var st))
+            {
+                d.ApprovalStatusNameEn = st.EnglishName;
+                d.ApprovalStatusNameAr = st.ArabicName;
+            }
+        }
+    }
+    //-----------------------------------------------------
     private async Task<Gate> ValidateRecordingAsync(User user, ServiceRequestAttendanceInfo sr, DateTime date, DateTime nowUtc, bool requireOpenSlot, CancellationToken ct)
     {
         if (!Permissions(user).Contains(ManagePermission))
