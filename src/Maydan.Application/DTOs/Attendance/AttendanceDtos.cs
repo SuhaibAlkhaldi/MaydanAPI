@@ -226,7 +226,6 @@ public class MarkAbsentDto
 
 public class ResolveAttendanceDto
 {
-    [JsonConverter(typeof(JsonStringEnumConverter))]
     public LookupConstants.AttendanceEntryTypeInput FinalEntryTypeId { get; set; }
     public string? Note { get; set; }
 }
