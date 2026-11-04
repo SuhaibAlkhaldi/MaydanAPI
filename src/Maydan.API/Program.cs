@@ -49,6 +49,7 @@ builder.Services.AddDbContext<MaydanDbContext>(options =>
            .EnableSensitiveDataLogging(builder.Environment.IsDevelopment())
 );
 
+builder.Services.AddMemoryCache();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IUserManagementService, UserManagementService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
