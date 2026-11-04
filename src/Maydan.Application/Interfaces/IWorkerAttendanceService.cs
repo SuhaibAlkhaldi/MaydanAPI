@@ -29,5 +29,8 @@ public interface IWorkerAttendanceService
     Task<ApiResponse<WorkerOvertimeDto>> ApproveOvertimeAsync(int currentUserId, int overtimeId, CancellationToken cancellationToken = default);
     Task<ApiResponse<WorkerOvertimeDto>> RejectOvertimeAsync(int currentUserId, int overtimeId, string reason, CancellationToken cancellationToken = default);
     Task<ApiResponse<WorkerAttendanceDto>> MarkAbsentAsync(int currentUserId, MarkAbsentDto dto, CancellationToken cancellationToken = default);
+    //New FOR pendings regarding PH 
+    Task<ApiResponse<List<PendingApprovalDto>>> GetPendingApprovalAsync(int currentUserId, int? serviceRequestId,
+    DateTime? from, DateTime? to, CancellationToken cancellationToken = default);
 
 }

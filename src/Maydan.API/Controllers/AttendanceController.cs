@@ -164,5 +164,12 @@ public class AttendanceController : ApiControllerBase
         var r = await _service.MarkAbsentAsync(uid, dto, ct);
         return StatusCode(r.StatusCode, r);
     }
-
+    [HttpGet("pending-approval")]
+    public async Task<IActionResult> GetPendingApproval(
+    [FromQuery] int? serviceRequestId, [FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken ct)
+    {
+        if (!TryGetCurrentUserId(out var uid)) return NoUser();
+        var r = await _service.GetPendingApprovalAsync(uid, serviceRequestId, from, to, ct);
+        return StatusCode(r.StatusCode, r);
+    }
 }

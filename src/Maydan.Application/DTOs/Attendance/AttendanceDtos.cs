@@ -237,3 +237,10 @@ public class SlotStatusDto
     public string ProductionCompanyStatus { get; set; } = "NotRecorded";
     public int? AttendanceId { get; set; }
 }
+public class PendingApprovalDto
+{
+    public WorkerAttendanceDto Attendance { get; set; } = null!;
+    public int ServiceRequestId { get; set; }
+    public string? ProjectNameAr { get; set; }
+    public string? ProjectNameEn { get; set; }
+}

@@ -110,7 +110,10 @@ public partial class WorkerAttendanceService
         await _uow.SaveChangesAsync(ct);
         overtime = (await _repo.GetOvertimeByIdAsync(
     overtime.Id,
-    cancellationToken: ct))!;   
+    cancellationToken: ct))!;
+        var result = ToOvertimeDto(overtime, link);
+        await FillOvertimeStatusNamesAsync(new[] { result }, ct);
+
         return ApiResponse<WorkerOvertimeDto>.SuccessResponse(ToOvertimeDto(overtime, link),
             "Overtime recorded. It is not counted until Bayt Al Urdon approves it.", "تم تسجيل الوقت الإضافي ولن يُحتسب إلا بعد موافقة بيت الأردن."+ "  او شركة اللانتاج " 
         , 201);
@@ -129,9 +132,11 @@ public partial class WorkerAttendanceService
         var t = (to ?? sr!.EndDate).Date;
         var list = await _repo.ListOvertimeByServiceRequestAsync(sr!.Id, f, t, ct);
         if (statusId.HasValue) list = list.Where(o => o.ApprovalStatusId == statusId.Value).ToList();
+        var items = list.Select(o => ToOvertimeDto(o)).ToList();
+        await FillOvertimeStatusNamesAsync(items, ct);
 
         return ApiResponse<List<WorkerOvertimeDto>>.SuccessResponse(
-            list.Select(o => ToOvertimeDto(o)).ToList(), "Overtime fetched.", "تم جلب الوقت الإضافي.");
+            items, "Overtime fetched.", "تم جلب الوقت الإضافي.");
     }
 
     //All overtime waiting for a decision, across every project (Bayt Al Urdon only).
@@ -149,9 +154,10 @@ public partial class WorkerAttendanceService
 
         var list = await _repo.ListOvertimeByStatusAsync(
             LookupConstants.AttendanceApprovalStatus.Pending, companyScope, ct);
+        var items = list.Select(o => ToOvertimeDto(o)).ToList();
+        await FillOvertimeStatusNamesAsync(items, ct);
 
-        return ApiResponse<List<WorkerOvertimeDto>>.SuccessResponse(
-            list.Select(o => ToOvertimeDto(o)).ToList(),
+        return ApiResponse<List<WorkerOvertimeDto>>.SuccessResponse(items,
             "Pending overtime fetched.",
             "تم جلب الوقت الإضافي المعلّق.");
     }
@@ -226,5 +232,22 @@ public partial class WorkerAttendanceService
             ReviewedDate = o.ReviewedDate,
             RejectionReason = o.RejectionReason
         };
+    }
+
+
+    private async Task FillOvertimeStatusNamesAsync(IEnumerable<WorkerOvertimeDto> items, CancellationToken ct)
+    {
+        var list = items as IList<WorkerOvertimeDto> ?? items.ToList();
+        if (list.Count == 0) return;
+
+        var statuses = (await _uow.Lookups.GetItemsByCategoryCodeAsync("AttendanceApprovalStatus", ct)).ToDictionary(x => x.Id);
+        foreach (var d in list)
+        {
+            if (statuses.TryGetValue(d.ApprovalStatusId, out var st))
+            {
+                d.ApprovalStatusNameEn = st.EnglishName;
+                d.ApprovalStatusNameAr = st.ArabicName;
+            }
+        }
     }
 }
