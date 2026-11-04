@@ -12,11 +12,17 @@ namespace Maydan.Infrastructure.Persistence.Queries
             IQueryable<Worker> workers,
             IReadOnlyList<WorkerSuggestionRule> rules)
         {
+
             var activeRules = rules
                 .Where(r => r.IsActive && !r.IsDeleted)
+                // Ignore legacy sort rules that the query builder cannot execute
+                .Where(r =>
+                    r.RuleType?.Code != "Sort" ||
+                    (r.AttributeKey is "YearsOfExperience" or "Age"))
                 .OrderBy(r => r.PriorityOrder)
                 .ThenBy(r => r.Id)
                 .ToList();
+
 
             // تطبيق كافة فلاتر التصفية أولاً
             foreach (var rule in activeRules

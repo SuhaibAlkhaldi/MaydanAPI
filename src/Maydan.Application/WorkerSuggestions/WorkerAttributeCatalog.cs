@@ -33,38 +33,6 @@ namespace Maydan.Application.WorkerSuggestions
                     true
                 ),
 
-                new WorkerAttributeDescriptor(
-                    "FirstName",
-                    "First Name",
-                    "الاسم الأول",
-                    "FirstName",
-                    "Text",
-                    "DirectProperty",
-                    false,
-                    true
-                ),
-
-                new WorkerAttributeDescriptor(
-                    "LastName",
-                    "Last Name",
-                    "اسم العائلة",
-                    "LastName",
-                    "Text",
-                    "DirectProperty",
-                    false,
-                    true
-                ),
-
-                new WorkerAttributeDescriptor(
-                    "FullName",
-                    "Full Name",
-                    "الاسم الكامل",
-                    "FullName",
-                    "Text",
-                    "CalculatedProperty",
-                    false,
-                    true
-                ),
 
                 new WorkerAttributeDescriptor(
                     "Age",
@@ -85,7 +53,7 @@ namespace Maydan.Application.WorkerSuggestions
                      "Text",
                      "LookupProperty",
                       true,
-                      true
+                      false
     ),
 
                 new WorkerAttributeDescriptor(

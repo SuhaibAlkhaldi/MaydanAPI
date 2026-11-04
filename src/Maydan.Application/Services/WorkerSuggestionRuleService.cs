@@ -413,7 +413,6 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
         rule.ComparisonValue = valid.ComparisonValue;
         rule.IsDeleted = false;
         rule.DeletedAt = null;
-        rule.IsActive = false;
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
