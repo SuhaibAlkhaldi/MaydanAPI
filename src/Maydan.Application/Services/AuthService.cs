@@ -3,32 +3,40 @@ using Maydan.Application.DTOs.Auth;
 using Maydan.Application.DTOs.Common;
 using Maydan.Application.Interfaces;
 using Maydan.Domain.Entities;
+using Microsoft.Extensions.Caching.Memory;
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
+using System.Text;
 
 namespace Maydan.Application.Services;
 
 public class AuthService : IAuthService
 {
     private const int ResetTokenValidityHours = 24;
+    private const int RefreshTokenGracePeriodSeconds = 15;
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> _tokenLocks = new();
 
     private readonly IUnitOfWork _unitOfWork;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenGenerator _jwtTokenGenerator;
     private readonly IEmailSender _emailSender;
     private readonly IFrontendLinkBuilder _frontendLinkBuilder;
+    private readonly IMemoryCache _memoryCache;
 
     public AuthService(
         IUnitOfWork unitOfWork,
         IPasswordHasher passwordHasher,
         IJwtTokenGenerator jwtTokenGenerator,
         IEmailSender emailSender,
-        IFrontendLinkBuilder frontendLinkBuilder)
+        IFrontendLinkBuilder frontendLinkBuilder,
+        IMemoryCache? memoryCache = null)
     {
         _unitOfWork = unitOfWork;
         _passwordHasher = passwordHasher;
         _jwtTokenGenerator = jwtTokenGenerator;
         _emailSender = emailSender;
         _frontendLinkBuilder = frontendLinkBuilder;
+        _memoryCache = memoryCache ?? new MemoryCache(new MemoryCacheOptions());
     }
 
     public async Task<ApiResponse<LoginResponseDto>> LoginAsync(LoginRequestDto dto, CancellationToken cancellationToken = default)
@@ -229,58 +237,109 @@ public class AuthService : IAuthService
             return Fail<RefreshTokenResponseDto>("رمز التحديث مطلوب.", "Refresh token is required.");
         }
 
-        var candidates = await _unitOfWork.RefreshTokens.GetAllAsync(cancellationToken);
-        var matched = candidates.FirstOrDefault(t => _passwordHasher.VerifyPassword(dto.RefreshToken, t.TokenHash));
+        var tokenKey = ComputeTokenSha256(dto.RefreshToken);
+        var cacheKey = $"refresh_token_replay_{tokenKey}";
 
-        if (matched is null)
+        // Fast path: If this token was already rotated within the grace period (e.g. concurrent browser tabs),
+        // return the cached response immediately without DB queries or hashing overhead.
+        if (_memoryCache.TryGetValue<RefreshTokenResponseDto>(cacheKey, out var cachedEarly) && cachedEarly is not null)
         {
-            return Fail<RefreshTokenResponseDto>("رمز التحديث غير صالح.", "This refresh token is invalid.");
+            return Ok(cachedEarly, "تم تحديث الرمز بنجاح.", "Token refreshed successfully.");
         }
 
-        if (matched.IsRevoked)
+        // Lock to serialize near-simultaneous concurrent requests for the exact same refresh token
+        var semaphore = _tokenLocks.GetOrAdd(tokenKey, _ => new SemaphoreSlim(1, 1));
+        await semaphore.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken);
+
+        try
         {
-            if (matched.ReplacedByTokenId.HasValue)
+            // Double check cache inside lock
+            if (_memoryCache.TryGetValue<RefreshTokenResponseDto>(cacheKey, out var cachedInside) && cachedInside is not null)
             {
-                await RevokeAllActiveRefreshTokensAsync(matched.UserId, cancellationToken);
-                await _unitOfWork.SaveChangesAsync(cancellationToken);
+                return Ok(cachedInside, "تم تحديث الرمز بنجاح.", "Token refreshed successfully.");
             }
 
-            return Fail<RefreshTokenResponseDto>("تم استخدام رمز التحديث هذا مسبقاً.", "This refresh token has already been used.");
+            var candidates = await _unitOfWork.RefreshTokens.GetAllAsync(cancellationToken);
+            var matched = candidates.FirstOrDefault(t => _passwordHasher.VerifyPassword(dto.RefreshToken, t.TokenHash));
+
+            if (matched is null)
+            {
+                return Fail<RefreshTokenResponseDto>("رمز التحديث غير صالح.", "This refresh token is invalid.");
+            }
+
+            if (matched.IsRevoked)
+            {
+                if (matched.ReplacedByTokenId.HasValue)
+                {
+                    // Check if request falls within the grace period leeway
+                    var isWithinGracePeriod = matched.RevokedAtUtc.HasValue &&
+                        (DateTime.UtcNow - matched.RevokedAtUtc.Value) <= TimeSpan.FromSeconds(RefreshTokenGracePeriodSeconds);
+
+                    if (isWithinGracePeriod)
+                    {
+                        // Within grace period: do NOT trigger reuse detection (do not revoke other sessions)
+                        return Fail<RefreshTokenResponseDto>("تم استخدام رمز التحديث هذا مسبقاً.", "This refresh token has already been used.");
+                    }
+
+                    // Outside grace period: real reuse / token theft attack detected!
+                    await RevokeAllActiveRefreshTokensAsync(matched.UserId, cancellationToken);
+                    await _unitOfWork.SaveChangesAsync(cancellationToken);
+                }
+
+                return Fail<RefreshTokenResponseDto>("تم استخدام رمز التحديث هذا مسبقاً.", "This refresh token has already been used.");
+            }
+
+            if (matched.ExpiresAtUtc < DateTime.UtcNow)
+            {
+                return Fail<RefreshTokenResponseDto>("انتهت صلاحية رمز التحديث هذا.", "This refresh token has expired.");
+            }
+
+            var user = await _unitOfWork.Users.GetWithPermissionsAsync(matched.UserId, cancellationToken);
+            if (user is null || !user.IsActive)
+            {
+                return Fail<RefreshTokenResponseDto>("رمز التحديث غير صالح.", "This refresh token is invalid.");
+            }
+
+            var accessToken = _jwtTokenGenerator.GenerateAccessToken(MapAuthUser(user));
+            var generatedRefresh = _jwtTokenGenerator.GenerateRefreshToken();
+            var newRefreshToken = new RefreshToken
+            {
+                UserId = matched.UserId,
+                TokenHash = _passwordHasher.HashPassword(generatedRefresh.RawToken),
+                ExpiresAtUtc = generatedRefresh.ExpiresAtUtc,
+                IsRevoked = false
+            };
+
+            await _unitOfWork.ExecuteInTransactionAsync(async () =>
+            {
+                await _unitOfWork.RefreshTokens.AddAsync(newRefreshToken, cancellationToken);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+                matched.IsRevoked = true;
+                matched.RevokedAtUtc = DateTime.UtcNow;
+                matched.ReplacedByTokenId = newRefreshToken.Id;
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+            }, cancellationToken);
+
+            var responseDto = new RefreshTokenResponseDto(
+                accessToken.AccessToken,
+                accessToken.ExpiresAtUtc,
+                generatedRefresh.RawToken,
+                generatedRefresh.ExpiresAtUtc);
+
+            // Cache the replay response for concurrent tabs arriving within the grace period
+            _memoryCache.Set(cacheKey, responseDto, TimeSpan.FromSeconds(RefreshTokenGracePeriodSeconds));
+
+            return Ok(responseDto, "تم تحديث الرمز بنجاح.", "Token refreshed successfully.");
         }
-
-        if (matched.ExpiresAtUtc < DateTime.UtcNow)
+        finally
         {
-            return Fail<RefreshTokenResponseDto>("انتهت صلاحية رمز التحديث هذا.", "This refresh token has expired.");
+            semaphore.Release();
+            if (semaphore.CurrentCount > 0)
+            {
+                _tokenLocks.TryRemove(tokenKey, out _);
+            }
         }
-
-        var user = await _unitOfWork.Users.GetWithPermissionsAsync(matched.UserId, cancellationToken);
-        if (user is null || !user.IsActive)
-        {
-            return Fail<RefreshTokenResponseDto>("رمز التحديث غير صالح.", "This refresh token is invalid.");
-        }
-
-        var accessToken = _jwtTokenGenerator.GenerateAccessToken(MapAuthUser(user));
-        var generatedRefresh = _jwtTokenGenerator.GenerateRefreshToken();
-        var newRefreshToken = new RefreshToken
-        {
-            UserId = matched.UserId,
-            TokenHash = _passwordHasher.HashPassword(generatedRefresh.RawToken),
-            ExpiresAtUtc = generatedRefresh.ExpiresAtUtc,
-            IsRevoked = false
-        };
-
-        await _unitOfWork.ExecuteInTransactionAsync(async () =>
-        {
-            await _unitOfWork.RefreshTokens.AddAsync(newRefreshToken, cancellationToken);
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-            matched.IsRevoked = true;
-            matched.RevokedAtUtc = DateTime.UtcNow;
-            matched.ReplacedByTokenId = newRefreshToken.Id;
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-        }, cancellationToken);
-
-        return Ok(new RefreshTokenResponseDto(accessToken.AccessToken, accessToken.ExpiresAtUtc, generatedRefresh.RawToken, generatedRefresh.ExpiresAtUtc), "تم تحديث الرمز بنجاح.", "Token refreshed successfully.");
     }
 
     public async Task<ApiResponse<LogoutResponseDto>> LogoutAsync(LogoutRequestDto dto, CancellationToken cancellationToken = default)
@@ -293,6 +352,9 @@ public class AuthService : IAuthService
             return Ok(new LogoutResponseDto(messageEn), messageAr, messageEn);
         }
 
+        var tokenKey = ComputeTokenSha256(dto.RefreshToken);
+        _memoryCache.Remove($"refresh_token_replay_{tokenKey}");
+
         var candidates = await _unitOfWork.RefreshTokens.GetAllAsync(cancellationToken);
         var matched = candidates.FirstOrDefault(t => _passwordHasher.VerifyPassword(dto.RefreshToken, t.TokenHash));
 
@@ -304,6 +366,13 @@ public class AuthService : IAuthService
         }
 
         return Ok(new LogoutResponseDto(messageEn), messageAr, messageEn);
+    }
+
+    private static string ComputeTokenSha256(string token)
+    {
+        var bytes = Encoding.UTF8.GetBytes(token);
+        var hash = SHA256.HashData(bytes);
+        return Convert.ToHexString(hash);
     }
 
     private async Task<(string RawToken, DateTime ExpiresAtUtc)> IssueRefreshTokenAsync(int userId, CancellationToken cancellationToken)

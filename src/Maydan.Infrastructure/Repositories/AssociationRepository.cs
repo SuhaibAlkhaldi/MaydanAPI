@@ -14,29 +14,33 @@ public class AssociationRepository : IAssociationRepository
         _context = context;
     }
 
-    // تطبيق دالة المفرد
     public async Task<Association?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         return await _context.Associations
+            .Include(a => a.City).ThenInclude(c => c!.Country)
+            .Include(a => a.Zones)
             .FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
     }
 
-    // تطبيق دالة الجمع
     public async Task<List<Association>> GetByIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default)
     {
         return await _context.Associations
+            .Include(a => a.City).ThenInclude(c => c!.Country)
+            .Include(a => a.Zones)
             .Where(a => ids.Contains(a.Id))
             .ToListAsync(cancellationToken);
     }
 
     public Task<List<Association>> GetAllAsync(CancellationToken cancellationToken = default) =>
         _context.Associations
-            .Include(a => a.City).ThenInclude(c => c.Country)
+            .Include(a => a.City).ThenInclude(c => c!.Country)
+            .Include(a => a.Zones)
             .ToListAsync(cancellationToken);
 
     public Task<Association?> GetByCityIdAsync(int cityId, CancellationToken cancellationToken = default) =>
         _context.Associations
-            .Include(a => a.City).ThenInclude(c => c.Country)
+            .Include(a => a.City).ThenInclude(c => c!.Country)
+            .Include(a => a.Zones)
             .FirstOrDefaultAsync(a => a.CityId == cityId, cancellationToken);
 
     public async Task AddAsync(Association association, CancellationToken cancellationToken = default) =>
@@ -47,19 +51,22 @@ public class AssociationRepository : IAssociationRepository
     public Task<Association?> GetByIdIncludingDeletedAsync(int associationId, CancellationToken cancellationToken = default) =>
         _context.Associations
             .IgnoreQueryFilters()
-            .Include(a => a.City).ThenInclude(c => c.Country)
+            .Include(a => a.City).ThenInclude(c => c!.Country)
+            .Include(a => a.Zones)
             .FirstOrDefaultAsync(a => a.Id == associationId, cancellationToken);
 
     public Task<Association?> GetByIdWithWorkersAsync(int associationId, CancellationToken cancellationToken = default) =>
         _context.Associations
-            .Include(a => a.City).ThenInclude(c => c.Country)
+            .Include(a => a.City).ThenInclude(c => c!.Country)
+            .Include(a => a.Zones)
             .Include(a => a.Workers)
             .FirstOrDefaultAsync(a => a.Id == associationId, cancellationToken);
 
     public async Task<(Association Association, int WorkersCount)?> GetByIdWithWorkersCountAsync(int associationId, CancellationToken cancellationToken = default)
     {
         var result = await _context.Associations
-            .Include(a => a.City).ThenInclude(c => c.Country)
+            .Include(a => a.City).ThenInclude(c => c!.Country)
+            .Include(a => a.Zones)
             .Where(a => a.Id == associationId)
             .Select(a => new { Association = a, WorkersCount = a.Workers.Count() })
             .FirstOrDefaultAsync(cancellationToken);
@@ -73,18 +80,14 @@ public class AssociationRepository : IAssociationRepository
         bool? orderByWorkersCountAscending = null,
         CancellationToken cancellationToken = default)
     {
-        // Same "global filter already excludes deleted rows for the active view, only the deleted
-        // view needs to explicitly bypass it" shape as ProjectRepository.GetAllAsync's own comment.
-        // Workers.Count() below is a SEPARATE entity with its own independent soft-delete filter —
-        // IgnoreQueryFilters() here scopes only to Associations, so a deleted association's worker
-        // count still correctly excludes that association's own deleted workers.
         IQueryable<Association> query = isDeleted
             ? _context.Associations.IgnoreQueryFilters().Where(a => a.IsDeleted)
             : _context.Associations;
 
         query = query
             .AsNoTracking()
-            .Include(a => a.City).ThenInclude(c => c.Country);
+            .Include(a => a.City).ThenInclude(c => c!.Country)
+            .Include(a => a.Zones);
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {

@@ -48,13 +48,14 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 builder.Services.AddDbContext<MaydanDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("MaydanDb"), sqlOpts => sqlOpts.CommandTimeout(60))
+    options.UseSqlServer(builder.Configuration.GetConnectionString("MaydanDb"), sqlOpts => sqlOpts.CommandTimeout(60).UseNetTopologySuite())
            .EnableSensitiveDataLogging(builder.Environment.IsDevelopment())
 );
 //Regarding HangFire 
 builder.Services.AddHangfire(cfg => cfg.SetDataCompatibilityLevel(CompatibilityLevel.Version_180).UseSimpleAssemblyNameTypeSerializer().UseRecommendedSerializerSettings().UseSqlServerStorage(builder.Configuration.GetConnectionString("MaydanDB"),new Hangfire.SqlServer.SqlServerStorageOptions { SchemaName = "hangfire", PrepareSchemaIfNecessary = true }));
 builder.Services.AddHangfireServer(o => o.WorkerCount = 2);
 
+builder.Services.AddMemoryCache();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IUserManagementService, UserManagementService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -62,6 +63,7 @@ builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<ILocationService, LocationService>();
 builder.Services.AddScoped<IAssociationService, AssociationService>();
+builder.Services.AddScoped<IAssociationZoneService, AssociationZoneService>();
 builder.Services.AddScoped<IAssociationProjectSupervisorService, AssociationProjectSupervisorService>();
 builder.Services.AddScoped<IProductionCompanyService, ProductionCompanyService>();
 builder.Services.AddScoped<IProductionCompanyOnboardingService, ProductionCompanyOnboardingService>();
