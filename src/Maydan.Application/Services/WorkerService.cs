@@ -17,8 +17,6 @@ public class WorkerService : IWorkerService
     private static readonly int[] ReadScope = { ViewWorkersPermissionId, ManageWorkersPermissionId };
     private static readonly int[] WriteScope = { ManageWorkersPermissionId };
 
-    private static readonly Regex JordanMobileRegex = new(@"^(\+962|0)7[789]\d{7}$", RegexOptions.Compiled);
-
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICivilIdHasher _civilIdHasher;
     public WorkerService(IUnitOfWork unitOfWork, ICivilIdHasher civilIdHasher)
@@ -87,8 +85,10 @@ public class WorkerService : IWorkerService
             return ApiResponse<WorkerDto>.FailureResponse("National ID is required.", "الرقم الوطني مطلوب.");
         }
 
-        var phoneServiceError = ValidatePhoneAndServices<WorkerDto>(dto.PhoneNumber, dto.ServiceIds);
-        if (phoneServiceError is not null)
+        var phoneServiceError = ValidatePhoneAndServices<WorkerDto>(
+            dto.PhoneNumber,
+            dto.ServiceIds,
+            out var phoneNumber); if (phoneServiceError is not null)
         {
             return phoneServiceError;
         }
@@ -106,10 +106,14 @@ public class WorkerService : IWorkerService
             return ApiResponse<WorkerDto>.FailureResponse("Worker already exists.", "العامل مسجل مسبقًا بنفس الرقم الوطني.");
         }
 
-        var phoneNumber = dto.PhoneNumber.Trim();
-        if (await _unitOfWork.Workers.GetByPhoneNumberAsync(phoneNumber, cancellationToken) is not null)
+        if (await IsPhoneNumberRegisteredToAnotherWorkerAsync(
+        phoneNumber,
+        null,
+        cancellationToken))
         {
-            return ApiResponse<WorkerDto>.FailureResponse("Phone number is already registered to another worker.", "رقم الهاتف مستخدم مسبقًا لعامل آخر.");
+            return ApiResponse<WorkerDto>.FailureResponse(
+                "Phone number is already registered to another worker.",
+                "رقم الهاتف مستخدم مسبقًا لعامل آخر.");
         }
 
         var genderError = await EnsureLookupItemValidAsync<WorkerDto>("Gender", dto.GenderId, cancellationToken);
@@ -213,21 +217,33 @@ public class WorkerService : IWorkerService
             return scopeError;
         }
 
+
         string? phoneNumber = null;
+
         if (dto.PhoneNumber is not null)
         {
-            if (!JordanMobileRegex.IsMatch(dto.PhoneNumber.Trim()))
+            if (!JordanianPhoneNumberHelper.TryNormalize(
+                    dto.PhoneNumber,
+                    out var normalizedPhone))
             {
-                return ApiResponse<WorkerDto>.FailureResponse("Phone number must be a valid Jordanian mobile number.", "رقم الهاتف غير صالح، يجب أن يكون رقم أردني.");
+                return ApiResponse<WorkerDto>.FailureResponse(
+                    "Phone number must be a valid Jordanian mobile number.",
+                    "رقم الهاتف غير صالح، يجب أن يكون رقم أردني.");
             }
 
-            phoneNumber = dto.PhoneNumber.Trim();
-            var phoneOwner = await _unitOfWork.Workers.GetByPhoneNumberAsync(phoneNumber, cancellationToken);
-            if (phoneOwner is not null && phoneOwner.Id != workerId)
+            phoneNumber = normalizedPhone;
+
+            if (await IsPhoneNumberRegisteredToAnotherWorkerAsync(
+                    phoneNumber,
+                    workerId,
+                    cancellationToken))
             {
-                return ApiResponse<WorkerDto>.FailureResponse("Phone number is already registered to another worker.", "رقم الهاتف مستخدم مسبقًا لعامل آخر.");
+                return ApiResponse<WorkerDto>.FailureResponse(
+                    "Phone number is already registered to another worker.",
+                    "رقم الهاتف مستخدم مسبقًا لعامل آخر.");
             }
         }
+
 
         var serviceIds = dto.ServiceIds?.Distinct().ToList() ?? worker.WorkerServices.Select(ws => ws.ServiceId).ToList();
         var (requiresDocuments, servicesError) = await EnsureServicesExistAsync<WorkerDto>(serviceIds, cancellationToken);
@@ -530,20 +546,63 @@ public class WorkerService : IWorkerService
         return null;
     }
 
-    private static ApiResponse<T>? ValidatePhoneAndServices<T>(string phoneNumber, List<int> serviceIds)
+
+    private static ApiResponse<T>? ValidatePhoneAndServices<T>(
+        string phoneNumber,
+        List<int> serviceIds,
+        out string normalizedPhoneNumber)
     {
-        if (string.IsNullOrWhiteSpace(phoneNumber) || !JordanMobileRegex.IsMatch(phoneNumber.Trim()))
+        if (!JordanianPhoneNumberHelper.TryNormalize(
+                phoneNumber,
+                out normalizedPhoneNumber))
         {
-            return ApiResponse<T>.FailureResponse("Phone number must be a valid Jordanian mobile number.", "رقم الهاتف غير صالح، يجب أن يكون رقم أردني.");
+            return ApiResponse<T>.FailureResponse(
+                "Phone number must be a valid Jordanian mobile number.",
+                "رقم الهاتف غير صالح، يجب أن يكون رقم أردني.");
         }
 
         if (serviceIds.Count == 0)
         {
-            return ApiResponse<T>.FailureResponse("At least one service must be selected.", "يجب اختيار خدمة واحدة على الأقل.");
+            return ApiResponse<T>.FailureResponse(
+                "At least one service must be selected.",
+                "يجب اختيار خدمة واحدة على الأقل.");
         }
 
         return null;
     }
+
+    private async Task<bool> IsPhoneNumberRegisteredToAnotherWorkerAsync(
+        string normalizedPhoneNumber,
+        int? currentWorkerId,
+        CancellationToken cancellationToken)
+    {
+        var nationalNumber = normalizedPhoneNumber.Substring(4);
+
+        var possibleFormats = new[]
+        {
+        normalizedPhoneNumber,
+        $"0{nationalNumber}",
+        nationalNumber,
+        $"00962{nationalNumber}"
+    };
+
+        foreach (var number in possibleFormats)
+        {
+            var existingWorker =
+                await _unitOfWork.Workers.GetByPhoneNumberAsync(
+                    number,
+                    cancellationToken);
+
+            if (existingWorker is not null &&
+                existingWorker.Id != currentWorkerId)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
 
     private static void SyncWorkerServices(Worker worker, List<int> serviceIds)
     {

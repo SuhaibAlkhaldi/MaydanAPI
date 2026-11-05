@@ -30,7 +30,8 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo { Title = "Maydan API", Version = "v1" });
-
+    options.SchemaFilter<JordanianPhoneSwaggerFilter>();
+    options.OperationFilter<JordanianPhoneSwaggerFilter>();
     var bearerScheme = new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\"",
