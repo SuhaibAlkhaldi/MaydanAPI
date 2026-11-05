@@ -20,8 +20,8 @@ public class CityRepository : ICityRepository
     public Task<City?> GetByIdIncludingDeletedAsync(int cityId, CancellationToken cancellationToken = default) =>
         _context.Cities.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.Id == cityId, cancellationToken);
 
-    public Task<List<City>> GetByCountryIdAsync(int countryId, CancellationToken cancellationToken = default) =>
-        _context.Cities.IgnoreQueryFilters().AsNoTracking().Where(c => c.CountryId == countryId).OrderBy(c => c.EnglishName).ToListAsync(cancellationToken);
+    public Task<List<City>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        _context.Cities.IgnoreQueryFilters().AsNoTracking().OrderBy(c => c.EnglishName).ToListAsync(cancellationToken);
 
     public async Task AddAsync(City city, CancellationToken cancellationToken = default) =>
         await _context.Cities.AddAsync(city, cancellationToken);

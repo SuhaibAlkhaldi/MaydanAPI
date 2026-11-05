@@ -1,4 +1,5 @@
 using Maydan.Domain.Common;
+using NetTopologySuite.Geometries;
 
 namespace Maydan.Domain.Entities;
 
@@ -31,6 +32,14 @@ public class Project : SharedEntities
 
     public int CityLocationId { get; set; }
     public CityLocation CityLocation { get; set; } = null!;
+
+    /// <summary>
+    /// Optional GPS coordinates of the filming/shooting location.
+    /// Used to geo-resolve the responsible Association via its Geofence.
+    /// Stored as SQL Server geography Point (SRID 4326).
+    /// </summary>
+    public Point? Location { get; set; }
+
     public ICollection<WorkerProjectLink> WorkerProjectLinks { get; set; } = new List<WorkerProjectLink>();
 
 }

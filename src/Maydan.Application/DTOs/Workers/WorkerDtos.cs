@@ -12,8 +12,6 @@ public record WorkerDto(
     int? MaritalStatusId,
     string? MaritalStatusNameEn,
     string? Nationality,
-    int? CountryId,
-    string? CountryNameEn,
     int? CityId,
     string? CityNameEn,
     string? PhoneNumber,

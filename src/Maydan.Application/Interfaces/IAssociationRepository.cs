@@ -1,4 +1,5 @@
 using Maydan.Domain.Entities;
+using NetTopologySuite.Geometries;
 
 namespace Maydan.Application.Interfaces;
 
@@ -18,7 +19,6 @@ public interface IAssociationRepository
     void Remove(Association association);
 
     // Bypasses the soft-delete filter — needed by RestoreAsync, same pattern as
-    // ICountryRepository.GetByIdIncludingDeletedAsync (Phase 1's own precedent).
     Task<Association?> GetByIdIncludingDeletedAsync(int associationId, CancellationToken cancellationToken = default);
 
     // MAYD-51 (Association Management, Phase 2c): DeleteAsync's own cascade-delete needs the real
@@ -51,4 +51,12 @@ public interface IAssociationRepository
         string? searchTerm = null,
         bool? orderByWorkersCountAscending = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns the first active Association whose Geofence (Polygon) spatially contains
+    /// the given GPS point. Returns null if no such association exists.
+    /// Default implementation returns null so existing test fakes don't break.
+    /// </summary>
+    Task<Association?> FindByGeofenceContainingAsync(Point point, CancellationToken cancellationToken = default) =>
+        Task.FromResult<Association?>(null);
 }

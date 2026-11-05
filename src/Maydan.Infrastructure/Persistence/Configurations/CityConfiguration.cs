@@ -15,9 +15,5 @@ public class CityConfiguration : IEntityTypeConfiguration<City>
         builder.Property(c => c.ArabicName).IsRequired().HasMaxLength(200);
         builder.Property(c => c.EnglishName).IsRequired().HasMaxLength(200);
 
-        builder.HasOne(c => c.Country)
-            .WithMany(country => country.Cities)
-            .HasForeignKey(c => c.CountryId)
-            .OnDelete(DeleteBehavior.Restrict);
     }
 }
