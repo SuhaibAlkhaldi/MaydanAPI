@@ -30,4 +30,9 @@ public interface IUnitOfWork
     // generated Id before the user row referencing it can be built). Wrapped here so that pair
     // stays atomic without leaking EF's transaction type into the Application layer.
     Task ExecuteInTransactionAsync(Func<Task> operation, CancellationToken cancellationToken = default);
+
+    // EN: Repositories for direct Project Associations and Project Workers management.
+    // AR: مستودعات إدارة جمعيات المشروع وعمال المشروع المباشرين.
+    IProjectAssociationRepository ProjectAssociations { get; }
+    IProjectWorkerRepository ProjectWorkers { get; }
 }

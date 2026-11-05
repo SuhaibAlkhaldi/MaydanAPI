@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using FluentValidation;
 using Maydan.API.Filters;
 using Maydan.API.Security;
@@ -64,7 +64,10 @@ builder.Services.AddScoped<IEntityOnboardingService, EntityOnboardingService>();
 builder.Services.AddScoped<IFrontendLinkBuilder, FrontendLinkBuilder>();
 
 builder.Services.AddScoped<IEmailSender, LoggingEmailSender>();
-
+// EN: Register ProjectAssociation and ProjectWorker application services.
+// AR: تسجيل خدمات إدارة جمعيات المشروع وعمال المشروع في حاوية حقن التبعيات.
+builder.Services.AddScoped<IProjectAssociationService, ProjectAssociationService>();
+builder.Services.AddScoped<IProjectWorkerService, ProjectWorkerService>();
 
 builder.Services.AddDataProtection();
 builder.Services.AddSingleton<ISecretProtector, DataProtectionSecretProtector>();

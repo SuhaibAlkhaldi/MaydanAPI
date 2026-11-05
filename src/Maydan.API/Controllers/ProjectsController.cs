@@ -30,7 +30,7 @@ public class ProjectsController : ApiControllerBase
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
+            return Unauthorized(ApiResponse<object>.FailureResponse("Unauthorized.", "المستخدم غير مصرح له."));
         }
 
         try
@@ -51,7 +51,7 @@ public class ProjectsController : ApiControllerBase
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
+            return Unauthorized(ApiResponse<object>.FailureResponse("Unauthorized.", "المستخدم غير مصرح له."));
         }
 
         try
@@ -72,14 +72,14 @@ public class ProjectsController : ApiControllerBase
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
+            return Unauthorized(ApiResponse<object>.FailureResponse("Unauthorized.", "المستخدم غير مصرح له."));
         }
 
         try
         {
             if (request.WorkPermitImage is null)
             {
-                return BadRequest(new ApiResponse<object?>(false, "صورة تصريح العمل مطلوبة.", "Work permit image is required.", null, 400));
+                return BadRequest(ApiResponse<object>.FailureResponse("Work permit image is required.", "صورة تصريح العمل مطلوبة."));
             }
 
             string workPermitImagePath;
@@ -104,6 +104,8 @@ public class ProjectsController : ApiControllerBase
                 WorkPermitImagePath = workPermitImagePath,
                 CityId = request.CityId,
                 CityLocationId = request.CityLocationId,
+                // Make sure to add this to your CreateProjectDto and CreateProjectRequest
+                ProductionCompanyId = request.ProductionCompanyId
             };
 
             var response = await _projectService.CreateAsync(dto, currentUserId, cancellationToken);
@@ -122,7 +124,7 @@ public class ProjectsController : ApiControllerBase
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
+            return Unauthorized(ApiResponse<object>.FailureResponse("Unauthorized.", "المستخدم غير مصرح له."));
         }
 
         try
@@ -168,7 +170,7 @@ public class ProjectsController : ApiControllerBase
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
+            return Unauthorized(ApiResponse<object>.FailureResponse("Unauthorized.", "المستخدم غير مصرح له."));
         }
 
         try
@@ -189,7 +191,7 @@ public class ProjectsController : ApiControllerBase
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
+            return Unauthorized(ApiResponse<object>.FailureResponse("Unauthorized.", "المستخدم غير مصرح له."));
         }
 
         try
@@ -202,6 +204,7 @@ public class ProjectsController : ApiControllerBase
             return HandleException(exception);
         }
     }
+
     [HttpGet("available-users")]
     public async Task<ActionResult> GetAvailableUsers(
     [FromQuery] DateTime startDate,
@@ -210,7 +213,9 @@ public class ProjectsController : ApiControllerBase
     CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
-            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
+        {
+            return Unauthorized(ApiResponse<object>.FailureResponse("Unauthorized.", "المستخدم غير مصرح له."));
+        }
 
         try
         {
@@ -222,11 +227,14 @@ public class ProjectsController : ApiControllerBase
             return HandleException(exception);
         }
     }
+
     [HttpPut("{id:int}/approve")]
     public async Task<ActionResult> Approve(int id, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
-            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
+        {
+            return Unauthorized(ApiResponse<object>.FailureResponse("Unauthorized.", "المستخدم غير مصرح له."));
+        }
 
         try
         {

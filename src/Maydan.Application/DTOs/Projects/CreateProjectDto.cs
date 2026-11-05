@@ -15,7 +15,8 @@ public class CreateProjectDto
     public int LocationManagerUserId { get; set; }
 
     public string WorkPermitImagePath { get; set; } = string.Empty;
-
+    // Example addition to CreateProjectDto & CreateProjectRequest
+    public int? ProductionCompanyId { get; set; }
     public int CityId { get; set; }
     public int CityLocationId { get; set; }
 }

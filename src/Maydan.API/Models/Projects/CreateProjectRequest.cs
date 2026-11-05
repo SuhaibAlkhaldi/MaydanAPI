@@ -35,4 +35,6 @@ public class CreateProjectRequest
 
     [Required]
     public int CityLocationId { get; set; }
+
+    public int? ProductionCompanyId { get; set; }
 }
