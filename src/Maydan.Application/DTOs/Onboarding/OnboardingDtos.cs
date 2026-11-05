@@ -19,4 +19,4 @@ public record AssociationWithoutAdminDto(
     int AssociationId,
     string EnglishName,
     string ArabicName,
-    int CityId);
+    int? CityId);

@@ -1,5 +1,6 @@
 using Maydan.Application.DTOs.Associations;
 using Maydan.Application.DTOs.Onboarding;
+using Maydan.Application.DTOs.Workers;
 using Maydan.Application.Interfaces;
 using Maydan.Application.Services;
 using Maydan.Domain.Entities;
@@ -101,7 +102,9 @@ public class AssociationServiceTests
         var caller = BuildUser(1, BuildRole(1, "NoAccess"));
         var service = BuildService(caller);
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.GetAllAsync(caller.UserId));
+        var result = await service.GetAllAsync(caller.UserId);
+        Assert.False(result.Success);
+        Assert.Equal(403, result.StatusCode);
     }
 
     [Fact]
@@ -146,7 +149,9 @@ public class AssociationServiceTests
 
         var dto = new CreateAssociationDto { EnglishName = "X", ArabicName = "س", CityId = 1 };
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.CreateAsync(caller.UserId, dto));
+        var result = await service.CreateAsync(caller.UserId, dto);
+        Assert.False(result.Success);
+        Assert.Equal(403, result.StatusCode);
     }
 
     [Fact]
@@ -157,7 +162,9 @@ public class AssociationServiceTests
 
         var dto = new CreateAssociationDto { EnglishName = "X", ArabicName = "س", CityId = 999 };
 
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.CreateAsync(caller.UserId, dto));
+        var result = await service.CreateAsync(caller.UserId, dto);
+        Assert.False(result.Success);
+        Assert.Equal(404, result.StatusCode);
     }
 
     private static OnboardAssociationAdminDto BuildAdminDto(string email = "new-admin@example.org") => new()
@@ -231,7 +238,8 @@ public class AssociationServiceTests
             Admin = BuildAdminDto(email: "taken@example.org")
         };
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateAsync(caller.UserId, dto));
+        var result = await service.CreateAsync(caller.UserId, dto);
+        Assert.False(result.Success);
 
         Assert.Empty(await associationRepository.QueryAsync(isDeleted: false));
         Assert.Single(await userRepository.GetByEntityAsync(EntityType.Association, 999, search: null)); // only the pre-existing one
@@ -286,7 +294,9 @@ public class AssociationServiceTests
         var caller = BuildUser(1, BuildRole(1, "ViewOnly", ViewAssociations));
         var service = BuildService(caller, [association], [city]);
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.GetDetailsAsync(caller.UserId, association.Id));
+        var result = await service.GetDetailsAsync(caller.UserId, association.Id);
+        Assert.False(result.Success);
+        Assert.Equal(403, result.StatusCode);
     }
 
     [Fact]
@@ -302,7 +312,9 @@ public class AssociationServiceTests
 
         var dto = new UpdateAssociationDto { Id = 10, EnglishName = "Updated", ArabicName = "محدثة", CityId = city.Id };
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.UpdateAsync(caller.UserId, dto));
+        var result = await service.UpdateAsync(caller.UserId, dto);
+        Assert.False(result.Success);
+        Assert.Equal(403, result.StatusCode);
     }
 
     [Fact]
@@ -345,7 +357,9 @@ public class AssociationServiceTests
         var association = BuildAssociation(10, city);
         var service = BuildService(caller, associations: [association]);
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.DeleteAsync(caller.UserId, 10));
+        var result = await service.DeleteAsync(caller.UserId, 10);
+        Assert.False(result.Success);
+        Assert.Equal(403, result.StatusCode);
     }
 
     [Fact]
@@ -372,7 +386,8 @@ public class AssociationServiceTests
         var association = BuildAssociation(10, city, isDeleted: false);
         var service = BuildService(caller, associations: [association]);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.RestoreAsync(caller.UserId, 10));
+        var result = await service.RestoreAsync(caller.UserId, 10);
+        Assert.False(result.Success);
     }
 
     [Fact]
@@ -605,7 +620,8 @@ public class AssociationServiceTests
         private readonly List<Worker> _pendingRemovals = new();
 
         public FakeWorkerRepository(IEnumerable<Worker>? workers = null) => _workers = (workers ?? Enumerable.Empty<Worker>()).ToList();
-
+        public Task<bool> IsWorkerBusyAsync(int workerId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default)
+    => Task.FromResult(false);
         public Task<List<Worker>> GetByAssociationIdAsync(int associationId, CancellationToken cancellationToken = default) =>
             Task.FromResult(_workers.Where(w => !w.IsDeleted && w.AssociationId == associationId).ToList());
 
@@ -633,8 +649,15 @@ public class AssociationServiceTests
         public Task AddAsync(Worker worker, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<(List<Maydan.Application.DTOs.Workers.WorkerSummaryDto> Items, int TotalCount)> GetAllProjectedAsync(int? associationId, string? search, int? serviceId, int page, int pageSize, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Maydan.Application.DTOs.Workers.WorkerDto?> GetByIdProjectedAsync(int workerId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Dictionary<int, int>> GetAssociationIdsAsync(IReadOnlyCollection<int> ids, CancellationToken ct = default)=> throw new NotImplementedException();
 
-        public Task<List<Worker>> GetAvailableWorkersForRequestAsync(int associationId, int serviceId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default)
+        public Task<HashSet<int>> GetBusyWorkerIdsAsync(IReadOnlyCollection<int> ids, DateTime start, DateTime end, CancellationToken ct = default)=> throw new NotImplementedException();
+        public Task<List<Maydan.Application.DTOs.Workers.WorkerDto>> GetAvailableWorkersForRequestAsync(int associationId,int serviceId,DateTime startDate,DateTime endDate,CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<List<WorkerDto>> GetAvailableWorkersForRequestAsync(int associationId, int serviceId, DateTime startDate, DateTime endDate, int requestedWorkersCount, int serviceRequestId, int projectId, DateTime projectStartDate, DateTime projectEndDate, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }
@@ -727,7 +750,7 @@ public class AssociationServiceTests
             // .City) — this plain in-memory fake has no change tracker, so it's done by hand here,
             // matching real runtime behavior, for MapToDto (called right after AddAsync via
             // MapExistingAsync) to have a non-null City/Country to read.
-            if (_citiesById.TryGetValue(association.CityId, out var city))
+            if (association.CityId.HasValue && _citiesById.TryGetValue(association.CityId.Value, out var city))
             {
                 association.City = city;
             }

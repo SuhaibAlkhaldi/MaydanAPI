@@ -1,4 +1,5 @@
 using Maydan.Application.DTOs.Common;
+using Maydan.Application.Common;
 using Maydan.Application.DTOs.UserManagement;
 using Maydan.Application.Interfaces;
 using Maydan.Domain.Constants;
@@ -76,7 +77,10 @@ public class UserManagementService : IUserManagementService
         var (currentUser, error) = await GetCurrentUserAsync<UserDetailsDto>(currentUserId, cancellationToken);
         if (error != null) return error;
 
-        var valError = ValidateUserPayload<UserDetailsDto>(dto);
+        var valError = ValidateUserPayload<UserDetailsDto>(
+     dto,
+     out var normalizedPhoneNumber);
+
         if (valError != null) return valError;
 
         var email = dto.Email.Trim();
@@ -147,7 +151,7 @@ public class UserManagementService : IUserManagementService
             FirstNameAr = dto.FirstNameAr.Trim(),
             LastNameAr = dto.LastNameAr.Trim(),
             Email = email,
-            PhoneNumber = dto.PhoneNumber.Trim(),
+            PhoneNumber = normalizedPhoneNumber,
             PasswordHash = _passwordHasher.HashPassword(dto.InitialPassword),
             MustResetPassword = true,
             IsActive = true,
@@ -836,8 +840,9 @@ public class UserManagementService : IUserManagementService
         return ApiResponse<T>.FailureResponse("Cannot create a user with a role outside your entity type.", "لا يمكنك إنشاء مستخدم خارج نطاق كيانك.");
     }
 
-    private static ApiResponse<T>? ValidateUserPayload<T>(CreateEntityUserDto dto)
+    private static ApiResponse<T>? ValidateUserPayload<T>(CreateEntityUserDto dto, out string normalizedPhoneNumber)
     {
+        normalizedPhoneNumber = string.Empty;
         if (string.IsNullOrWhiteSpace(dto.FirstNameEn) || string.IsNullOrWhiteSpace(dto.LastNameEn) ||
             string.IsNullOrWhiteSpace(dto.FirstNameAr) || string.IsNullOrWhiteSpace(dto.LastNameAr) ||
             string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.PhoneNumber) ||
@@ -854,15 +859,16 @@ public class UserManagementService : IUserManagementService
             return ApiResponse<T>.FailureResponse("Invalid email format.", "صيغة البريد الإلكتروني غير صحيحة.");
         }
 
-        var phoneRegex = new System.Text.RegularExpressions.Regex(@"^(07[789]\d{7}|\+9627[789]\d{7}|009627[789]\d{7})$",
-        System.Text.RegularExpressions.RegexOptions.Compiled);
 
-        if (!phoneRegex.IsMatch(dto.PhoneNumber.Trim()))
+        if (!JordanianPhoneNumberHelper.TryNormalize(
+                dto.PhoneNumber,
+                out normalizedPhoneNumber))
         {
             return ApiResponse<T>.FailureResponse(
                 "Invalid phone number. Must be a valid Jordanian mobile number.",
-                "رقم الهاتف غير صحيح، يجب أن يكون رقم هاتف أردني صالح (مثل 0788834444 أو +96278883333).");
+                "رقم الهاتف غير صحيح، يجب أن يكون رقم هاتف أردني صالح.");
         }
+
 
         if (dto.InitialPassword.Length < 8)
         {

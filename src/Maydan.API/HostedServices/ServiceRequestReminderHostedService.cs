@@ -25,6 +25,7 @@ public class ServiceRequestReminderHostedService : IHostedService, IDisposable
         return Task.CompletedTask;
     }
 
+
     private async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
@@ -36,49 +37,89 @@ public class ServiceRequestReminderHostedService : IHostedService, IDisposable
                 var emailSender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
 
                 var threshold = DateTime.UtcNow.AddHours(-6);
-                var toRemind = await uow.ServiceRequests.GetPendingOlderThanAsync(threshold, stoppingToken);
+
+                var toRemind = await uow.ServiceRequests
+                    .GetPendingOlderThanAsync(threshold, stoppingToken);
 
                 foreach (var r in toRemind)
                 {
-                    var association = r.Association ?? await uow.Associations.GetByIdAsync(r.AssociationId, stoppingToken);
-                    if (association == null) continue;
+                    var association = r.Association ??
+                        await uow.Associations.GetByIdAsync(
+                            r.AssociationId, stoppingToken);
 
-                    var assocUsers = await uow.Users.GetByEntityAsync(EntityType.Association, association.Id, null, stoppingToken);
-                    var subject = "Reminder: service request still awaiting worker selection";
-                    var body = $"Service request (Id: {r.Id}) is still pending worker selection after 6 hours.";
+                    if (association == null)
+                        continue;
 
+                    var assocUsers = await uow.Users.GetByEntityAsync(
+                        EntityType.Association,
+                        association.Id,
+                        null,
+                        stoppingToken);
 
+                    var subject =
+                        "Reminder: service request still awaiting worker selection";
+
+                    var body =
+                        $"Service request (Id: {r.Id}) is still pending worker selection after 6 hours.";
+
+                    bool reminderSent = false;
+
+                    // Send reminder to association contact email
                     if (!string.IsNullOrWhiteSpace(association.ContactEmail))
                     {
-                        await emailSender.SendAsync(association.ContactEmail, subject, body, stoppingToken);
+                        await emailSender.SendAsync(
+                            association.ContactEmail,
+                            subject,
+                            body,
+                            stoppingToken);
 
-                        r.ReminderSent = true;
+                        reminderSent = true;
                     }
 
+                    // Send reminder to association users
                     foreach (var u in assocUsers)
                     {
                         if (!string.IsNullOrWhiteSpace(u.Email))
                         {
-                            await emailSender.SendAsync(u.Email, subject, body, stoppingToken);
+                            await emailSender.SendAsync(
+                                u.Email,
+                                subject,
+                                body,
+                                stoppingToken);
+
+                            reminderSent = true;
                         }
                     }
 
-                }
+                    // Mark reminder as sent if at least one email was sent
+                    if (reminderSent)
+                    {
+                        r.ReminderSent = true;
 
-                await uow.SaveChangesAsync(stoppingToken);
+                        await uow.SaveChangesAsync(stoppingToken);
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
             }
             catch
             {
-                // ignore
+                // TODO: Log unexpected reminder processing errors.
             }
 
             try
             {
                 await Task.Delay(_checkInterval, stoppingToken);
             }
-            catch (TaskCanceledException) { }
+            catch (TaskCanceledException)
+            {
+                break;
+            }
         }
     }
+
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {

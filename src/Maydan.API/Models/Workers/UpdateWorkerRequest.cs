@@ -1,4 +1,3 @@
-using Maydan.Domain.Enums;
 using Microsoft.AspNetCore.Http;
 
 namespace Maydan.API.Models.Workers;
@@ -11,11 +10,9 @@ public class UpdateWorkerRequest
     public string? MiddleName { get; set; }
     public string? LastName { get; set; }
     public DateTime? DateOfBirth { get; set; }
-    public Gender? Gender { get; set; }
-    public MaritalStatus? MaritalStatus { get; set; }
+    public int? GenderId { get; set; }
+    public int? MaritalStatusId { get; set; }
     public string? Nationality { get; set; }
-    public int? CountryId { get; set; }
-    public int? CityId { get; set; }
     public string? PhoneNumber { get; set; }
     public List<int>? ServiceIds { get; set; }
     public int? YearsOfExperience { get; set; }

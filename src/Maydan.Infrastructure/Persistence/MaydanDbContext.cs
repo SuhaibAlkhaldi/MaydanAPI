@@ -4,7 +4,6 @@ using Maydan.Domain.Entities;
 using Maydan.Infrastructure.Persistence.Seed;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
-
 using System.Reflection;
 
 namespace Maydan.Infrastructure.Persistence;
@@ -28,7 +27,10 @@ public class MaydanDbContext : DbContext
     public DbSet<City> Cities => Set<City>();
     public DbSet<CityLocation> CityLocations => Set<CityLocation>();
     public DbSet<ProjectType> ProjectTypes { get; set; }
+    public DbSet<LookupCategory> LookupCategories => Set<LookupCategory>();
+    public DbSet<LookupItem> LookupItems => Set<LookupItem>();
     public DbSet<Association> Associations => Set<Association>();
+    public DbSet<AssociationZone> AssociationZones => Set<AssociationZone>();
     public DbSet<AssociationProjectSupervisor> AssociationProjectSupervisors => Set<AssociationProjectSupervisor>();
     public DbSet<ProductionCompany> ProductionCompanies => Set<ProductionCompany>();
     public DbSet<Project> Projects => Set<Project>();
@@ -38,12 +40,16 @@ public class MaydanDbContext : DbContext
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<SystemConfiguration> SystemConfigurations => Set<SystemConfiguration>();
-
+    public DbSet<WorkerSuggestionRule> WorkerSuggestionRules => Set<WorkerSuggestionRule>();
     public DbSet<Service> ServiceTypes => Set<Service>();
     public DbSet<ServiceRequest> ServiceRequests => Set<ServiceRequest>();
     public DbSet<ServiceRequestWorker> ServiceRequestWorkers { get; set; } = null!;
-
-
+    public DbSet<WorkerProjectLink> WorkerProjectLinks { get; set; } = null!;
+    public DbSet<WorkerAttendance> WorkerAttendances { get; set; } = null!;
+    public DbSet<AttendanceTimeWindow> AttendanceTimeWindows { get; set; } = null!;
+    public DbSet<WorkerOvertime> WorkerOvertimes { get; set; } = null!;
+    public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
+    public DbSet<UserDevice> UserDevices => Set<UserDevice>();
 
     // ── Project Associations & Project Workers (Direct Project Management Modules)
     // EN: DbSets for managing project associations, their geographical locations, and assigned project workers.
@@ -58,6 +64,8 @@ public class MaydanDbContext : DbContext
 
         ProjectTypeSeed.Seed(modelBuilder);
         LocationSeed.Seed(modelBuilder);
+        LookupSeed.Seed(modelBuilder);
+
 
         // Global soft-delete filter for every SharedEntities (IsDeleted set by SaveChangesAsync below).
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
@@ -112,3 +120,4 @@ public class MaydanDbContext : DbContext
     private static Expression<Func<TEntity, bool>> BuildSoftDeleteFilter<TEntity>() where TEntity : SharedEntities =>
         entity => !entity.IsDeleted;
 }
+

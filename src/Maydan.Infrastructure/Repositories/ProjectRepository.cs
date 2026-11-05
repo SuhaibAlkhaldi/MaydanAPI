@@ -166,7 +166,7 @@ public class ProjectRepository : IProjectRepository
     {
      
         var query = _context.Projects
-            .Where(p => !p.IsDeleted && p.IsActive)
+            .Where(p => !p.IsDeleted)
             .Where(p => p.StartDate <= endDate && p.EndDate >= startDate);
 
 
@@ -212,7 +212,7 @@ public class ProjectRepository : IProjectRepository
     {
 
         var query = _context.Projects
-            .Where(p => !p.IsDeleted && p.IsActive)
+            .Where(p => !p.IsDeleted)
             .Where(p => p.ProductionCompanyId == productionCompanyId)
             .Where(p => p.StartDate <= endDate && p.EndDate >= startDate);
 

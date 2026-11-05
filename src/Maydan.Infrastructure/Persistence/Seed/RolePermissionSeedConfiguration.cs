@@ -132,8 +132,10 @@ namespace Maydan.Infrastructure.Persistence.Seed
                 SystemPermissions.CreateUsers,
                 SystemPermissions.ViewAssociations
             };
-            
-            var allPermissionIds = Enumerable.Range(1, 42);
+
+
+            var allPermissionIds = Enumerable.Range(1, 42)
+                .Append(SystemPermissions.ManageWorkerSuggestionRules);
 
             var grants = ForRole(BaytAlUrdon, allPermissionIds)
                 .Concat(ForRole(Aseza, asezaPermissions))

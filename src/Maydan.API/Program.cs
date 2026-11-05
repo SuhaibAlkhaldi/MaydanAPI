@@ -1,33 +1,38 @@
 ﻿using System.Text;
+﻿using FirebaseAdmin;
 using FluentValidation;
+using Google.Apis.Auth.OAuth2;
+using Hangfire;
 using Maydan.API.Filters;
 using Maydan.API.Security;
 using Maydan.Application.Interfaces;
 using Maydan.Application.Services;
+using Maydan.Domain.Entities;
 using Maydan.Infrastructure.Email;
 using Maydan.Infrastructure.Persistence;
 using Maydan.Infrastructure.Repositories;
 using Maydan.Infrastructure.Security;
 using Maydan.Infrastructure.Storage;
-
 using Maydan.Infrastructure.Web;
-
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
 
 
 builder.Services.AddControllers(options => options.Filters.Add<SystemConfigurationGateFilter>());
+
 //builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo { Title = "Maydan API", Version = "v1" });
-
+    options.SchemaFilter<JordanianPhoneSwaggerFilter>();
+    options.OperationFilter<JordanianPhoneSwaggerFilter>();
     var bearerScheme = new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\"",
@@ -45,10 +50,14 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 builder.Services.AddDbContext<MaydanDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("MaydanDb"), sqlOpts => sqlOpts.CommandTimeout(60))
+    options.UseSqlServer(builder.Configuration.GetConnectionString("MaydanDb"), sqlOpts => sqlOpts.CommandTimeout(60).UseNetTopologySuite())
            .EnableSensitiveDataLogging(builder.Environment.IsDevelopment())
 );
+//Regarding HangFire 
+builder.Services.AddHangfire(cfg => cfg.SetDataCompatibilityLevel(CompatibilityLevel.Version_180).UseSimpleAssemblyNameTypeSerializer().UseRecommendedSerializerSettings().UseSqlServerStorage(builder.Configuration.GetConnectionString("MaydanDB"),new Hangfire.SqlServer.SqlServerStorageOptions { SchemaName = "hangfire", PrepareSchemaIfNecessary = true }));
+builder.Services.AddHangfireServer(o => o.WorkerCount = 2);
 
+builder.Services.AddMemoryCache();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IUserManagementService, UserManagementService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -56,26 +65,41 @@ builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<ILocationService, LocationService>();
 builder.Services.AddScoped<IAssociationService, AssociationService>();
+builder.Services.AddScoped<IAssociationZoneService, AssociationZoneService>();
 builder.Services.AddScoped<IAssociationProjectSupervisorService, AssociationProjectSupervisorService>();
 builder.Services.AddScoped<IProductionCompanyService, ProductionCompanyService>();
 builder.Services.AddScoped<IProductionCompanyOnboardingService, ProductionCompanyOnboardingService>();
 builder.Services.AddScoped<IWorkerService, WorkerService>();
 builder.Services.AddScoped<IEntityOnboardingService, EntityOnboardingService>();
 builder.Services.AddScoped<IFrontendLinkBuilder, FrontendLinkBuilder>();
-
+builder.Services.AddScoped<IWorkerProjectLinkRepository, WorkerProjectLinkRepository>();
+builder.Services.AddScoped<IProjectDetailsService, ProjectDetailsService>();
 builder.Services.AddScoped<IEmailSender, LoggingEmailSender>();
 // EN: Register ProjectAssociation and ProjectWorker application services.
 // AR: تسجيل خدمات إدارة جمعيات المشروع وعمال المشروع في حاوية حقن التبعيات.
 builder.Services.AddScoped<IProjectAssociationService, ProjectAssociationService>();
 builder.Services.AddScoped<IProjectWorkerService, ProjectWorkerService>();
+//NEW For Hangfire and notifications
+
+// الإشعارات
+//builder.Services.AddScoped<INotificationService, NotificationService>();
+//builder.Services.AddScoped<IPushDispatcher, HangfirePushDispatcher>();
+//builder.Services.AddScoped<PushNotificationJob>();
+
 
 builder.Services.AddDataProtection();
 builder.Services.AddSingleton<ISecretProtector, DataProtectionSecretProtector>();
 builder.Services.AddScoped<ISystemConfigurationService, SystemConfigurationService>();
 builder.Services.AddScoped<ISystemConfigurationGateService, SystemConfigurationGateService>();
 builder.Services.AddScoped<IServiceConfigurationService, ServiceConfigurationService>();
+builder.Services.AddScoped<ILookupService, LookupService>();
 builder.Services.AddScoped<IServiceRequestService, ServiceRequestService>();
+builder.Services.AddScoped<IWorkerAttendanceRepository, WorkerAttendanceRepository>();
+builder.Services.AddScoped<IWorkerSuggestionRuleService,WorkerSuggestionRuleService>();
+builder.Services.AddScoped<IWorkerAttendanceService, WorkerAttendanceService>();
+
 builder.Services.AddHostedService<Maydan.API.HostedServices.ServiceRequestReminderHostedService>();
+builder.Services.AddHostedService<Maydan.API.HostedServices.AttendanceSlotsHostedService>();
 
 var uploadsRootPath = Path.Combine(
     builder.Environment.WebRootPath ?? Path.Combine(builder.Environment.ContentRootPath, "wwwroot"),
@@ -86,6 +110,10 @@ builder.Services.AddSingleton<ICivilIdHasher, HmacCivilIdHasher>();
 builder.Services.AddSingleton<IPasswordHasher, PasswordHasher>();
 
 builder.Services.AddValidatorsFromAssembly(typeof(Maydan.Application.AssemblyReference).Assembly);
+// Firebase: مرة وحدة بالإقلاع
+var fbPath = builder.Configuration["Firebase:CredentialsPath"];
+if (!string.IsNullOrWhiteSpace(fbPath) && File.Exists(fbPath))
+    FirebaseApp.Create(new AppOptions { Credential = GoogleCredential.FromFile(fbPath) });
 
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
 builder.Services.AddCors(options =>
@@ -137,6 +165,7 @@ app.UseCors("Frontend");
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseHangfireDashboard("/hangfire");   
 
 app.MapControllers();
 

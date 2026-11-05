@@ -1,5 +1,3 @@
-using Maydan.Domain.Enums;
-
 namespace Maydan.Application.DTOs.Workers;
 
 public record WorkerDto(
@@ -9,8 +7,10 @@ public record WorkerDto(
     string LastName,
     string CivilId,
     DateTime? DateOfBirth,
-    Gender? Gender,
-    MaritalStatus? MaritalStatus,
+    int? GenderId,
+    string? GenderNameEn,
+    int? MaritalStatusId,
+    string? MaritalStatusNameEn,
     string? Nationality,
     int? CountryId,
     string? CountryNameEn,
@@ -37,8 +37,9 @@ public record WorkerSummaryDto(
 
 public class CreateWorkerDto
 {
-    // Required only when the caller is Bayt-AlUrdon (must pick a target association explicitly);
-    // ignored for an Association-role caller, who always registers under their own entity.
+    // Required only when the caller is Bayt-AlUrdon (must pick a target association explicitly).
+    // An Association-role caller may omit it (defaults to their own entity) but is rejected with
+    // 400 if they send a different association's id — see WorkerService.ResolveAssociationIdAsync.
     public int? AssociationId { get; set; }
 
     public string FirstName { get; set; } = string.Empty;
@@ -46,11 +47,9 @@ public class CreateWorkerDto
     public string LastName { get; set; } = string.Empty;
     public string CivilId { get; set; } = string.Empty;
     public DateTime DateOfBirth { get; set; }
-    public Gender Gender { get; set; }
-    public MaritalStatus MaritalStatus { get; set; }
+    public int GenderId { get; set; }
+    public int MaritalStatusId { get; set; }
     public string Nationality { get; set; } = string.Empty;
-    public int CountryId { get; set; }
-    public int CityId { get; set; }
 
     public string PhoneNumber { get; set; } = string.Empty;
     public List<int> ServiceIds { get; set; } = new();
@@ -76,11 +75,9 @@ public class UpdateWorkerDto
     public string? MiddleName { get; set; }
     public string? LastName { get; set; }
     public DateTime? DateOfBirth { get; set; }
-    public Gender? Gender { get; set; }
-    public MaritalStatus? MaritalStatus { get; set; }
+    public int? GenderId { get; set; }
+    public int? MaritalStatusId { get; set; }
     public string? Nationality { get; set; }
-    public int? CountryId { get; set; }
-    public int? CityId { get; set; }
 
     public string? PhoneNumber { get; set; }
     public List<int>? ServiceIds { get; set; }

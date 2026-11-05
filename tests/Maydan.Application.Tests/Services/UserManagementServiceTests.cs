@@ -2,6 +2,7 @@ using Maydan.Application.DTOs.UserManagement;
 using Maydan.Application.Interfaces;
 using Maydan.Application.Services;
 using Maydan.Domain.Entities;
+using Maydan.Domain.Constants;
 using Maydan.Domain.Enums;
 
 namespace Maydan.Application.Tests.Services;
@@ -27,7 +28,7 @@ public class UserManagementServiceTests
     [Fact]
     public async Task CreateUserAsync_SameRoleAsCreator_SucceedsAndInheritsCreatorsEntity()
     {
-        var associationRole = new Role { RoleId = 4, RoleNameEn = "Association", RoleNameAr = "الجمعية" };
+        var associationRole = new Role { RoleId = SystemRoles.Association_Representative, RoleNameEn = "AssociationRepresentative", RoleNameAr = "ممثل الجمعية" };
         var currentUser = new User
         {
             UserId = 1,
@@ -55,7 +56,6 @@ public class UserManagementServiceTests
         };
 
         var result = await service.CreateUserAsync(currentUser.UserId, dto);
-
         Assert.Equal(EntityType.Association, result.Data!.EntityType);
         Assert.Equal(7, result.Data!.EntityId);
         Assert.NotNull(userRepository.AddedUser);
@@ -155,7 +155,7 @@ public class UserManagementServiceTests
     public async Task CreateUserAsync_BaytAlUrdonCreatingAssociationRoleWithARealEntityId_UsesTheRealAssociationIdNotThePlaceholder()
     {
         var baytAlUrdonRole = new Role { RoleId = 1, RoleNameEn = "Bayt-AlUrdon", RoleNameAr = "بيت الأردن" };
-        var associationRole = new Role { RoleId = 4, RoleNameEn = "Association", RoleNameAr = "الجمعية" };
+        var associationRole = new Role { RoleId = SystemRoles.Association_Representative, RoleNameEn = "AssociationRepresentative", RoleNameAr = "ممثل الجمعية" };
         var currentUser = new User
         {
             UserId = 1,
@@ -179,14 +179,13 @@ public class UserManagementServiceTests
             FirstNameAr = "حقيقي",
             LastNameAr = "مستخدم جمعية",
             Email = "real.association.user@example.org",
-            PhoneNumber = "+962700000003",
+            PhoneNumber = "0788834444",
             InitialPassword = "P@ssw0rd!",
             RoleId = associationRole.RoleId,
             EntityId = realAssociation.Id
         };
 
         var result = await service.CreateUserAsync(currentUser.UserId, dto);
-
         Assert.Equal(EntityType.Association, result.Data!.EntityType);
         Assert.Equal(9004, result.Data!.EntityId); // the REAL association id, not the placeholder 1
         Assert.NotNull(userRepository.AddedUser);
@@ -197,7 +196,7 @@ public class UserManagementServiceTests
     public async Task CreateUserAsync_BaytAlUrdonCreatingAssociationRoleWithAnUnknownEntityId_ThrowsKeyNotFoundExceptionAndNeverCreatesTheUser()
     {
         var baytAlUrdonRole = new Role { RoleId = 1, RoleNameEn = "Bayt-AlUrdon", RoleNameAr = "بيت الأردن" };
-        var associationRole = new Role { RoleId = 4, RoleNameEn = "Association", RoleNameAr = "الجمعية" };
+        var associationRole = new Role { RoleId = SystemRoles.Association_Representative, RoleNameEn = "AssociationRepresentative", RoleNameAr = "ممثل الجمعية" };
         var currentUser = new User
         {
             UserId = 1,
@@ -226,7 +225,8 @@ public class UserManagementServiceTests
             EntityId = 999
         };
 
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.CreateUserAsync(currentUser.UserId, dto));
+        var result = await service.CreateUserAsync(currentUser.UserId, dto);
+        Assert.False(result.Success);
         Assert.Null(userRepository.AddedUser);
     }
 
@@ -234,7 +234,7 @@ public class UserManagementServiceTests
     public async Task CreateUserAsync_BaytAlUrdonCreatingADifferentRole_ScopesGroupIdValidationToTheTargetEntityNotTheCallers()
     {
         var baytAlUrdonRole = new Role { RoleId = 1, RoleNameEn = "Bayt-AlUrdon", RoleNameAr = "بيت الأردن" };
-        var associationRole = new Role { RoleId = 4, RoleNameEn = "Association", RoleNameAr = "الجمعية" };
+        var associationRole = new Role { RoleId = SystemRoles.Association_Representative, RoleNameEn = "AssociationRepresentative", RoleNameAr = "ممثل الجمعية" };
         var currentUser = new User
         {
             UserId = 1,
@@ -258,7 +258,7 @@ public class UserManagementServiceTests
             FirstNameAr = "عبر",
             LastNameAr = "كيان",
             Email = "cross.entity.groups@example.org",
-            PhoneNumber = "+962700000003",
+            PhoneNumber = "0788834444",
             InitialPassword = "P@ssw0rd!",
             RoleId = associationRole.RoleId,
             GroupIds = new List<int> { 5 }

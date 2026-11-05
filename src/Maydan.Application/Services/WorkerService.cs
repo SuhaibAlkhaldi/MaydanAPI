@@ -17,8 +17,6 @@ public class WorkerService : IWorkerService
     private static readonly int[] ReadScope = { ViewWorkersPermissionId, ManageWorkersPermissionId };
     private static readonly int[] WriteScope = { ManageWorkersPermissionId };
 
-    private static readonly Regex JordanMobileRegex = new(@"^(\+962|0)7[789]\d{7}$", RegexOptions.Compiled);
-
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICivilIdHasher _civilIdHasher;
     public WorkerService(IUnitOfWork unitOfWork, ICivilIdHasher civilIdHasher)
@@ -87,8 +85,10 @@ public class WorkerService : IWorkerService
             return ApiResponse<WorkerDto>.FailureResponse("National ID is required.", "الرقم الوطني مطلوب.");
         }
 
-        var phoneServiceError = ValidatePhoneAndServices<WorkerDto>(dto.PhoneNumber, dto.ServiceIds);
-        if (phoneServiceError is not null)
+        var phoneServiceError = ValidatePhoneAndServices<WorkerDto>(
+            dto.PhoneNumber,
+            dto.ServiceIds,
+            out var phoneNumber); if (phoneServiceError is not null)
         {
             return phoneServiceError;
         }
@@ -106,16 +106,26 @@ public class WorkerService : IWorkerService
             return ApiResponse<WorkerDto>.FailureResponse("Worker already exists.", "العامل مسجل مسبقًا بنفس الرقم الوطني.");
         }
 
-        var phoneNumber = dto.PhoneNumber.Trim();
-        if (await _unitOfWork.Workers.GetByPhoneNumberAsync(phoneNumber, cancellationToken) is not null)
+        if (await IsPhoneNumberRegisteredToAnotherWorkerAsync(
+        phoneNumber,
+        null,
+        cancellationToken))
         {
-            return ApiResponse<WorkerDto>.FailureResponse("Phone number is already registered to another worker.", "رقم الهاتف مستخدم مسبقًا لعامل آخر.");
+            return ApiResponse<WorkerDto>.FailureResponse(
+                "Phone number is already registered to another worker.",
+                "رقم الهاتف مستخدم مسبقًا لعامل آخر.");
         }
 
-        var countryCityError = await EnsureCountryAndCityExistAsync<WorkerDto>(dto.CountryId, dto.CityId, cancellationToken);
-        if (countryCityError is not null)
+        var genderError = await EnsureLookupItemValidAsync<WorkerDto>("Gender", dto.GenderId, cancellationToken);
+        if (genderError is not null)
         {
-            return countryCityError;
+            return genderError;
+        }
+
+        var maritalStatusError = await EnsureLookupItemValidAsync<WorkerDto>("MaritalStatus", dto.MaritalStatusId, cancellationToken);
+        if (maritalStatusError is not null)
+        {
+            return maritalStatusError;
         }
 
         var serviceIds = dto.ServiceIds.Distinct().ToList();
@@ -145,11 +155,9 @@ public class WorkerService : IWorkerService
             CivilId = civilId,
             CivilIdHash = civilIdHash,
             DateOfBirth = dto.DateOfBirth,
-            Gender = dto.Gender,
-            MaritalStatus = dto.MaritalStatus,
+            GenderId = dto.GenderId,
+            MaritalStatusId = dto.MaritalStatusId,
             Nationality = dto.Nationality.Trim(),
-            CountryId = dto.CountryId,
-            CityId = dto.CityId,
             PhoneNumber = phoneNumber,
             YearsOfExperience = dto.YearsOfExperience,
             AssociationId = associationId,
@@ -209,32 +217,33 @@ public class WorkerService : IWorkerService
             return scopeError;
         }
 
+
         string? phoneNumber = null;
+
         if (dto.PhoneNumber is not null)
         {
-            if (!JordanMobileRegex.IsMatch(dto.PhoneNumber.Trim()))
+            if (!JordanianPhoneNumberHelper.TryNormalize(
+                    dto.PhoneNumber,
+                    out var normalizedPhone))
             {
-                return ApiResponse<WorkerDto>.FailureResponse("Phone number must be a valid Jordanian mobile number.", "رقم الهاتف غير صالح، يجب أن يكون رقم أردني.");
+                return ApiResponse<WorkerDto>.FailureResponse(
+                    "Phone number must be a valid Jordanian mobile number.",
+                    "رقم الهاتف غير صالح، يجب أن يكون رقم أردني.");
             }
 
-            phoneNumber = dto.PhoneNumber.Trim();
-            var phoneOwner = await _unitOfWork.Workers.GetByPhoneNumberAsync(phoneNumber, cancellationToken);
-            if (phoneOwner is not null && phoneOwner.Id != workerId)
+            phoneNumber = normalizedPhone;
+
+            if (await IsPhoneNumberRegisteredToAnotherWorkerAsync(
+                    phoneNumber,
+                    workerId,
+                    cancellationToken))
             {
-                return ApiResponse<WorkerDto>.FailureResponse("Phone number is already registered to another worker.", "رقم الهاتف مستخدم مسبقًا لعامل آخر.");
+                return ApiResponse<WorkerDto>.FailureResponse(
+                    "Phone number is already registered to another worker.",
+                    "رقم الهاتف مستخدم مسبقًا لعامل آخر.");
             }
         }
 
-        var countryId = dto.CountryId ?? worker.CountryId ?? 0;
-        var cityId = dto.CityId ?? worker.CityId ?? 0;
-        if (dto.CountryId is not null || dto.CityId is not null)
-        {
-            var countryCityError = await EnsureCountryAndCityExistAsync<WorkerDto>(countryId, cityId, cancellationToken);
-            if (countryCityError is not null)
-            {
-                return countryCityError;
-            }
-        }
 
         var serviceIds = dto.ServiceIds?.Distinct().ToList() ?? worker.WorkerServices.Select(ws => ws.ServiceId).ToList();
         var (requiresDocuments, servicesError) = await EnsureServicesExistAsync<WorkerDto>(serviceIds, cancellationToken);
@@ -275,23 +284,32 @@ public class WorkerService : IWorkerService
             worker.DateOfBirth = dto.DateOfBirth.Value;
         }
 
-        if (dto.Gender is not null)
+        if (dto.GenderId is not null)
         {
-            worker.Gender = dto.Gender.Value;
+            var genderError = await EnsureLookupItemValidAsync<WorkerDto>("Gender", dto.GenderId.Value, cancellationToken);
+            if (genderError is not null)
+            {
+                return genderError;
+            }
+
+            worker.GenderId = dto.GenderId.Value;
         }
 
-        if (dto.MaritalStatus is not null)
+        if (dto.MaritalStatusId is not null)
         {
-            worker.MaritalStatus = dto.MaritalStatus.Value;
+            var maritalStatusError = await EnsureLookupItemValidAsync<WorkerDto>("MaritalStatus", dto.MaritalStatusId.Value, cancellationToken);
+            if (maritalStatusError is not null)
+            {
+                return maritalStatusError;
+            }
+
+            worker.MaritalStatusId = dto.MaritalStatusId.Value;
         }
 
         if (dto.Nationality is not null)
         {
             worker.Nationality = dto.Nationality.Trim();
         }
-
-        worker.CountryId = countryId;
-        worker.CityId = cityId;
 
         if (phoneNumber is not null)
         {
@@ -419,6 +437,11 @@ public class WorkerService : IWorkerService
     {
         if (currentUser.EntityType == EntityType.Association)
         {
+            if (requestedAssociationId.HasValue && requestedAssociationId.Value != currentUser.EntityId)
+            {
+                return (0, ApiResponse<T>.FailureResponse("You cannot register a worker under a different association.", "لا يمكنك تسجيل عامل تحت جمعية أخرى."));
+            }
+
             return (currentUser.EntityId, null);
         }
 
@@ -469,16 +492,17 @@ public class WorkerService : IWorkerService
         return rolePermissionIds.Concat(directPermissionIds).Concat(groupPermissionIds).ToHashSet();
     }
 
-    private async Task<ApiResponse<T>?> EnsureCountryAndCityExistAsync<T>(int countryId, int cityId, CancellationToken cancellationToken)
+    private async Task<ApiResponse<T>?> EnsureLookupItemValidAsync<T>(string categoryCode, int itemId, CancellationToken cancellationToken)
     {
-        if (await _unitOfWork.Countries.GetByIdAsync(countryId, cancellationToken) is null)
+        var exists = await _unitOfWork.Lookups.ExistsInCategoryAsync(categoryCode, itemId, cancellationToken);
+        if (!exists)
         {
-            return ApiResponse<T>.FailureResponse("Country not found.", "الدولة غير موجودة.");
-        }
-
-        if (await _unitOfWork.Cities.GetByIdAsync(cityId, cancellationToken) is null)
-        {
-            return ApiResponse<T>.FailureResponse("City not found.", "المدينة غير موجودة.");
+            return categoryCode switch
+            {
+                "Gender" => ApiResponse<T>.FailureResponse("Gender is invalid.", "الجنس المحدد غير صالح."),
+                "MaritalStatus" => ApiResponse<T>.FailureResponse("Marital status is invalid.", "الحالة الاجتماعية المحددة غير صالحة."),
+                _ => ApiResponse<T>.FailureResponse("Selected value is invalid.", "القيمة المحددة غير صالحة.")
+            };
         }
 
         return null;
@@ -522,20 +546,63 @@ public class WorkerService : IWorkerService
         return null;
     }
 
-    private static ApiResponse<T>? ValidatePhoneAndServices<T>(string phoneNumber, List<int> serviceIds)
+
+    private static ApiResponse<T>? ValidatePhoneAndServices<T>(
+        string phoneNumber,
+        List<int> serviceIds,
+        out string normalizedPhoneNumber)
     {
-        if (string.IsNullOrWhiteSpace(phoneNumber) || !JordanMobileRegex.IsMatch(phoneNumber.Trim()))
+        if (!JordanianPhoneNumberHelper.TryNormalize(
+                phoneNumber,
+                out normalizedPhoneNumber))
         {
-            return ApiResponse<T>.FailureResponse("Phone number must be a valid Jordanian mobile number.", "رقم الهاتف غير صالح، يجب أن يكون رقم أردني.");
+            return ApiResponse<T>.FailureResponse(
+                "Phone number must be a valid Jordanian mobile number.",
+                "رقم الهاتف غير صالح، يجب أن يكون رقم أردني.");
         }
 
         if (serviceIds.Count == 0)
         {
-            return ApiResponse<T>.FailureResponse("At least one service must be selected.", "يجب اختيار خدمة واحدة على الأقل.");
+            return ApiResponse<T>.FailureResponse(
+                "At least one service must be selected.",
+                "يجب اختيار خدمة واحدة على الأقل.");
         }
 
         return null;
     }
+
+    private async Task<bool> IsPhoneNumberRegisteredToAnotherWorkerAsync(
+        string normalizedPhoneNumber,
+        int? currentWorkerId,
+        CancellationToken cancellationToken)
+    {
+        var nationalNumber = normalizedPhoneNumber.Substring(4);
+
+        var possibleFormats = new[]
+        {
+        normalizedPhoneNumber,
+        $"0{nationalNumber}",
+        nationalNumber,
+        $"00962{nationalNumber}"
+    };
+
+        foreach (var number in possibleFormats)
+        {
+            var existingWorker =
+                await _unitOfWork.Workers.GetByPhoneNumberAsync(
+                    number,
+                    cancellationToken);
+
+            if (existingWorker is not null &&
+                existingWorker.Id != currentWorkerId)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
 
     private static void SyncWorkerServices(Worker worker, List<int> serviceIds)
     {
@@ -556,30 +623,31 @@ public class WorkerService : IWorkerService
     private async Task<(User? CurrentUser, ApiResponse<T>? Error)> GetCurrentUserAsync<T>(int currentUserId, CancellationToken cancellationToken)
     {
         var currentUser = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken);
-        if (currentUser is null) { return (null, ApiResponse<T>.FailureResponse("لم يتم العثور على المستخدم الحالي.", "Current user was not found.")); }
+        if (currentUser is null) { return (null, ApiResponse<T>.FailureResponse("Current user was not found.","لم يتم العثور على المستخدم الحالي.")); }
         if (!currentUser.IsActive)
         {
-            return (null, ApiResponse<T>.FailureResponse("حساب المستخدم الحالي غير نشط.", "Current user is inactive."));
+            return (null, ApiResponse<T>.FailureResponse("Current user is inactive.","حساب المستخدم الحالي غير نشط."));
         }
         return (currentUser, null);
     }
+
     public async Task<ApiResponse<List<WorkerDto>>> GetAvailableWorkersForRequestAsync(
-     int currentUserId,
-     int serviceRequestId,
-     CancellationToken cancellationToken = default)
+       int currentUserId,
+       int serviceRequestId,
+       CancellationToken cancellationToken = default)
     {
+        // Get the service request.
         var request = await _unitOfWork.ServiceRequests
             .GetByIdAsync(serviceRequestId, cancellationToken);
 
         if (request is null)
         {
             return ApiResponse<List<WorkerDto>>.FailureResponse(
-                "Request not found.",
-                "الطلب غير موجود.");
+                "Service request not found.",
+                "طلب الخدمة غير موجود.");
         }
 
-        // Check that the current user is an Association admin
-        // belonging to the same association as the service request.
+        // Validate current user.
         var (currentUser, authError) =
             await GetCurrentUserAsync<List<WorkerDto>>(
                 currentUserId,
@@ -588,57 +656,52 @@ public class WorkerService : IWorkerService
         if (authError is not null)
             return authError;
 
+        // Only users belonging to the selected association.
         if (currentUser!.EntityType != EntityType.Association ||
             currentUser.EntityId != request.AssociationId)
         {
-            return ApiResponse<List<WorkerDto>>.FailureResponse(
-                "You are not authorized to view workers for this service request.",
-                "ليس لديك صلاحية لعرض عمال طلب الخدمة هذا.");
+            return new ApiResponse<List<WorkerDto>>(
+                false,
+                "لا تملك صلاحية الوصول إلى عمال طلب الخدمة هذا.",
+                "You are not authorized to access this service request.",
+                null,
+                403);
         }
 
-        var availableWorkers =
+        if (request.RequestedWorkersCount <= 0)
+        {
+            return ApiResponse<List<WorkerDto>>.FailureResponse(
+                "Requested workers count must be greater than zero.",
+                "عدد العمال المطلوب يجب أن يكون أكبر من صفر.");
+        }
+
+        // Eligibility + dynamic filtering + ranking + Top N
+        // are handled by WorkerRepository.
+        var suggestedWorkers =
             await _unitOfWork.Workers.GetAvailableWorkersForRequestAsync(
                 request.AssociationId,
                 request.ServiceId,
                 request.StartDate,
                 request.EndDate,
+                request.RequestedWorkersCount,
+                request.Id,
+                request.ProjectId,
+                request.Project.StartDate,
+                request.Project.EndDate,
                 cancellationToken);
 
-        var workers = availableWorkers
-            .Select(w => new WorkerDto(
-                w.Id,
-                w.FirstName,
-                w.MiddleName,
-                w.LastName,
-                w.CivilId,
-                w.DateOfBirth,
-                w.Gender,
-                w.MaritalStatus,
-                w.Nationality,
-                w.CountryId,
-                w.Country?.EnglishName,
-                w.CityId,
-                w.City?.EnglishName,
-                w.PhoneNumber,
-                w.YearsOfExperience,
-                w.AssociationId,
-                w.Association.EnglishName ?? string.Empty,
-                w.QrCode,
-                w.WorkerServices
-                    .Select(ws => ws.ServiceId)
-                    .ToList(),
-                w.WorkerServices
-                    .Select(ws => ws.Service.NameEn)
-                    .ToList(),
-                new List<string>(), // Documents aren't loaded by GetAvailableWorkersForRequestAsync; out of scope for this endpoint.
-                w.IsActive
-            ))
-            .ToList();
+        // Return only a complete suggestion list.
+        if (suggestedWorkers.Count < request.RequestedWorkersCount)
+        {
+            return ApiResponse<List<WorkerDto>>.FailureResponse(
+                "Not enough eligible workers to fulfill the requested count.",
+                "عدد العمال المؤهلين غير كافٍ لتلبية العدد المطلوب.");
+        }
 
+        // Suggestions only. No worker assignment occurs here.
         return ApiResponse<List<WorkerDto>>.SuccessResponse(
-            workers,
-            "Available workers retrieved successfully.",
-            "تم جلب العمال المتاحين بنجاح."
-        );
+            suggestedWorkers,
+            "Suggested workers retrieved successfully.",
+            "تم جلب العمال المقترحين بنجاح.");
     }
 }
