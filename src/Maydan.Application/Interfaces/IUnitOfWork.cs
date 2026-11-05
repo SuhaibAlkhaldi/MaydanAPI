@@ -12,6 +12,8 @@ public interface IUnitOfWork
     ICityLocationRepository CityLocations { get; }
     IAssociationRepository Associations { get; }
     IAssociationProjectSupervisorRepository AssociationProjectSupervisors { get; }
+    // Optional default implementation so existing test fakes don't need to implement it.
+    IAssociationZoneRepository AssociationZones => throw new NotImplementedException();
     IProductionCompanyRepository ProductionCompanies { get; }
     IProjectRepository Projects { get; }
     IWorkerRepository Workers { get; }
@@ -19,7 +21,6 @@ public interface IUnitOfWork
     IRefreshTokenRepository RefreshTokens { get; }
     ISystemConfigurationRepository SystemConfigurations { get; }
     IServiceRepository Services { get; }
-    // Optional default implementation so existing test fakes don't need to implement it.
     IServiceRequestRepository ServiceRequests => throw new NotImplementedException();
     ILookupRepository Lookups => throw new NotImplementedException();
     IWorkerProjectLinkRepository WorkerProjectLinks => throw new NotImplementedException();
@@ -27,10 +28,5 @@ public interface IUnitOfWork
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 
-    // Entity onboarding Stage 1 (2026-09-22): User.EntityId is a soft FK (no EF navigation, see
-    // User.cs) — EF can't auto-populate it the way it does a real FK, so creating a brand-new
-    // entity plus its first user needs two SaveChangesAsync calls (one to obtain the entity's
-    // generated Id before the user row referencing it can be built). Wrapped here so that pair
-    // stays atomic without leaking EF's transaction type into the Application layer.
     Task ExecuteInTransactionAsync(Func<Task> operation, CancellationToken cancellationToken = default);
 }

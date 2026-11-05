@@ -226,7 +226,6 @@ public class MarkAbsentDto
 
 public class ResolveAttendanceDto
 {
-    [JsonConverter(typeof(JsonStringEnumConverter))]
     public LookupConstants.AttendanceEntryTypeInput FinalEntryTypeId { get; set; }
     public string? Note { get; set; }
 }
@@ -237,4 +236,11 @@ public class SlotStatusDto
     public string AssociationStatus { get; set; } = "NotRecorded";
     public string ProductionCompanyStatus { get; set; } = "NotRecorded";
     public int? AttendanceId { get; set; }
+}
+public class PendingApprovalDto
+{
+    public WorkerAttendanceDto Attendance { get; set; } = null!;
+    public int ServiceRequestId { get; set; }
+    public string? ProjectNameAr { get; set; }
+    public string? ProjectNameEn { get; set; }
 }

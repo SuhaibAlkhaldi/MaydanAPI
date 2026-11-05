@@ -28,7 +28,6 @@ public class ServiceRequestsController : ApiControllerBase
     }
 
 
-
     [HttpGet("resolve-association")]
     public async Task<ActionResult<AssociationLookupDto>> ResolveAssociation([FromQuery] int cityId, CancellationToken cancellationToken)
     {
@@ -36,7 +35,6 @@ public class ServiceRequestsController : ApiControllerBase
         {
             return Unauthorized(new Maydan.Application.DTOs.Common.ApiResponse<object?>(false, " تعذر التحقق من هوية المستخدم  ", "Current user id is required.", null));
         }
-
 
         var result = await _serviceRequestService.ResolveAssociationByCityIdAsync(currentUserId, cityId, cancellationToken);
         return StatusCode(result.StatusCode, result);

@@ -2,9 +2,11 @@ using System.Globalization;
 using Maydan.Application.DTOs.Associations;
 using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.UserManagement;
+using Maydan.Application.Helpers;
 using Maydan.Application.Interfaces;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
+using NetTopologySuite.Geometries;
 
 namespace Maydan.Application.Services;
 
@@ -126,7 +128,7 @@ public class AssociationService : IAssociationService
         var nameArError = ValidateName<AssociationDto>(dto.ArabicName, "الاسم العربي", "Arabic association name");
         if (nameArError != null) return nameArError;
 
-        if (await _unitOfWork.Cities.GetByIdAsync(dto.CityId, cancellationToken) is null)
+        if (dto.CityId.HasValue && await _unitOfWork.Cities.GetByIdAsync(dto.CityId.Value, cancellationToken) is null)
             return new ApiResponse<AssociationDto>(false, "المدينة غير موجودة.", "City was not found.", default, 404);
 
         var (lat, latError) = ParseCoordinate<AssociationDto>(dto.Latitude, "خط العرض (Latitude)", "Latitude");
@@ -134,6 +136,19 @@ public class AssociationService : IAssociationService
 
         var (lon, lonError) = ParseCoordinate<AssociationDto>(dto.Longitude, "خط الطول (Longitude)", "Longitude");
         if (lonError != null) return lonError;
+
+        Polygon? geofence = null;
+        if (dto.Geofence != null)
+        {
+            try
+            {
+                geofence = GeoJsonHelper.ToPolygon(dto.Geofence);
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<AssociationDto>.FailureResponse(ex.Message, ex.Message);
+            }
+        }
 
         var adminPayload = dto.Admin;
         Role? adminRole = null;
@@ -161,12 +176,43 @@ public class AssociationService : IAssociationService
             EnglishName = dto.EnglishName.Trim(),
             ArabicName = dto.ArabicName.Trim(),
             CityId = dto.CityId,
+            Geofence = geofence,
             LocationOnGoogleMaps = string.IsNullOrWhiteSpace(dto.LocationOnGoogleMaps) ? null : dto.LocationOnGoogleMaps.Trim(),
             Latitude = lat,
             Longitude = lon,
             CreatedBy = currentUser!.UserId,
             IsActive = true
         };
+
+        if (dto.Zones != null && dto.Zones.Any())
+        {
+            foreach (var zoneDto in dto.Zones)
+            {
+                try
+                {
+                    var zoneBoundary = GeoJsonHelper.ToPolygon(zoneDto.Boundary);
+                    if (geofence != null && !geofence.Contains(zoneBoundary))
+                    {
+                        return ApiResponse<AssociationDto>.FailureResponse(
+                            "One or more zone boundaries lie outside the association geofence.",
+                            "إحدى المناطق تقع خارج السياج الجغرافي للجمعية.");
+                    }
+
+                    association.Zones.Add(new AssociationZone
+                    {
+                        ArabicName = zoneDto.ArabicName.Trim(),
+                        EnglishName = zoneDto.EnglishName.Trim(),
+                        Boundary = zoneBoundary,
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
+                catch (Exception ex)
+                {
+                    return ApiResponse<AssociationDto>.FailureResponse(ex.Message, ex.Message);
+                }
+            }
+        }
 
         if (adminRole is null)
         {
@@ -207,7 +253,7 @@ public class AssociationService : IAssociationService
         if (association == null)
             return new ApiResponse<AssociationDto>(false, "الجمعية غير موجودة.", "Association was not found.", default, 404);
 
-        if (await _unitOfWork.Cities.GetByIdAsync(dto.CityId, cancellationToken) is null)
+        if (dto.CityId.HasValue && await _unitOfWork.Cities.GetByIdAsync(dto.CityId.Value, cancellationToken) is null)
             return new ApiResponse<AssociationDto>(false, "المدينة غير موجودة.", "City was not found.", default, 404);
 
         var (lat, latError) = ParseCoordinate<AssociationDto>(dto.Latitude, "خط العرض", "Latitude");
@@ -215,6 +261,18 @@ public class AssociationService : IAssociationService
 
         var (lon, lonError) = ParseCoordinate<AssociationDto>(dto.Longitude, "خط الطول", "Longitude");
         if (lonError != null) return lonError;
+
+        if (dto.Geofence != null)
+        {
+            try
+            {
+                association.Geofence = GeoJsonHelper.ToPolygon(dto.Geofence);
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<AssociationDto>.FailureResponse(ex.Message, ex.Message);
+            }
+        }
 
         association.EnglishName = dto.EnglishName.Trim();
         association.ArabicName = dto.ArabicName.Trim();
@@ -392,14 +450,29 @@ public class AssociationService : IAssociationService
         LocationOnGoogleMaps = association.LocationOnGoogleMaps ?? string.Empty,
         Latitude = FormatCoordinate(association.Latitude),
         Longitude = FormatCoordinate(association.Longitude),
-        CountryId = association.City.CountryId,
-        CountryEnglishName = association.City.Country.EnglishName,
-        CountryArabicName = association.City.Country.ArabicName,
+        Geofence = association.Geofence != null ? GeoJsonHelper.FromPolygon(association.Geofence) : null,
+        CountryId = association.City?.CountryId,
+        CountryEnglishName = association.City?.Country?.EnglishName ?? string.Empty,
+        CountryArabicName = association.City?.Country?.ArabicName ?? string.Empty,
         CityId = association.CityId,
-        CityEnglishName = association.City.EnglishName,
-        CityArabicName = association.City.ArabicName,
+        CityEnglishName = association.City?.EnglishName ?? string.Empty,
+        CityArabicName = association.City?.ArabicName ?? string.Empty,
         IsDeleted = association.IsDeleted,
-        WorkersCount = workersCount
+        WorkersCount = workersCount,
+        Zones = association.Zones?.Select(z => new AssociationZoneDto
+        {
+            Id = z.Id,
+            AssociationId = z.AssociationId,
+            AssociationArabicName = association.ArabicName,
+            AssociationEnglishName = association.EnglishName,
+            ArabicName = z.ArabicName,
+            EnglishName = z.EnglishName,
+            Boundary = GeoJsonHelper.FromPolygon(z.Boundary),
+            IsBookedNow = z.IsBookedNow,
+            BookedFrom = z.BookedFrom,
+            BookedUntil = z.BookedUntil,
+            ServiceRequestId = z.ServiceRequestId
+        }).ToList() ?? new()
     };
 
     private static string FormatCoordinate(decimal? value) =>
@@ -417,6 +490,7 @@ public class AssociationService : IAssociationService
             LocationOnGoogleMaps = dto.LocationOnGoogleMaps,
             Latitude = dto.Latitude,
             Longitude = dto.Longitude,
+            Geofence = dto.Geofence,
             CountryId = dto.CountryId,
             CountryEnglishName = dto.CountryEnglishName,
             CountryArabicName = dto.CountryArabicName,
@@ -425,6 +499,7 @@ public class AssociationService : IAssociationService
             CityArabicName = dto.CityArabicName,
             IsDeleted = dto.IsDeleted,
             WorkersCount = dto.WorkersCount,
+            Zones = dto.Zones,
             Users = users.Select(UserManagementService.MapUserSummary).ToList()
         };
     }

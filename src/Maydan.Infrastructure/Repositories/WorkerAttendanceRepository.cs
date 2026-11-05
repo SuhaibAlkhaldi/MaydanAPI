@@ -20,7 +20,7 @@ public class WorkerAttendanceRepository : IWorkerAttendanceRepository
     //NEW 
     public Task<WorkerAttendance?> GetForReviewAsync(int id, CancellationToken cancellationToken = default) =>
        _db.WorkerAttendances
-          .Include(a => a.WorkerProjectLink)
+      .Include(a => a.WorkerProjectLink).ThenInclude(l => l.Worker)
           .FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
 
 
@@ -160,5 +160,28 @@ public class WorkerAttendanceRepository : IWorkerAttendanceRepository
        .FirstOrDefaultAsync(l => l.Id == linkId
                              && l.ServiceRequestId == serviceRequestId
                              && l.IsWorkerActive, cancellationToken);
+
+
+    public Task<List<WorkerAttendance>> ListPendingApprovalAsync(int productionCompanyId, int? serviceRequestId,
+    DateTime? from, DateTime? to, CancellationToken cancellationToken = default)
+    {
+        var fromDate = from?.Date;
+        var toDate = to?.Date;
+
+        return _db.WorkerAttendances.AsNoTracking()
+            .Include(a => a.WorkerProjectLink).ThenInclude(l => l.Worker)
+            .Include(a => a.WorkerProjectLink).ThenInclude(l => l.Project)
+            .Where(a => a.WorkerProjectLink.ServiceRequest.ProductionCompanyId == productionCompanyId
+                     && a.WorkerProjectLink.ServiceRequest.StatusId == LookupConstants.ServiceRequestStatus.InProgress
+                     && a.ApprovalStatusId == LookupConstants.AttendanceApprovalStatus.Pending
+                     && a.EntryTypeId != LookupConstants.AttendanceEntryType.NotRecorded
+                     && a.AssociationEntryTypeId != null
+                     && a.ProductionCompanyEntryTypeId != null
+                     && (serviceRequestId == null || a.WorkerProjectLink.ServiceRequestId == serviceRequestId)
+                     && (fromDate == null || a.AttendanceForDate >= fromDate)
+                     && (toDate == null || a.AttendanceForDate <= toDate))
+            .OrderBy(a => a.AttendanceForDate).ThenBy(a => a.WorkerProjectLinkId).ThenBy(a => a.CheckInNumber)
+            .ToListAsync(cancellationToken);
+    }
 
 }

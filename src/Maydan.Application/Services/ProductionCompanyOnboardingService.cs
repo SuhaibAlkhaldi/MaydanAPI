@@ -1,3 +1,4 @@
+using Maydan.Application.Common;
 using Maydan.Application.DTOs.Auth;
 using Maydan.Application.DTOs.Common;
 using Maydan.Application.Interfaces;
@@ -46,11 +47,16 @@ namespace Maydan.Application.Services
             int? adminUserId,
             CancellationToken cancellationToken)
         {
-            var validationError = ValidatePayload(dto);
+
+            var validationError = ValidatePayload(
+                dto,
+                out var phone);
+
             if (validationError != null)
             {
                 return validationError;
             }
+
 
             var email = dto.Email.Trim();
             if (await _unitOfWork.Users.EmailExistsAsync(email, cancellationToken))
@@ -81,7 +87,6 @@ namespace Maydan.Application.Services
                 return ApiResponse<RegisterProductionCompanyResponseDto>.FailureResponse("ProductionHouse role was not found.", "دور شركة الإنتاج غير موجود بالنظام.");
             }
 
-            var phone = $"{dto.MobileCountryCode.Trim()}{dto.MobileNumber.Trim()}";
             var firstNameEn = dto.AdminFirstName.Trim();
             var lastNameEn = dto.AdminLastName.Trim();
             var firstNameAr = dto.AdminFirstNameAr.Trim();
@@ -154,8 +159,10 @@ namespace Maydan.Application.Services
                 201);
         }
 
-        private static ApiResponse<RegisterProductionCompanyResponseDto>? ValidatePayload(RegisterProductionCompanyDto dto)
+        private static ApiResponse<RegisterProductionCompanyResponseDto>? ValidatePayload(RegisterProductionCompanyDto dto, out string normalizedPhoneNumber)
         {
+
+            normalizedPhoneNumber = string.Empty;
             if (string.IsNullOrWhiteSpace(dto.CompanyNameEn) ||
                 string.IsNullOrWhiteSpace(dto.CompanyNameAr) ||
                 string.IsNullOrWhiteSpace(dto.RegistrationNumber) ||
@@ -182,14 +189,28 @@ namespace Maydan.Application.Services
                 return ApiResponse<RegisterProductionCompanyResponseDto>.FailureResponse("Invalid email format.", "صيغة البريد الإلكتروني غير صحيحة.");
             }
 
-            var phone = $"{dto.MobileCountryCode.Trim()}{dto.MobileNumber.Trim()}";
-            var phoneRegex = new Regex(@"^(07[789]\d{7}|\+9627[789]\d{7}|009627[789]\d{7})$", RegexOptions.Compiled);
-            if (!phoneRegex.IsMatch(phone))
+
+            if (dto.MobileCountryCode.Trim() != "+962")
             {
-                return ApiResponse<RegisterProductionCompanyResponseDto>.FailureResponse(
-                    "Invalid phone number. Must be a valid Jordanian mobile number.",
-                    "رقم الهاتف غير صحيح، يجب أن يكون رقم هاتف أردني صالح.");
+                return ApiResponse<RegisterProductionCompanyResponseDto>
+                    .FailureResponse(
+                        "Country code must be +962.",
+                        "يجب أن يكون رمز الدولة +962.");
             }
+
+            var combinedPhone =
+                $"{dto.MobileCountryCode.Trim()}{dto.MobileNumber.Trim()}";
+
+            if (!JordanianPhoneNumberHelper.TryNormalize(
+                    combinedPhone,
+                    out normalizedPhoneNumber))
+            {
+                return ApiResponse<RegisterProductionCompanyResponseDto>
+                    .FailureResponse(
+                        "Invalid Jordanian mobile number.",
+                        "رقم الهاتف غير صالح، يجب إدخال رقم أردني صحيح بعد +962.");
+            }
+
 
             var regNumRegex = new Regex(@"^[a-zA-Z0-9\-]{5,15}$", RegexOptions.Compiled);
             if (!regNumRegex.IsMatch(dto.RegistrationNumber.Trim()))

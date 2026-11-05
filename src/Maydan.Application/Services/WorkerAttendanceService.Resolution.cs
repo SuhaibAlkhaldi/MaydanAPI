@@ -41,7 +41,13 @@ public partial class WorkerAttendanceService
         a.UpdatedBy = user.UserId; a.UpdatedDate = now;
 
         await _uow.SaveChangesAsync(ct);
-        return ApiResponse<WorkerAttendanceDto>.SuccessResponse(ToDto(a), "Attendance resolved.", "تمت معالجة الحضور.");
+
+        var result = ToDto(a);
+        ApplyWorker(result, a.WorkerProjectLink);
+
+        await FillLookupNamesAsync(result, ct);
+        return ApiResponse<WorkerAttendanceDto>.SuccessResponse(result, "Attendance resolved.", "تمت معالجة الحضور.");
+        //return ApiResponse<WorkerAttendanceDto>.SuccessResponse(ToDto(a), "Attendance resolved.", "تمت معالجة الحضور.");
     }
 
     public async Task<ApiResponse<List<PendingResolutionDto>>> GetPendingResolutionAsync(int currentUserId, CancellationToken ct = default)
@@ -68,6 +74,7 @@ public partial class WorkerAttendanceService
                 IsOverdue = today > deadline
             };
         }).ToList();
+        await FillLookupNamesAsync(items.Select(i => i.Attendance), ct);
 
         return ApiResponse<List<PendingResolutionDto>>.SuccessResponse(items, "Pending attendance fetched.", "تم جلب الحضور المعلق.");
     }

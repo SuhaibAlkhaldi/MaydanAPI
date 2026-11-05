@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 namespace Maydan.Domain.Common;
 
 public static class LookupConstants
@@ -24,6 +25,8 @@ public static class LookupConstants
         public const int Absent = 16;
         public const int NotRecorded= 17;
     }
+
+    [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum AttendanceEntryTypeInput
     {
         Present = AttendanceEntryType.Present, // 15

@@ -5,10 +5,10 @@ using Maydan.Domain.Common;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
 using System.Linq;
-
 namespace Maydan.Application.Services;
 
-// Overtime = hours worked AFTER the check-out. Recorded on site, counted in the total only after
+// Overtime = hours worked AFTER the check-out.
+// Recorded on site, counted in the total only after
 // Bayt Al Urdon approves it.
 public partial class WorkerAttendanceService
 {
@@ -17,6 +17,7 @@ public partial class WorkerAttendanceService
     private const decimal MaxOvertimeHours = 12m;
 
     //Hours covered by one unit of the service price (see ServiceTimeUnit: shift = 12h, day = 9h).
+
     private static int HoursPerUnit(CalculationType type) => type switch
     {
         CalculationType.PerShift => 12,
@@ -109,9 +110,13 @@ public partial class WorkerAttendanceService
         await _uow.SaveChangesAsync(ct);
         overtime = (await _repo.GetOvertimeByIdAsync(
     overtime.Id,
-    cancellationToken: ct))!;   
+    cancellationToken: ct))!;
+        var result = ToOvertimeDto(overtime, link);
+        await FillOvertimeStatusNamesAsync(new[] { result }, ct);
+
         return ApiResponse<WorkerOvertimeDto>.SuccessResponse(ToOvertimeDto(overtime, link),
-            "Overtime recorded. It is not counted until Bayt Al Urdon approves it.", "تم تسجيل الوقت الإضافي ولن يُحتسب إلا بعد موافقة بيت الأردن.", 201);
+            "Overtime recorded. It is not counted until Bayt Al Urdon approves it.", "تم تسجيل الوقت الإضافي ولن يُحتسب إلا بعد موافقة بيت الأردن."+ "  او شركة اللانتاج " 
+        , 201);
     }
 
     
@@ -127,9 +132,11 @@ public partial class WorkerAttendanceService
         var t = (to ?? sr!.EndDate).Date;
         var list = await _repo.ListOvertimeByServiceRequestAsync(sr!.Id, f, t, ct);
         if (statusId.HasValue) list = list.Where(o => o.ApprovalStatusId == statusId.Value).ToList();
+        var items = list.Select(o => ToOvertimeDto(o)).ToList();
+        await FillOvertimeStatusNamesAsync(items, ct);
 
         return ApiResponse<List<WorkerOvertimeDto>>.SuccessResponse(
-            list.Select(o => ToOvertimeDto(o)).ToList(), "Overtime fetched.", "تم جلب الوقت الإضافي.");
+            items, "Overtime fetched.", "تم جلب الوقت الإضافي.");
     }
 
     //All overtime waiting for a decision, across every project (Bayt Al Urdon only).
@@ -147,14 +154,15 @@ public partial class WorkerAttendanceService
 
         var list = await _repo.ListOvertimeByStatusAsync(
             LookupConstants.AttendanceApprovalStatus.Pending, companyScope, ct);
+        var items = list.Select(o => ToOvertimeDto(o)).ToList();
+        await FillOvertimeStatusNamesAsync(items, ct);
 
-        return ApiResponse<List<WorkerOvertimeDto>>.SuccessResponse(
-            list.Select(o => ToOvertimeDto(o)).ToList(),
+        return ApiResponse<List<WorkerOvertimeDto>>.SuccessResponse(items,
             "Pending overtime fetched.",
             "تم جلب الوقت الإضافي المعلّق.");
     }
-    //  Approve / Reject (Bayt Al Urdon only)
 
+    //  Approve / Reject (Bayt Al Urdon only)
     public Task<ApiResponse<WorkerOvertimeDto>> ApproveOvertimeAsync(int currentUserId, int overtimeId, CancellationToken ct = default) =>
         ReviewOvertimeAsync(currentUserId, overtimeId, approve: true, reason: null, ct);
 
@@ -167,7 +175,7 @@ public partial class WorkerAttendanceService
         if (user is null) return Unauthorized<WorkerOvertimeDto>();
 
         if (!CanApproveOvertime(user))
-            return Fail<WorkerOvertimeDto>("Only Bayt Al Urdon can approve or reject overtime.", "فقط بيت الأردن يمكنه اعتماد أو رفض الوقت الإضافي.", 403);
+            return Fail<WorkerOvertimeDto>("Only Bayt Al Urdon can approve or reject overtime.", "فقط بيت الأردن (اوموظف  شركة الانتاج)يمكنه اعتماد أو رفض الوقت الإضافي.", 403);
 
         if (!approve && string.IsNullOrWhiteSpace(reason))
             return Fail<WorkerOvertimeDto>("A rejection reason is required.", "سبب الرفض مطلوب.");
@@ -224,5 +232,22 @@ public partial class WorkerAttendanceService
             ReviewedDate = o.ReviewedDate,
             RejectionReason = o.RejectionReason
         };
+    }
+
+
+    private async Task FillOvertimeStatusNamesAsync(IEnumerable<WorkerOvertimeDto> items, CancellationToken ct)
+    {
+        var list = items as IList<WorkerOvertimeDto> ?? items.ToList();
+        if (list.Count == 0) return;
+
+        var statuses = (await _uow.Lookups.GetItemsByCategoryCodeAsync("AttendanceApprovalStatus", ct)).ToDictionary(x => x.Id);
+        foreach (var d in list)
+        {
+            if (statuses.TryGetValue(d.ApprovalStatusId, out var st))
+            {
+                d.ApprovalStatusNameEn = st.EnglishName;
+                d.ApprovalStatusNameAr = st.ArabicName;
+            }
+        }
     }
 }

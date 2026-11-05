@@ -152,7 +152,7 @@ public class ProjectService : IProjectService
 
         if (project.IsActive)
         {
-            return ApiResponse<ProjectDto>.FailureResponse("المشروع مفعل مسبقاً.", "Project is already active.");
+            return ApiResponse<ProjectDto>.FailureResponse("Project is already active.","المشروع مفعل مسبقاً.");
         }
 
         var overlapError = await _unitOfWork.Projects
@@ -190,7 +190,7 @@ public class ProjectService : IProjectService
         var project = await _unitOfWork.Projects.GetByIdAsync(id, cancellationToken);
         if (project is null)
         {
-            return new ApiResponse<ProjectDto>(false, "المشروع غير موجود.", "Project was not found.", default, 404);
+            return new ApiResponse<ProjectDto>(false,"المشروع غير موجود.", "Project was not found.", default, 404);
         }
 
         if (!CanViewProject(currentUser!, project))
@@ -216,7 +216,7 @@ public class ProjectService : IProjectService
         var project = await _unitOfWork.Projects.GetByIdAsync(id, cancellationToken);
         if (project is null)
         {
-            return new ApiResponse<ProjectDto>(false, "المشروع غير موجود.", "Project was not found.", default, 404);
+            return new ApiResponse<ProjectDto>(false,"المشروع غير موجود.", "Project was not found.", default, 404);
         }
 
         var companyError = EnsureSameProductionCompany<ProjectDto>(project, currentUser!);
@@ -279,7 +279,7 @@ public class ProjectService : IProjectService
         var updatedProject = await _unitOfWork.Projects.GetByIdAsync(project.Id, cancellationToken);
         if (updatedProject is null)
         {
-            return new ApiResponse<ProjectDto>(false, "تعذر تحميل المشروع بعد التحديث.", "Project could not be loaded after update.", default, 500);
+            return new ApiResponse<ProjectDto>(false, "Project could not be loaded after update.", "تعذر تحميل المشروع بعد التحديث.", default, 500);
         }
 
         return ApiResponse<ProjectDto>.SuccessResponse(MapToDto(updatedProject), "Project updated successfully.", "تم تحديث بيانات المشروع بنجاح.");

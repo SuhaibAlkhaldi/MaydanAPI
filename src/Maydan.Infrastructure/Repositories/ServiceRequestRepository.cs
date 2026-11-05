@@ -1,4 +1,4 @@
-﻿using Maydan.Application.DTOs.ServiceRequests;
+using Maydan.Application.DTOs.ServiceRequests;
 using Maydan.Application.Interfaces;
 using Maydan.Domain.Common;
 using Maydan.Domain.Entities;
@@ -37,7 +37,7 @@ public class ServiceRequestRepository : IServiceRequestRepository
             r.ProductionCompanyId,
             r.AssociationId,
             r.ProjectId,
-            r.Association.CityId,
+            r.Association.CityId ?? r.Project.CityId,
             r.Project.LocationManagerUserId,
             r.Service.CalculationType,
             r.ServiceId))
