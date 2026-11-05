@@ -1,5 +1,6 @@
 using Maydan.Application.DTOs.Associations;
 using Maydan.Application.DTOs.Onboarding;
+using Maydan.Application.DTOs.Workers;
 using Maydan.Application.Interfaces;
 using Maydan.Application.Services;
 using Maydan.Domain.Entities;
@@ -652,6 +653,11 @@ public class AssociationServiceTests
 
         public Task<HashSet<int>> GetBusyWorkerIdsAsync(IReadOnlyCollection<int> ids, DateTime start, DateTime end, CancellationToken ct = default)=> throw new NotImplementedException();
         public Task<List<Maydan.Application.DTOs.Workers.WorkerDto>> GetAvailableWorkersForRequestAsync(int associationId,int serviceId,DateTime startDate,DateTime endDate,CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<List<WorkerDto>> GetAvailableWorkersForRequestAsync(int associationId, int serviceId, DateTime startDate, DateTime endDate, int requestedWorkersCount, int serviceRequestId, int projectId, DateTime projectStartDate, DateTime projectEndDate, CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
         }

@@ -571,23 +571,24 @@ public class WorkerService : IWorkerService
         }
         return (currentUser, null);
     }
+
     public async Task<ApiResponse<List<WorkerDto>>> GetAvailableWorkersForRequestAsync(
-     int currentUserId,
-     int serviceRequestId,
-     CancellationToken cancellationToken = default)
+       int currentUserId,
+       int serviceRequestId,
+       CancellationToken cancellationToken = default)
     {
+        // Get the service request.
         var request = await _unitOfWork.ServiceRequests
-            .GetAttendanceInfoAsync(serviceRequestId, cancellationToken);
+            .GetByIdAsync(serviceRequestId, cancellationToken);
 
         if (request is null)
         {
             return ApiResponse<List<WorkerDto>>.FailureResponse(
-                "Request not found.",
-                "الطلب غير موجود.");
+                "Service request not found.",
+                "طلب الخدمة غير موجود.");
         }
 
-        // Check that the current user is an Association admin
-        // belonging to the same association as the service request.
+        // Validate current user.
         var (currentUser, authError) =
             await GetCurrentUserAsync<List<WorkerDto>>(
                 currentUserId,
@@ -596,25 +597,52 @@ public class WorkerService : IWorkerService
         if (authError is not null)
             return authError;
 
+        // Only users belonging to the selected association.
         if (currentUser!.EntityType != EntityType.Association ||
             currentUser.EntityId != request.AssociationId)
         {
-            return ApiResponse<List<WorkerDto>>.FailureResponse(
-                "You are not authorized to view workers for this service request.",
-                "ليس لديك صلاحية لعرض عمال طلب الخدمة هذا.");
+            return new ApiResponse<List<WorkerDto>>(
+                false,
+                "لا تملك صلاحية الوصول إلى عمال طلب الخدمة هذا.",
+                "You are not authorized to access this service request.",
+                null,
+                403);
         }
 
-       
+        if (request.RequestedWorkersCount <= 0)
+        {
+            return ApiResponse<List<WorkerDto>>.FailureResponse(
+                "Requested workers count must be greater than zero.",
+                "عدد العمال المطلوب يجب أن يكون أكبر من صفر.");
+        }
 
-        var workers = await _unitOfWork.Workers.GetAvailableWorkersForRequestAsync(
-     request.AssociationId,
-     request.ServiceId,
-     request.StartDate,
-     request.EndDate,
-     cancellationToken);
+        // Eligibility + dynamic filtering + ranking + Top N
+        // are handled by WorkerRepository.
+        var suggestedWorkers =
+            await _unitOfWork.Workers.GetAvailableWorkersForRequestAsync(
+                request.AssociationId,
+                request.ServiceId,
+                request.StartDate,
+                request.EndDate,
+                request.RequestedWorkersCount,
+                request.Id,
+                request.ProjectId,
+                request.Project.StartDate,
+                request.Project.EndDate,
+                cancellationToken);
+
+        // Return only a complete suggestion list.
+        if (suggestedWorkers.Count < request.RequestedWorkersCount)
+        {
+            return ApiResponse<List<WorkerDto>>.FailureResponse(
+                "Not enough eligible workers to fulfill the requested count.",
+                "عدد العمال المؤهلين غير كافٍ لتلبية العدد المطلوب.");
+        }
+
+        // Suggestions only. No worker assignment occurs here.
         return ApiResponse<List<WorkerDto>>.SuccessResponse(
-            workers,
-            "Available workers retrieved successfully.",
-            "تم استرجاع العمال المتاحين بنجاح.");
+            suggestedWorkers,
+            "Suggested workers retrieved successfully.",
+            "تم جلب العمال المقترحين بنجاح.");
     }
 }

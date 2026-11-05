@@ -168,6 +168,13 @@ public class ServiceRequestService : IServiceRequestService
                 "Caller must belong to the production company that owns the project.", "يجب أن ينتمي المستخدم إلى شركة الإنتاج التي تملك المشروع.");
         }
 
+        if (!project.IsActive)
+        {
+            return ApiResponse<ServiceRequestDto>.FailureResponse(
+                "لا يمكن إنشاء طلب خدمة لمشروع لم تتم الموافقة عليه بعد.",
+                "Cannot create a service request for a project that has not been approved.");
+        }
+
         // Find association in the requested city
         var association = await _unitOfWork.Associations
             .GetByCityIdAsync(dto.CityId, cancellationToken);

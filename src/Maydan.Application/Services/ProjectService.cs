@@ -4,6 +4,7 @@ using Maydan.Application.DTOs.UserManagement;
 using Maydan.Application.Interfaces;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
+using Maydan.Domain.Constants;
 
 namespace Maydan.Application.Services;
 
@@ -154,6 +155,22 @@ public class ProjectService : IProjectService
             return ApiResponse<ProjectDto>.FailureResponse("Project is already active.","المشروع مفعل مسبقاً.");
         }
 
+        var overlapError = await _unitOfWork.Projects
+    .CheckOverlapConflictsAsync(
+        project.StartDate,
+        project.EndDate,
+        project.ProducerUserId,
+        project.LocationManagerUserId,
+        project.CityLocationId,
+        project.Id,
+        cancellationToken);
+
+        if (overlapError is not null)
+        {
+            return ApiResponse<ProjectDto>.FailureResponse(
+                overlapError,
+                "Cannot approve project due to scheduling conflicts.");
+        }
         project.IsActive = true;
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -382,7 +399,7 @@ public class ProjectService : IProjectService
    
         var availableUsers = allCompanyUsers
            // 5==producer && 6== Location Manager
-              .Where(u => u.RoleId == 5 || u.RoleId == 6)
+              .Where(u => u.RoleId == SystemRoles.Producer || u.RoleId == SystemRoles.LocationManager)
                      .Where(u => !busyUserIds.Contains(u.UserId))
                          .Select(UserManagementService.MapUserSummary)
                              .ToList();
@@ -561,17 +578,17 @@ public class ProjectService : IProjectService
     private static HashSet<int> GetEffectivePermissionIds(User user)
     {
         var rolePermissionIds = user.Role?.RolePermissions?
-         .Where(rp => rp.IsActive && (rp.Permission == null || rp.Permission.IsActive))
+         .Where(rp => rp.IsActive && rp.Permission?.IsActive == true)
          .Select(rp => rp.PermissionId) ?? Enumerable.Empty<int>();
 
         var directPermissionIds = user.UserPermissions?
-            .Where(up => up.IsActive && (up.Permission == null || up.Permission.IsActive))
+            .Where(up => up.IsActive && up.Permission?.IsActive == true)
             .Select(up => up.PermissionId) ?? Enumerable.Empty<int>();
 
         var groupPermissionIds = user.UserGroups?
             .Where(ug => ug.Group != null && ug.Group.IsActive)
             .SelectMany(ug => ug.Group.GroupPermissions ?? new List<GroupPermission>())
-            .Where(gp => gp.IsActive && (gp.Permission == null || gp.Permission.IsActive))
+            .Where(gp => gp.IsActive && gp.Permission?.IsActive == true)
             .Select(gp => gp.PermissionId) ?? Enumerable.Empty<int>();
 
         return rolePermissionIds.Concat(directPermissionIds).Concat(groupPermissionIds).ToHashSet();

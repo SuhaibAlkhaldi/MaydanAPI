@@ -24,6 +24,8 @@ public interface IUnitOfWork
     IServiceRequestRepository ServiceRequests => throw new NotImplementedException();
     ILookupRepository Lookups => throw new NotImplementedException();
     IWorkerProjectLinkRepository WorkerProjectLinks => throw new NotImplementedException();
+    IWorkerSuggestionRuleRepository WorkerSuggestionRules => throw new NotImplementedException();
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 
     Task ExecuteInTransactionAsync(Func<Task> operation, CancellationToken cancellationToken = default);

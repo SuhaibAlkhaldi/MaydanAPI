@@ -24,6 +24,6 @@ public interface IServiceRequestRepository
     //------
     //Task<List<ServiceRequest>> GetAllAsync(CancellationToken cancellationToken = default);
     //Task<List<ServiceRequest>> GetByProjectIdAsync(int projectId, CancellationToken cancellationToken = default);
-    //Task<ServiceRequest?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
+    Task<ServiceRequest?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
 
 }
