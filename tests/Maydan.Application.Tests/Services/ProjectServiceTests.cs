@@ -804,7 +804,6 @@ public class ProjectServiceTests
         public IRoleRepository Roles => throw new NotSupportedException();
         public IPermissionRepository Permissions => throw new NotSupportedException();
         public IGroupRepository Groups => throw new NotSupportedException();
-        public ICountryRepository Countries => throw new NotSupportedException();
         public ICityRepository Cities => throw new NotSupportedException();
         public IAssociationRepository Associations => throw new NotSupportedException();
         public IProductionCompanyRepository ProductionCompanies => throw new NotSupportedException();

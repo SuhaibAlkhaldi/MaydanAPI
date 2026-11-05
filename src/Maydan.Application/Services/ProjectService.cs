@@ -5,6 +5,7 @@ using Maydan.Application.Interfaces;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
 using Maydan.Domain.Constants;
+using NetTopologySuite.Geometries;
 
 namespace Maydan.Application.Services;
 
@@ -74,6 +75,18 @@ public class ProjectService : IProjectService
             return lmError;
         }
 
+        Point? projectLocation = null;
+        bool hasGeoWarning = false;
+        if (request.Latitude.HasValue && request.Longitude.HasValue)
+        {
+            projectLocation = new Point(request.Longitude.Value, request.Latitude.Value) { SRID = 4326 };
+            var matchedAssociation = await _unitOfWork.Associations.FindByGeofenceContainingAsync(projectLocation, cancellationToken);
+            if (matchedAssociation is null)
+            {
+                hasGeoWarning = true;
+            }
+        }
+
         var project = new Project
         {
             ProjectNameEn = request.ProjectNameEn.Trim(),
@@ -88,7 +101,8 @@ public class ProjectService : IProjectService
             CreatedBy = currentUser.UserId,
             IsActive = false,
             CityId = request.CityId,
-            CityLocationId = request.CityLocationId
+            CityLocationId = request.CityLocationId,
+            Location = projectLocation
         };
 
         await _unitOfWork.Projects.AddAsync(project, cancellationToken);
@@ -100,8 +114,15 @@ public class ProjectService : IProjectService
             return new ApiResponse<ProjectDto>(false, "تعذر تحميل المشروع بعد الإنشاء.", "Project could not be loaded after creation.", default, 500);
         }
 
-        return ApiResponse<ProjectDto>.SuccessResponse(MapToDto(createdProject),
-                             "Project created successfully and is pending approval.", "تم إنشاء المشروع بنجاح وهو بانتظار موافقة جهة الميدان (بيت الأردن).", 201);
+        var successMessageEn = hasGeoWarning
+            ? "Project created successfully and is pending approval. (Warning: Coordinates are outside all association geofences; defaulted to city matching)."
+            : "Project created successfully and is pending approval.";
+
+        var successMessageAr = hasGeoWarning
+            ? "تم إنشاء المشروع بنجاح وهو بانتظار موافقة جهة الميدان (تنبيه: الإحداثيات تقع خارج النطاق الجغرافي للجمعيات وسيتم الاعتماد على المدينة)."
+            : "تم إنشاء المشروع بنجاح وهو بانتظار موافقة جهة الميدان (بيت الأردن).";
+
+        return ApiResponse<ProjectDto>.SuccessResponse(MapToDto(createdProject), successMessageEn, successMessageAr, 201);
     }
 
     public async Task<ApiResponse<List<ProjectDto>>> GetAllAsync(
@@ -268,6 +289,10 @@ public class ProjectService : IProjectService
         project.LocationManagerUserId = locationManager!.UserId;
         project.CityId = request.CityId;
         project.CityLocationId = request.CityLocationId;
+        if (request.Latitude.HasValue && request.Longitude.HasValue)
+        {
+            project.Location = new Point(request.Longitude.Value, request.Latitude.Value) { SRID = 4326 };
+        }
 
         if (!string.IsNullOrWhiteSpace(request.WorkPermitImagePath))
         {
@@ -620,7 +645,9 @@ public class ProjectService : IProjectService
             CityName = project.City?.EnglishName ?? string.Empty,
             CityNameAr = project.City?.ArabicName ?? string.Empty,
             CityLocationId = project.CityLocationId,
-            CityLocationName = project.CityLocation?.EnglishName ?? string.Empty
+            CityLocationName = project.CityLocation?.EnglishName ?? string.Empty,
+            Latitude = project.Location?.Y,
+            Longitude = project.Location?.X
         };
     }
 

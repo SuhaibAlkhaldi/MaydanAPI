@@ -2,6 +2,7 @@ using Maydan.Application.Interfaces;
 using Maydan.Domain.Entities;
 using Maydan.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using NetTopologySuite.Geometries;
 
 namespace Maydan.Infrastructure.Repositories;
 
@@ -17,30 +18,26 @@ public class AssociationRepository : IAssociationRepository
     public async Task<Association?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         return await _context.Associations
-            .Include(a => a.City).ThenInclude(c => c!.Country)
-            .Include(a => a.Zones)
+            .Include(a => a.City)
             .FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
     }
 
     public async Task<List<Association>> GetByIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default)
     {
         return await _context.Associations
-            .Include(a => a.City).ThenInclude(c => c!.Country)
-            .Include(a => a.Zones)
+            .Include(a => a.City)
             .Where(a => ids.Contains(a.Id))
             .ToListAsync(cancellationToken);
     }
 
     public Task<List<Association>> GetAllAsync(CancellationToken cancellationToken = default) =>
         _context.Associations
-            .Include(a => a.City).ThenInclude(c => c!.Country)
-            .Include(a => a.Zones)
+            .Include(a => a.City)
             .ToListAsync(cancellationToken);
 
     public Task<Association?> GetByCityIdAsync(int cityId, CancellationToken cancellationToken = default) =>
         _context.Associations
-            .Include(a => a.City).ThenInclude(c => c!.Country)
-            .Include(a => a.Zones)
+            .Include(a => a.City)
             .FirstOrDefaultAsync(a => a.CityId == cityId, cancellationToken);
 
     public async Task AddAsync(Association association, CancellationToken cancellationToken = default) =>
@@ -51,22 +48,19 @@ public class AssociationRepository : IAssociationRepository
     public Task<Association?> GetByIdIncludingDeletedAsync(int associationId, CancellationToken cancellationToken = default) =>
         _context.Associations
             .IgnoreQueryFilters()
-            .Include(a => a.City).ThenInclude(c => c!.Country)
-            .Include(a => a.Zones)
+            .Include(a => a.City)
             .FirstOrDefaultAsync(a => a.Id == associationId, cancellationToken);
 
     public Task<Association?> GetByIdWithWorkersAsync(int associationId, CancellationToken cancellationToken = default) =>
         _context.Associations
-            .Include(a => a.City).ThenInclude(c => c!.Country)
-            .Include(a => a.Zones)
+            .Include(a => a.City)
             .Include(a => a.Workers)
             .FirstOrDefaultAsync(a => a.Id == associationId, cancellationToken);
 
     public async Task<(Association Association, int WorkersCount)?> GetByIdWithWorkersCountAsync(int associationId, CancellationToken cancellationToken = default)
     {
         var result = await _context.Associations
-            .Include(a => a.City).ThenInclude(c => c!.Country)
-            .Include(a => a.Zones)
+            .Include(a => a.City)
             .Where(a => a.Id == associationId)
             .Select(a => new { Association = a, WorkersCount = a.Workers.Count() })
             .FirstOrDefaultAsync(cancellationToken);
@@ -86,8 +80,7 @@ public class AssociationRepository : IAssociationRepository
 
         query = query
             .AsNoTracking()
-            .Include(a => a.City).ThenInclude(c => c!.Country)
-            .Include(a => a.Zones);
+            .Include(a => a.City);
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
@@ -106,4 +99,10 @@ public class AssociationRepository : IAssociationRepository
 
         return results.Select(x => (x.Association, x.WorkersCount)).ToList();
     }
+
+    public Task<Association?> FindByGeofenceContainingAsync(Point point, CancellationToken cancellationToken = default) =>
+        _context.Associations
+            .Include(a => a.City)
+            .Where(a => a.Geofence != null && a.Geofence.Contains(point))
+            .FirstOrDefaultAsync(cancellationToken);
 }

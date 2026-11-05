@@ -133,68 +133,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.ToTable("AssociationProjectSupervisors", (string)null);
                 });
 
-            modelBuilder.Entity("Maydan.Domain.Entities.AssociationZone", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ArabicName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<int>("AssociationId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("BookedFrom")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("BookedUntil")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Polygon>("Boundary")
-                        .IsRequired()
-                        .HasColumnType("geography");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("CreatedBy")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("EnglishName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<int?>("ServiceRequestId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AssociationId");
-
-                    b.HasIndex("ServiceRequestId");
-
-                    b.ToTable("AssociationZones", (string)null);
-                });
-
-
             modelBuilder.Entity("Maydan.Domain.Entities.AttendanceTimeWindow", b =>
                 {
                     b.Property<int>("Id")
@@ -258,9 +196,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<int>("CountryId")
-                        .HasColumnType("int");
-
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -286,8 +221,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CountryId");
-
                     b.ToTable("Cities", (string)null);
 
                     b.HasData(
@@ -295,7 +228,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         {
                             Id = 1,
                             ArabicName = "عمان",
-                            CountryId = 1,
                             EnglishName = "Amman",
                             IsActive = true,
                             IsDeleted = false
@@ -304,7 +236,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         {
                             Id = 2,
                             ArabicName = "إربد",
-                            CountryId = 1,
                             EnglishName = "Irbid",
                             IsActive = true,
                             IsDeleted = false
@@ -313,7 +244,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         {
                             Id = 3,
                             ArabicName = "الزرقاء",
-                            CountryId = 1,
                             EnglishName = "Zarqa",
                             IsActive = true,
                             IsDeleted = false
@@ -322,7 +252,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         {
                             Id = 4,
                             ArabicName = "البلقاء",
-                            CountryId = 1,
                             EnglishName = "Balqa",
                             IsActive = true,
                             IsDeleted = false
@@ -331,7 +260,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         {
                             Id = 5,
                             ArabicName = "مأدبا",
-                            CountryId = 1,
                             EnglishName = "Madaba",
                             IsActive = true,
                             IsDeleted = false
@@ -340,7 +268,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         {
                             Id = 6,
                             ArabicName = "الكرك",
-                            CountryId = 1,
                             EnglishName = "Karak",
                             IsActive = true,
                             IsDeleted = false
@@ -349,7 +276,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         {
                             Id = 7,
                             ArabicName = "الطفيلة",
-                            CountryId = 1,
                             EnglishName = "Tafilah",
                             IsActive = true,
                             IsDeleted = false
@@ -358,7 +284,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         {
                             Id = 8,
                             ArabicName = "معان",
-                            CountryId = 1,
                             EnglishName = "Ma'an",
                             IsActive = true,
                             IsDeleted = false
@@ -367,7 +292,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         {
                             Id = 9,
                             ArabicName = "العقبة",
-                            CountryId = 1,
                             EnglishName = "Aqaba",
                             IsActive = true,
                             IsDeleted = false
@@ -376,7 +300,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         {
                             Id = 10,
                             ArabicName = "جرش",
-                            CountryId = 1,
                             EnglishName = "Jerash",
                             IsActive = true,
                             IsDeleted = false
@@ -385,7 +308,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         {
                             Id = 11,
                             ArabicName = "عجلون",
-                            CountryId = 1,
                             EnglishName = "Ajloun",
                             IsActive = true,
                             IsDeleted = false
@@ -394,7 +316,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         {
                             Id = 12,
                             ArabicName = "المفرق",
-                            CountryId = 1,
                             EnglishName = "Mafraq",
                             IsActive = true,
                             IsDeleted = false
@@ -445,57 +366,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.HasIndex("CityId");
 
                     b.ToTable("CityLocations", (string)null);
-                });
-
-            modelBuilder.Entity("Maydan.Domain.Entities.Country", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ArabicName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("CreatedBy")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("EnglishName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Countries", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            ArabicName = "الأردن",
-                            EnglishName = "Jordan",
-                            IsActive = true,
-                            IsDeleted = false
-                        });
                 });
 
             modelBuilder.Entity("Maydan.Domain.Entities.Group", b =>
@@ -1505,26 +1375,14 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
-                            PermissionId = 43,
+                            PermissionId = 45,
                             CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
                             Id = 0,
                             IsActive = true,
                             IsDeleted = false,
-                            Module = "Attendance",
-                            PermissionNameAr = "اعتماد الوقت الإضافي",
-                            PermissionNameEn = "Approve Overtime",
-                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            PermissionId = 44,
-                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Id = 0,
-                            IsActive = true,
-                            IsDeleted = false,
-                            Module = "Attendance",
-                            PermissionNameAr = "معالجة حالات الحضور غير المسجلة",
-                            PermissionNameEn = "Resolve Attendance",
+                            Module = "WorkerSuggestions",
+                            PermissionNameAr = "إدارة قواعد اقتراح العمال",
+                            PermissionNameEn = "Manage Worker Suggestion Rules",
                             UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
                         });
                 });
@@ -1637,6 +1495,9 @@ namespace Maydan.Infrastructure.Persistence.Migrations
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
+
+                    b.Property<Point>("Location")
+                        .HasColumnType("geography");
 
                     b.Property<int>("LocationManagerUserId")
                         .HasColumnType("int");
@@ -2364,13 +2225,7 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         new
                         {
                             RoleId = 1,
-                            PermissionId = 43,
-                            IsActive = true
-                        },
-                        new
-                        {
-                            RoleId = 1,
-                            PermissionId = 44,
+                            PermissionId = 45,
                             IsActive = true
                         },
                         new
@@ -2539,12 +2394,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         {
                             RoleId = 3,
                             PermissionId = 17,
-                            IsActive = true
-                        },
-                        new
-                        {
-                            RoleId = 3,
-                            PermissionId = 43,
                             IsActive = true
                         },
                         new
@@ -3673,6 +3522,73 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.ToTable("WorkerServiceLinks", (string)null);
                 });
 
+            modelBuilder.Entity("Maydan.Domain.Entities.WorkerSuggestionRule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AttributeKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("ComparisonLookupItemId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ComparisonValue")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("OperatorId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PriorityOrder")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RuleTypeId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SortDirectionId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ComparisonLookupItemId");
+
+                    b.HasIndex("OperatorId");
+
+                    b.HasIndex("RuleTypeId");
+
+                    b.HasIndex("SortDirectionId");
+
+                    b.HasIndex("IsActive", "PriorityOrder");
+
+                    b.ToTable("WorkerSuggestionRules", (string)null);
+                });
+
             modelBuilder.Entity("Maydan.Domain.Entities.Association", b =>
                 {
                     b.HasOne("Maydan.Domain.Entities.City", "City")
@@ -3702,25 +3618,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Maydan.Domain.Entities.AssociationZone", b =>
-                {
-                    b.HasOne("Maydan.Domain.Entities.Association", "Association")
-                        .WithMany("Zones")
-                        .HasForeignKey("AssociationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Maydan.Domain.Entities.ServiceRequest", "ServiceRequest")
-                        .WithMany()
-                        .HasForeignKey("ServiceRequestId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Association");
-
-                    b.Navigation("ServiceRequest");
-                });
-
-
             modelBuilder.Entity("Maydan.Domain.Entities.AttendanceTimeWindow", b =>
                 {
                     b.HasOne("Maydan.Domain.Entities.ServiceRequest", "ServiceRequest")
@@ -3730,17 +3627,6 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("ServiceRequest");
-                });
-
-            modelBuilder.Entity("Maydan.Domain.Entities.City", b =>
-                {
-                    b.HasOne("Maydan.Domain.Entities.Country", "Country")
-                        .WithMany("Cities")
-                        .HasForeignKey("CountryId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Country");
                 });
 
             modelBuilder.Entity("Maydan.Domain.Entities.CityLocation", b =>
@@ -4144,21 +4030,46 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Navigation("Worker");
                 });
 
+            modelBuilder.Entity("Maydan.Domain.Entities.WorkerSuggestionRule", b =>
+                {
+                    b.HasOne("Maydan.Domain.Entities.LookupItem", "ComparisonLookupItem")
+                        .WithMany()
+                        .HasForeignKey("ComparisonLookupItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Maydan.Domain.Entities.LookupItem", "Operator")
+                        .WithMany()
+                        .HasForeignKey("OperatorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Maydan.Domain.Entities.LookupItem", "RuleType")
+                        .WithMany()
+                        .HasForeignKey("RuleTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Maydan.Domain.Entities.LookupItem", "SortDirection")
+                        .WithMany()
+                        .HasForeignKey("SortDirectionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ComparisonLookupItem");
+
+                    b.Navigation("Operator");
+
+                    b.Navigation("RuleType");
+
+                    b.Navigation("SortDirection");
+                });
+
             modelBuilder.Entity("Maydan.Domain.Entities.Association", b =>
                 {
                     b.Navigation("Workers");
-
-                    b.Navigation("Zones");
                 });
 
             modelBuilder.Entity("Maydan.Domain.Entities.City", b =>
                 {
                     b.Navigation("Associations");
-                });
-
-            modelBuilder.Entity("Maydan.Domain.Entities.Country", b =>
-                {
-                    b.Navigation("Cities");
                 });
 
             modelBuilder.Entity("Maydan.Domain.Entities.Group", b =>

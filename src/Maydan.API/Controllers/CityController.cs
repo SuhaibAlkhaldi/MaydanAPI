@@ -17,12 +17,12 @@ public class CityController : ApiControllerBase
     }
 
     [AllowAnonymous]
-    [HttpGet("country-cities")]
-    public async Task<ActionResult> GetByCountry([FromQuery] int countryId, CancellationToken cancellationToken)
+    [HttpGet]
+    public async Task<ActionResult> GetAll(CancellationToken cancellationToken)
     {
         try
         {
-            var response = await _locationService.GetCitiesByCountryAsync(countryId, cancellationToken);
+            var response = await _locationService.GetCitiesAsync(cancellationToken);
             return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)

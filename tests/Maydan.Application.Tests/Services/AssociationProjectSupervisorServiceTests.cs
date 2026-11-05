@@ -416,7 +416,6 @@ public class AssociationProjectSupervisorServiceTests
         public IPermissionRepository Permissions => throw new NotSupportedException();
         public IGroupRepository Groups => throw new NotSupportedException();
         public IProjectTypeRepository ProjectTypes => throw new NotSupportedException();
-        public ICountryRepository Countries => throw new NotSupportedException();
         public ICityRepository Cities => throw new NotSupportedException();
         public ICityLocationRepository CityLocations => throw new NotSupportedException();
         public IProductionCompanyRepository ProductionCompanies => throw new NotSupportedException();

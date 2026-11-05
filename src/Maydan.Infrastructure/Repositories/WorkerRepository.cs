@@ -132,8 +132,6 @@ public class WorkerRepository : IWorkerRepository
                 w.MaritalStatusId,
                 w.MaritalStatus == null ? null : w.MaritalStatus.EnglishName,
                 w.Nationality,
-                w.Association.City.CountryId,
-                w.Association.City.Country.EnglishName,
                 w.Association.CityId,
                 w.Association.City.EnglishName,
                 w.PhoneNumber,
@@ -261,9 +259,6 @@ public class WorkerRepository : IWorkerRepository
 
                 w.Nationality,
 
-                // Country
-                w.Association.City.CountryId,
-                w.Association.City.Country.EnglishName,
 
                 // City
                 w.Association.CityId,
