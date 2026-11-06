@@ -29,6 +29,9 @@ public class GroupRepository : IGroupRepository
                 .ThenInclude(ug => ug.User)
                     .ThenInclude(u => u.UserPermissions)
             .FirstOrDefaultAsync(g => g.GroupId == groupId, cancellationToken);
+    // if any one change this method you should tell me cause i need this query to handle all permission group to users if i deleted the group and you can check this point on brd page 3
+
+
 
     public Task<List<Group>> GetAllAsync(CancellationToken cancellationToken = default) =>
         _context.Groups.ToListAsync(cancellationToken);

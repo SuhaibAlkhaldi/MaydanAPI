@@ -1,21 +1,23 @@
-using System.Text;
+﻿using FirebaseAdmin;
 using FluentValidation;
+using Google.Apis.Auth.OAuth2;
+using Hangfire;
 using Maydan.API.Filters;
 using Maydan.API.Security;
 using Maydan.Application.Interfaces;
 using Maydan.Application.Services;
+using Maydan.Domain.Entities;
 using Maydan.Infrastructure.Email;
 using Maydan.Infrastructure.Persistence;
 using Maydan.Infrastructure.Repositories;
 using Maydan.Infrastructure.Security;
-using Maydan.Infrastructure.Services;
-
+using Maydan.Infrastructure.Storage;
 using Maydan.Infrastructure.Web;
-
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,11 +25,13 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers(options => options.Filters.Add<SystemConfigurationGateFilter>());
 
+//builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo { Title = "Maydan API", Version = "v1" });
-
+    options.SchemaFilter<JordanianPhoneSwaggerFilter>();
+    options.OperationFilter<JordanianPhoneSwaggerFilter>();
     var bearerScheme = new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\"",
@@ -44,8 +48,15 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-builder.Services.AddDbContext<MaydanDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("MaydanDb")));
+builder.Services.AddDbContext<MaydanDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("MaydanDb"), sqlOpts => sqlOpts.CommandTimeout(60).UseNetTopologySuite())
+           .EnableSensitiveDataLogging(builder.Environment.IsDevelopment())
+);
+//Regarding HangFire 
+builder.Services.AddHangfire(cfg => cfg.SetDataCompatibilityLevel(CompatibilityLevel.Version_180).UseSimpleAssemblyNameTypeSerializer().UseRecommendedSerializerSettings().UseSqlServerStorage(builder.Configuration.GetConnectionString("MaydanDB"),new Hangfire.SqlServer.SqlServerStorageOptions { SchemaName = "hangfire", PrepareSchemaIfNecessary = true }));
+builder.Services.AddHangfireServer(o => o.WorkerCount = 2);
 
+builder.Services.AddMemoryCache();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IUserManagementService, UserManagementService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -59,8 +70,15 @@ builder.Services.AddScoped<IProductionCompanyOnboardingService, ProductionCompan
 builder.Services.AddScoped<IWorkerService, WorkerService>();
 builder.Services.AddScoped<IEntityOnboardingService, EntityOnboardingService>();
 builder.Services.AddScoped<IFrontendLinkBuilder, FrontendLinkBuilder>();
-
+builder.Services.AddScoped<IWorkerProjectLinkRepository, WorkerProjectLinkRepository>();
+builder.Services.AddScoped<IProjectDetailsService, ProjectDetailsService>();
 builder.Services.AddScoped<IEmailSender, LoggingEmailSender>();
+//NEW For Hangfire and notifications
+
+// الإشعارات
+//builder.Services.AddScoped<INotificationService, NotificationService>();
+//builder.Services.AddScoped<IPushDispatcher, HangfirePushDispatcher>();
+//builder.Services.AddScoped<PushNotificationJob>();
 
 
 builder.Services.AddDataProtection();
@@ -68,6 +86,14 @@ builder.Services.AddSingleton<ISecretProtector, DataProtectionSecretProtector>()
 builder.Services.AddScoped<ISystemConfigurationService, SystemConfigurationService>();
 builder.Services.AddScoped<ISystemConfigurationGateService, SystemConfigurationGateService>();
 builder.Services.AddScoped<IServiceConfigurationService, ServiceConfigurationService>();
+builder.Services.AddScoped<ILookupService, LookupService>();
+builder.Services.AddScoped<IServiceRequestService, ServiceRequestService>();
+builder.Services.AddScoped<IWorkerAttendanceRepository, WorkerAttendanceRepository>();
+builder.Services.AddScoped<IWorkerSuggestionRuleService,WorkerSuggestionRuleService>();
+builder.Services.AddScoped<IWorkerAttendanceService, WorkerAttendanceService>();
+
+builder.Services.AddHostedService<Maydan.API.HostedServices.ServiceRequestReminderHostedService>();
+builder.Services.AddHostedService<Maydan.API.HostedServices.AttendanceSlotsHostedService>();
 
 var uploadsRootPath = Path.Combine(
     builder.Environment.WebRootPath ?? Path.Combine(builder.Environment.ContentRootPath, "wwwroot"),
@@ -78,6 +104,10 @@ builder.Services.AddSingleton<ICivilIdHasher, HmacCivilIdHasher>();
 builder.Services.AddSingleton<IPasswordHasher, PasswordHasher>();
 
 builder.Services.AddValidatorsFromAssembly(typeof(Maydan.Application.AssemblyReference).Assembly);
+// Firebase: مرة وحدة بالإقلاع
+var fbPath = builder.Configuration["Firebase:CredentialsPath"];
+if (!string.IsNullOrWhiteSpace(fbPath) && File.Exists(fbPath))
+    FirebaseApp.Create(new AppOptions { Credential = GoogleCredential.FromFile(fbPath) });
 
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
 builder.Services.AddCors(options =>
@@ -87,7 +117,8 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials());
-});
+}
+);
 
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key is not configured. Set it via user-secrets or the Jwt__Key environment variable.");
 
@@ -110,6 +141,12 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
+if (app.Environment.IsDevelopment())
+{
+    // Show detailed exceptions in Development to help debugging 500 errors
+    app.UseDeveloperExceptionPage();
+}
+
 app.UseSwagger();
 app.UseSwaggerUI();
 
@@ -120,9 +157,9 @@ app.UseStaticFiles();
 
 app.UseCors("Frontend");
 
-
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseHangfireDashboard("/hangfire");   
 
 app.MapControllers();
 

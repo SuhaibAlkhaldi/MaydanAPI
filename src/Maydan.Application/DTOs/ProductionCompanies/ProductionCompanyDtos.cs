@@ -1,8 +1,5 @@
 namespace Maydan.Application.DTOs.ProductionCompanies;
 
-// Production House Management (MAYD-80/81/82). City/Country field naming mirrors
-// AssociationDto's own resolved-City/Country shape exactly (CityEnglishName/CityArabicName/
-// CountryEnglishName/CountryArabicName) — there's no pre-existing frontend contract forcing a
 // different convention here (unlike CityLocationDto, which had to match an already-built,
 // already-real frontend service), so this follows the codebase's more common prefixed pattern.
 //
@@ -21,13 +18,11 @@ public class ProductionCompanyDto
     public string CityEnglishName { get; set; } = string.Empty;
     public string CityArabicName { get; set; } = string.Empty;
 
-    public int CountryId { get; set; }
-    public string CountryEnglishName { get; set; } = string.Empty;
-    public string CountryArabicName { get; set; } = string.Empty;
-
     public bool IsActive { get; set; }
     public bool IsSelfRegistered { get; set; }
     public bool IsDeleted { get; set; }
+    public int? CreatedByUserId { get; set; }
+    public int? ApprovedByUserId { get; set; }
 }
 
 // MAYD-82: same {IsActive} shape as UserManagementService's own UpdateUserStatusDto — one bool,

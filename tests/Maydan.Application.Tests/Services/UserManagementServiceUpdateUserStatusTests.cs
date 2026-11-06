@@ -57,7 +57,7 @@ public class UserManagementServiceUpdateUserStatusTests
 
         var result = await service.UpdateUserStatusAsync(caller.UserId, target.UserId, new UpdateUserStatusDto { IsActive = false });
 
-        Assert.False(result.IsActive);
+        Assert.False(result.Data!.IsActive);
         Assert.False(target.IsActive);
     }
 
@@ -72,7 +72,7 @@ public class UserManagementServiceUpdateUserStatusTests
 
         var result = await service.UpdateUserStatusAsync(caller.UserId, target.UserId, new UpdateUserStatusDto { IsActive = true });
 
-        Assert.True(result.IsActive);
+        Assert.True(result.Data!.IsActive);
         Assert.True(target.IsActive);
     }
 
@@ -189,7 +189,8 @@ public class UserManagementServiceUpdateUserStatusTests
 
         public Task<User?> GetDetailsAsync(int userId, CancellationToken cancellationToken = default) =>
             Task.FromResult(_usersById.GetValueOrDefault(userId));
-
+        public Task<List<User>> GetAssociationSupervisorsAsync(EntityType entityType, int? entityId = null, CancellationToken cancellationToken = default)
+    => Task.FromResult(new List<User>());
         public Task<User?> GetWithPermissionsAsync(int userId, CancellationToken cancellationToken = default) =>
             Task.FromResult(_usersById.GetValueOrDefault(userId));
 
@@ -215,7 +216,6 @@ public class UserManagementServiceUpdateUserStatusTests
         public IPermissionRepository Permissions => throw new NotSupportedException();
         public IGroupRepository Groups => throw new NotSupportedException();
         public IProjectTypeRepository ProjectTypes => throw new NotSupportedException();
-        public ICountryRepository Countries => throw new NotSupportedException();
         public ICityRepository Cities => throw new NotSupportedException();
         public ICityLocationRepository CityLocations => throw new NotSupportedException();
         public IAssociationProjectSupervisorRepository AssociationProjectSupervisors => throw new NotSupportedException();

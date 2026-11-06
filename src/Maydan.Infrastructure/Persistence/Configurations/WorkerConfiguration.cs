@@ -41,17 +41,14 @@ public class WorkerConfiguration : IEntityTypeConfiguration<Worker>
             .HasForeignKey(w => w.AssociationId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Worker full-profile fields (Phase 1, 2026-09-30): reuse the existing Country/City
-        // reference tables (same ones Association already uses) instead of a free-text Address
-        // column — optional (nullable FK) since these are manually entered for now.
-        builder.HasOne(w => w.Country)
+        builder.HasOne(w => w.Gender)
             .WithMany()
-            .HasForeignKey(w => w.CountryId)
+            .HasForeignKey(w => w.GenderId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne(w => w.City)
+        builder.HasOne(w => w.MaritalStatus)
             .WithMany()
-            .HasForeignKey(w => w.CityId)
+            .HasForeignKey(w => w.MaritalStatusId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

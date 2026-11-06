@@ -15,9 +15,11 @@ public class AssociationProjectSupervisorRepository : IAssociationProjectSupervi
         _context = context;
     }
 
-    public Task<List<AssociationProjectSupervisor>> GetAllAsync(int? projectId, int? associationId, CancellationToken cancellationToken = default)
+    public async Task<(List<AssociationProjectSupervisor> Items, int TotalCount)> GetAllAsync(
+     int? projectId, int? associationId, int? productionCompanyId, int page, int pageSize, int[]? allowedRoles = null, CancellationToken cancellationToken = default)
     {
         var query = _context.AssociationProjectSupervisors
+            .AsNoTracking()
             .Include(s => s.Project)
             .Include(s => s.User)
             .AsQueryable();
@@ -31,9 +33,30 @@ public class AssociationProjectSupervisorRepository : IAssociationProjectSupervi
         {
             query = query.Where(s => s.User.EntityType == EntityType.Association && s.User.EntityId == associationId);
         }
+        if (productionCompanyId is not null)
+            query = query.Where(s => s.Project != null && s.Project.ProductionCompanyId == productionCompanyId);
+        if (allowedRoles != null && allowedRoles.Length > 0)
+        {
+            query = query.Where(x => x.User != null && allowedRoles.Contains(x.User.RoleId));
+        }
+        var totalCount = await query.CountAsync(cancellationToken);
 
-        return query.OrderByDescending(s => s.CreatedAt).ToListAsync(cancellationToken);
+        var items = await query
+            .OrderByDescending(s => s.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
     }
+
+    public Task<List<AssociationProjectSupervisor>> GetByProjectIdAsync(int projectId, CancellationToken cancellationToken = default) =>
+        _context.AssociationProjectSupervisors
+            .Include(s => s.Project)
+            .Include(s => s.User)
+            .Where(s => s.ProjectId == projectId)
+            .OrderByDescending(s => s.CreatedAt)
+            .ToListAsync(cancellationToken);
 
     public Task<AssociationProjectSupervisor?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
         _context.AssociationProjectSupervisors

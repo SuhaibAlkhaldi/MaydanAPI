@@ -9,4 +9,8 @@ public class ProjectQueryDto
     public DateTime? EndDate { get; set; }
     public string? SearchByProductionCompanyName { get; set; }
     public int? SearchByProductionCompanyId { get; set; }
+    public int? CityId { get; set; }
+    public int? CityLocationId { get; set; }
+    
+    public bool? IsActive { get; set; }
 }

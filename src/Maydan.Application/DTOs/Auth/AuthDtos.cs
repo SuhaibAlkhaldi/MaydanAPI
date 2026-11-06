@@ -65,7 +65,7 @@ public record LoginResponseDto(
     DateTime? RefreshTokenExpiresAtUtc = null);
 
 public record AuthUserDto(
-    int UserId,
+   int UserId,
     string Email,
     string FirstNameEn,
     string LastNameEn,
@@ -76,7 +76,7 @@ public record AuthUserDto(
     string RoleNameAr,
     EntityType EntityType,
     int EntityId,
-    IReadOnlyList<string> Permissions);
+    List<int> Permissions);
 
 // Entity onboarding Stage 1 (2026-09-22): public production-company self-registration — company +
 // its first admin in one submission, active immediately (confirmed product decision). Matches

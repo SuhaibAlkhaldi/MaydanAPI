@@ -26,6 +26,8 @@ public class ServiceConfiguration : IEntityTypeConfiguration<Service>
 
         builder.Property(s => s.CalculationType).IsRequired();
 
+        builder.Property(s => s.RequiresDocuments).HasDefaultValue(false);
+
         builder.Property(s => s.IsActive).HasDefaultValue(true);
 
         // Unique indexes on names among non-deleted rows. Use SQL Server filtered unique

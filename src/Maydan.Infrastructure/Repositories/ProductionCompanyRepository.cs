@@ -16,7 +16,7 @@ public class ProductionCompanyRepository : IProductionCompanyRepository
 
     public Task<ProductionCompany?> GetByIdAsync(int productionCompanyId, CancellationToken cancellationToken = default) =>
         _context.ProductionCompanies
-            .Include(p => p.City).ThenInclude(c => c.Country)
+            .Include(p => p.City)
             .FirstOrDefaultAsync(p => p.Id == productionCompanyId, cancellationToken);
 
     public Task<List<ProductionCompany>> GetAllAsync(CancellationToken cancellationToken = default) =>
@@ -28,20 +28,21 @@ public class ProductionCompanyRepository : IProductionCompanyRepository
     public Task<bool> EnglishNameExistsAsync(string englishName, CancellationToken cancellationToken = default) =>
         _context.ProductionCompanies.AnyAsync(p => p.EnglishName == englishName, cancellationToken);
 
-    public Task<List<ProductionCompany>> QueryAsync(bool isDeleted, string? searchTerm = null, CancellationToken cancellationToken = default)
+    public Task<List<ProductionCompany>> QueryAsync(string? searchTerm = null, bool? isActive = null, CancellationToken cancellationToken = default)
     {
-        IQueryable<ProductionCompany> query = isDeleted
-            ? _context.ProductionCompanies.IgnoreQueryFilters().Where(p => p.IsDeleted)
-            : _context.ProductionCompanies;
-
-        query = query
+        IQueryable<ProductionCompany> query = _context.ProductionCompanies
             .AsNoTracking()
-            .Include(p => p.City).ThenInclude(c => c.Country);
+            .Include(p => p.City);
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
             var term = searchTerm.Trim();
             query = query.Where(p => p.EnglishName.Contains(term) || p.ArabicName.Contains(term));
+        }
+
+        if (isActive.HasValue)
+        {
+            query = query.Where(p => p.IsActive == isActive.Value);
         }
 
         return query.OrderBy(p => p.EnglishName).ToListAsync(cancellationToken);

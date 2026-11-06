@@ -1,5 +1,6 @@
 using Maydan.Application.DTOs.Associations;
 using Maydan.Application.DTOs.Onboarding;
+using Maydan.Application.DTOs.Workers;
 using Maydan.Application.Interfaces;
 using Maydan.Application.Services;
 using Maydan.Domain.Entities;
@@ -51,9 +52,7 @@ public class AssociationServiceTests
         DeletedAt = deletedAt
     };
 
-    private static Country BuildCountry(int id) => new() { Id = id, EnglishName = "Jordan", ArabicName = "الأردن", IsActive = true };
-
-    private static City BuildCity(int id, Country country) => new() { Id = id, CountryId = country.Id, Country = country, EnglishName = "Amman", ArabicName = "عمان", IsActive = true };
+    private static City BuildCity(int id) => new() { Id = id, EnglishName = "Amman", ArabicName = "عمان", IsActive = true };
 
     private static Association BuildAssociation(int id, City city, bool isDeleted = false) => new()
     {
@@ -79,18 +78,15 @@ public class AssociationServiceTests
     public async Task GetAllAsync_CallerWithViewAssociations_ReturnsMappedDtos()
     {
         var caller = BuildUser(1, BuildRole(1, "Bayt-AlUrdon", ViewAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(1, country);
+        var city = BuildCity(1);
         var association = BuildAssociation(10, city);
 
         var service = BuildService(caller, associations: [association]);
 
         var result = await service.GetAllAsync(caller.UserId);
 
-        var dto = Assert.Single(result);
+        var dto = Assert.Single(result.Data!);
         Assert.Equal("Association 10", dto.EnglishName);
-        Assert.Equal(country.Id, dto.CountryId);
-        Assert.Equal("Jordan", dto.CountryEnglishName);
         Assert.Equal("Amman", dto.CityEnglishName);
         Assert.False(dto.IsDeleted);
     }
@@ -101,7 +97,9 @@ public class AssociationServiceTests
         var caller = BuildUser(1, BuildRole(1, "NoAccess"));
         var service = BuildService(caller);
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.GetAllAsync(caller.UserId));
+        var result = await service.GetAllAsync(caller.UserId);
+        Assert.False(result.Success);
+        Assert.Equal(403, result.StatusCode);
     }
 
     [Fact]
@@ -115,24 +113,23 @@ public class AssociationServiceTests
 
         var result = await service.GetAllAsync(caller.UserId);
 
-        Assert.Empty(result);
+        Assert.Empty(result.Data!);
     }
 
     [Fact]
     public async Task CreateAsync_CallerWithCreateAssociations_Succeeds()
     {
         var caller = BuildUser(1, BuildRole(1, "Bayt-AlUrdon", CreateAssociations, ViewAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(5, country);
+        var city = BuildCity(5);
         var service = BuildService(caller, cities: [city]);
 
         var dto = new CreateAssociationDto { EnglishName = "New Assoc", ArabicName = "جمعية جديدة", CityId = city.Id, Latitude = "31.953000", Longitude = "35.910500" };
 
         var result = await service.CreateAsync(caller.UserId, dto);
 
-        Assert.Equal("New Assoc", result.EnglishName);
-        Assert.Equal(city.Id, result.CityId);
-        Assert.Equal("31.953", result.Latitude);
+        Assert.Equal("New Assoc", result.Data!.EnglishName);
+        Assert.Equal(city.Id, result.Data!.CityId);
+        Assert.Equal("31.953", result.Data!.Latitude);
     }
 
     [Fact]
@@ -146,7 +143,9 @@ public class AssociationServiceTests
 
         var dto = new CreateAssociationDto { EnglishName = "X", ArabicName = "س", CityId = 1 };
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.CreateAsync(caller.UserId, dto));
+        var result = await service.CreateAsync(caller.UserId, dto);
+        Assert.False(result.Success);
+        Assert.Equal(403, result.StatusCode);
     }
 
     [Fact]
@@ -157,7 +156,9 @@ public class AssociationServiceTests
 
         var dto = new CreateAssociationDto { EnglishName = "X", ArabicName = "س", CityId = 999 };
 
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.CreateAsync(caller.UserId, dto));
+        var result = await service.CreateAsync(caller.UserId, dto);
+        Assert.False(result.Success);
+        Assert.Equal(404, result.StatusCode);
     }
 
     private static OnboardAssociationAdminDto BuildAdminDto(string email = "new-admin@example.org") => new()
@@ -176,8 +177,7 @@ public class AssociationServiceTests
     public async Task CreateAsync_WithAdminPayload_CreatesAssociationAndAdminUserInSameCall()
     {
         var caller = BuildUser(1, BuildRole(1, "Bayt-AlUrdon", CreateAssociations, ViewAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(5, country);
+        var city = BuildCity(5);
         var associationRole = BuildRole(AssociationRoleId, "Association", ViewAssociations, ViewAssociationUsers);
         var (service, _, userRepository) = BuildServiceWithRepositoryAndUsers(caller, null, [city], null, null, new FakeRoleRepository(associationRole));
 
@@ -193,7 +193,7 @@ public class AssociationServiceTests
 
         var result = await service.CreateAsync(caller.UserId, dto);
 
-        var createdUsers = await userRepository.GetByEntityAsync(EntityType.Association, result.Id, search: null);
+        var createdUsers = await userRepository.GetByEntityAsync(EntityType.Association, result.Data!.Id, search: null);
         var admin = Assert.Single(createdUsers);
         Assert.Equal("new-admin@example.org", admin.Email);
         Assert.True(admin.MustResetPassword);
@@ -213,8 +213,7 @@ public class AssociationServiceTests
     public async Task CreateAsync_WithAdminPayload_DuplicateEmail_ThrowsAndCreatesNothing()
     {
         var caller = BuildUser(1, BuildRole(1, "Bayt-AlUrdon", CreateAssociations, ViewAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(5, country);
+        var city = BuildCity(5);
         var existingUser = BuildUser(2, BuildRole(AssociationRoleId, "Association"), entityType: EntityType.Association, entityId: 999);
         existingUser.Email = "taken@example.org";
         var associationRole = BuildRole(AssociationRoleId, "Association", ViewAssociations);
@@ -231,7 +230,8 @@ public class AssociationServiceTests
             Admin = BuildAdminDto(email: "taken@example.org")
         };
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateAsync(caller.UserId, dto));
+        var result = await service.CreateAsync(caller.UserId, dto);
+        Assert.False(result.Success);
 
         Assert.Empty(await associationRepository.QueryAsync(isDeleted: false));
         Assert.Single(await userRepository.GetByEntityAsync(EntityType.Association, 999, search: null)); // only the pre-existing one
@@ -243,23 +243,21 @@ public class AssociationServiceTests
     public async Task CreateAsync_WithoutAdminPayload_CreatesAssociationOnlyExactlyAsBefore()
     {
         var caller = BuildUser(1, BuildRole(1, "Bayt-AlUrdon", CreateAssociations, ViewAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(5, country);
+        var city = BuildCity(5);
         var (service, _, userRepository) = BuildServiceWithRepositoryAndUsers(caller, null, [city], null, null, roles: null);
 
         var dto = new CreateAssociationDto { EnglishName = "New Assoc", ArabicName = "جمعية جديدة", CityId = city.Id, Latitude = "31.953000", Longitude = "35.910500" };
 
         var result = await service.CreateAsync(caller.UserId, dto);
 
-        Assert.Empty(await userRepository.GetByEntityAsync(EntityType.Association, result.Id, search: null));
+        Assert.Empty(await userRepository.GetByEntityAsync(EntityType.Association, result.Data!.Id, search: null));
     }
 
     // Association Users/Details gap.
     [Fact]
     public async Task GetDetailsAsync_CallerWithViewAssociationUsers_ReturnsAssociationFieldsAndUsers()
     {
-        var country = BuildCountry(1);
-        var city = BuildCity(5, country);
+        var city = BuildCity(5);
         var association = new Association { Id = 10, EnglishName = "Amman Assoc", ArabicName = "جمعية عمان", CityId = city.Id, City = city, IsActive = true };
         var associationUser = BuildUser(2, BuildRole(AssociationRoleId, "Association"), entityType: EntityType.Association, entityId: association.Id);
         // ASEZA's own real shape (RolePermissionSeedConfiguration.cs): holds ViewAssociationUsers but
@@ -269,8 +267,8 @@ public class AssociationServiceTests
 
         var result = await service.GetDetailsAsync(caller.UserId, association.Id);
 
-        Assert.Equal("Amman Assoc", result.EnglishName);
-        var user = Assert.Single(result.Users);
+        Assert.Equal("Amman Assoc", result.Data!.EnglishName);
+        var user = Assert.Single(result.Data!.Users);
         Assert.Equal(associationUser.UserId, user.UserId);
         Assert.Equal(associationUser.Email, user.Email);
     }
@@ -278,15 +276,16 @@ public class AssociationServiceTests
     [Fact]
     public async Task GetDetailsAsync_CallerWithoutViewAssociationUsersOrManage_ThrowsUnauthorizedAccessException()
     {
-        var country = BuildCountry(1);
-        var city = BuildCity(5, country);
+        var city = BuildCity(5);
         var association = new Association { Id = 10, EnglishName = "Amman Assoc", ArabicName = "جمعية عمان", CityId = city.Id, City = city, IsActive = true };
         // Holds plain ViewAssociations but not ViewAssociationUsers — must still be rejected: the two
         // are independent permissions, View doesn't imply View-Users.
         var caller = BuildUser(1, BuildRole(1, "ViewOnly", ViewAssociations));
         var service = BuildService(caller, [association], [city]);
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.GetDetailsAsync(caller.UserId, association.Id));
+        var result = await service.GetDetailsAsync(caller.UserId, association.Id);
+        Assert.False(result.Success);
+        Assert.Equal(403, result.StatusCode);
     }
 
     [Fact]
@@ -295,22 +294,22 @@ public class AssociationServiceTests
         // Direct proof that Create and Edit are genuinely separate gates in this implementation —
         // holding CreateAssociations alone does not imply EditAssociations.
         var caller = BuildUser(1, BuildRole(1, "CreateOnly", CreateAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(1, country);
+        var city = BuildCity(1);
         var association = BuildAssociation(10, city);
         var service = BuildService(caller, associations: [association], cities: [city]);
 
         var dto = new UpdateAssociationDto { Id = 10, EnglishName = "Updated", ArabicName = "محدثة", CityId = city.Id };
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.UpdateAsync(caller.UserId, dto));
+        var result = await service.UpdateAsync(caller.UserId, dto);
+        Assert.False(result.Success);
+        Assert.Equal(403, result.StatusCode);
     }
 
     [Fact]
     public async Task UpdateAsync_CallerWithEditAssociations_Succeeds()
     {
         var caller = BuildUser(1, BuildRole(1, "Editor", EditAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(1, country);
+        var city = BuildCity(1);
         var association = BuildAssociation(10, city);
         var service = BuildService(caller, associations: [association], cities: [city]);
 
@@ -318,15 +317,14 @@ public class AssociationServiceTests
 
         var result = await service.UpdateAsync(caller.UserId, dto);
 
-        Assert.Equal("Updated", result.EnglishName);
+        Assert.Equal("Updated", result.Data!.EnglishName);
     }
 
     [Fact]
     public async Task DeleteAsync_CallerWithDeleteAssociations_SoftDeletes()
     {
         var caller = BuildUser(1, BuildRole(1, "Deleter", DeleteAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(1, country);
+        var city = BuildCity(1);
         var association = BuildAssociation(10, city);
         var (service, repository) = BuildServiceWithRepository(caller, associations: [association]);
 
@@ -340,26 +338,26 @@ public class AssociationServiceTests
     public async Task DeleteAsync_CallerWithOnlyEditAssociations_ThrowsUnauthorizedAccessException()
     {
         var caller = BuildUser(1, BuildRole(1, "Editor", EditAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(1, country);
+        var city = BuildCity(1);
         var association = BuildAssociation(10, city);
         var service = BuildService(caller, associations: [association]);
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.DeleteAsync(caller.UserId, 10));
+        var result = await service.DeleteAsync(caller.UserId, 10);
+        Assert.False(result.Success);
+        Assert.Equal(403, result.StatusCode);
     }
 
     [Fact]
     public async Task RestoreAsync_DeletedAssociation_ClearsIsDeleted()
     {
         var caller = BuildUser(1, BuildRole(1, "Deleter", DeleteAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(1, country);
+        var city = BuildCity(1);
         var association = BuildAssociation(10, city, isDeleted: true);
         var service = BuildService(caller, associations: [association]);
 
         var result = await service.RestoreAsync(caller.UserId, 10);
 
-        Assert.False(result.IsDeleted);
+        Assert.False(result.Data!.IsDeleted);
         Assert.False(association.IsDeleted);
     }
 
@@ -367,20 +365,19 @@ public class AssociationServiceTests
     public async Task RestoreAsync_NotDeleted_ThrowsInvalidOperationException()
     {
         var caller = BuildUser(1, BuildRole(1, "Deleter", DeleteAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(1, country);
+        var city = BuildCity(1);
         var association = BuildAssociation(10, city, isDeleted: false);
         var service = BuildService(caller, associations: [association]);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.RestoreAsync(caller.UserId, 10));
+        var result = await service.RestoreAsync(caller.UserId, 10);
+        Assert.False(result.Success);
     }
 
     [Fact]
     public async Task DeleteAsync_CascadesToRealUsersAndWorkers_SoftDeletesAllWithTheSameDeletedAt()
     {
         var caller = BuildUser(1, BuildRole(1, "Deleter", DeleteAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(1, country);
+        var city = BuildCity(1);
         var association = BuildAssociation(10, city);
         var associationUser = BuildUser(2, BuildRole(2, "AssocUser"), entityType: EntityType.Association, entityId: 10);
         var worker = BuildWorker(100, associationId: 10);
@@ -407,8 +404,7 @@ public class AssociationServiceTests
         // association from being deleted" — was already true before this phase (no blocking check
         // ever existed); this proves it still holds once the cascade itself is added.
         var caller = BuildUser(1, BuildRole(1, "Deleter", DeleteAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(1, country);
+        var city = BuildCity(1);
         var association = BuildAssociation(10, city);
         var worker = BuildWorker(100, associationId: 10);
         var (service, _) = BuildServiceWithRepository(caller, [association], [city], users: null, workers: [worker]);
@@ -423,8 +419,7 @@ public class AssociationServiceTests
     public async Task DeleteAsync_WithNoUsersOrWorkers_SucceedsWithoutError()
     {
         var caller = BuildUser(1, BuildRole(1, "Deleter", DeleteAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(1, country);
+        var city = BuildCity(1);
         var association = BuildAssociation(10, city);
         var (service, _) = BuildServiceWithRepository(caller, [association], [city], users: null, workers: null);
 
@@ -437,8 +432,7 @@ public class AssociationServiceTests
     public async Task RestoreAsync_OnlyRestoresRowsDeletedInTheSameCascade()
     {
         var caller = BuildUser(1, BuildRole(1, "Deleter", DeleteAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(1, country);
+        var city = BuildCity(1);
         var association = BuildAssociation(10, city);
 
         // Independently deleted BEFORE the association's own cascade, for an unrelated reason, but
@@ -459,7 +453,7 @@ public class AssociationServiceTests
 
         var result = await service.RestoreAsync(caller.UserId, 10);
 
-        Assert.False(result.IsDeleted);
+        Assert.False(result.Data!.IsDeleted);
         Assert.False(association.IsDeleted);
         Assert.False(associationUser.IsDeleted);
         Assert.Null(associationUser.DeletedAt);
@@ -526,7 +520,10 @@ public class AssociationServiceTests
             _currentUser = currentUser;
             _users = (users ?? Enumerable.Empty<User>()).ToList();
         }
-
+        public Task<List<User>> GetAssociationSupervisorsAsync(EntityType entityType, int? entityId = null, CancellationToken cancellationToken = default) =>
+      Task.FromResult(_currentUser != null && _currentUser.EntityType == entityType
+          ? new List<User> { _currentUser }
+          : new List<User>());
         public Task<User?> GetByIdAsync(int userId, CancellationToken cancellationToken = default) =>
             Task.FromResult(userId == _currentUser.UserId ? _currentUser : null);
 
@@ -602,7 +599,8 @@ public class AssociationServiceTests
         private readonly List<Worker> _pendingRemovals = new();
 
         public FakeWorkerRepository(IEnumerable<Worker>? workers = null) => _workers = (workers ?? Enumerable.Empty<Worker>()).ToList();
-
+        public Task<bool> IsWorkerBusyAsync(int workerId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default)
+    => Task.FromResult(false);
         public Task<List<Worker>> GetByAssociationIdAsync(int associationId, CancellationToken cancellationToken = default) =>
             Task.FromResult(_workers.Where(w => !w.IsDeleted && w.AssociationId == associationId).ToList());
 
@@ -626,9 +624,22 @@ public class AssociationServiceTests
         public Task<Worker?> GetByIdWithServicesAsync(int workerId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Worker?> GetByIdIncludingDeletedAsync(int workerId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Worker?> GetByCivilIdHashAsync(string civilIdHash, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Worker?> GetByPhoneNumberAsync(string phoneNumber, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task AddAsync(Worker worker, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<(List<Maydan.Application.DTOs.Workers.WorkerSummaryDto> Items, int TotalCount)> GetAllProjectedAsync(int? associationId, string? search, int? serviceId, int page, int pageSize, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Maydan.Application.DTOs.Workers.WorkerDto?> GetByIdProjectedAsync(int workerId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Dictionary<int, int>> GetAssociationIdsAsync(IReadOnlyCollection<int> ids, CancellationToken ct = default)=> throw new NotImplementedException();
+
+        public Task<HashSet<int>> GetBusyWorkerIdsAsync(IReadOnlyCollection<int> ids, DateTime start, DateTime end, CancellationToken ct = default)=> throw new NotImplementedException();
+        public Task<List<Maydan.Application.DTOs.Workers.WorkerDto>> GetAvailableWorkersForRequestAsync(int associationId,int serviceId,DateTime startDate,DateTime endDate,CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<List<WorkerDto>> GetAvailableWorkersForRequestAsync(int associationId, int serviceId, DateTime startDate, DateTime endDate, int requestedWorkersCount, int serviceRequestId, int projectId, DateTime projectStartDate, DateTime projectEndDate, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     private sealed class FakeCityRepository : ICityRepository
@@ -640,7 +651,7 @@ public class AssociationServiceTests
             Task.FromResult(_citiesById.TryGetValue(cityId, out var city) && !city.IsDeleted ? city : null);
 
         public Task<City?> GetByIdIncludingDeletedAsync(int cityId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<List<City>> GetByCountryIdAsync(int countryId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<List<City>> GetAllAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task AddAsync(City city, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public void Remove(City city) => throw new NotSupportedException();
     }
@@ -666,6 +677,8 @@ public class AssociationServiceTests
             var association = _associationsById.GetValueOrDefault(associationId);
             return Task.FromResult(association is { IsDeleted: false } ? association : null);
         }
+
+        public async Task<List<Association>> GetByIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public Task<Association?> GetByIdIncludingDeletedAsync(int associationId, CancellationToken cancellationToken = default) =>
             Task.FromResult(_associationsById.GetValueOrDefault(associationId));
@@ -706,6 +719,8 @@ public class AssociationServiceTests
 
         public Task<List<Association>> GetAllAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
+        public Task<Association?> GetByCityIdAsync(int cityId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
         public Task AddAsync(Association association, CancellationToken cancellationToken = default)
         {
             association.Id = association.Id == 0 ? _associationsById.Count + 100 : association.Id;
@@ -714,7 +729,7 @@ public class AssociationServiceTests
             // .City) — this plain in-memory fake has no change tracker, so it's done by hand here,
             // matching real runtime behavior, for MapToDto (called right after AddAsync via
             // MapExistingAsync) to have a non-null City/Country to read.
-            if (_citiesById.TryGetValue(association.CityId, out var city))
+            if (association.CityId.HasValue && _citiesById.TryGetValue(association.CityId.Value, out var city))
             {
                 association.City = city;
             }
@@ -764,7 +779,6 @@ public class AssociationServiceTests
         public IPermissionRepository Permissions => throw new NotSupportedException();
         public IGroupRepository Groups => throw new NotSupportedException();
         public IProjectTypeRepository ProjectTypes => throw new NotSupportedException();
-        public ICountryRepository Countries => throw new NotSupportedException();
         public IProductionCompanyRepository ProductionCompanies => throw new NotSupportedException();
         public IProjectRepository Projects => throw new NotSupportedException();
         public IPasswordResetTokenRepository PasswordResetTokens => throw new NotSupportedException();

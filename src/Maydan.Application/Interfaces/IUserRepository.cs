@@ -38,4 +38,5 @@ public interface IUserRepository
 
     Task AddAsync(User user, CancellationToken cancellationToken = default);
     void Remove(User user);
+    Task<List<User>> GetAssociationSupervisorsAsync(EntityType entityType, int? entityId = null, CancellationToken cancellationToken = default);
 }

@@ -84,9 +84,9 @@ public class EntityOnboardingServiceTests
         var grantedPermissionIds = user.UserPermissions.Select(up => up.PermissionId).OrderBy(id => id).ToList();
         Assert.Equal(new[] { 9, 34 }, grantedPermissionIds);
 
-        Assert.Equal(EntityType.Association, result.EntityType);
-        Assert.Equal(association.Id, result.EntityId);
-        Assert.True(result.MustResetPassword);
+        Assert.Equal(EntityType.Association, result.Data!.EntityType);
+        Assert.Equal(association.Id, result.Data!.EntityId);
+        Assert.True(result.Data!.MustResetPassword);
     }
 
     [Fact]
@@ -176,7 +176,9 @@ public class EntityOnboardingServiceTests
             _emailExists = emailExists;
             _roleForNewUsers = roleForNewUsers;
         }
-
+        
+        public Task<List<User>> GetAssociationSupervisorsAsync(EntityType entityType, int? entityId = null, CancellationToken cancellationToken = default)
+    => Task.FromResult(new List<User>());
         public User? AddedUser { get; private set; }
 
         public Task<User?> GetWithPermissionsAsync(int userId, CancellationToken cancellationToken = default) =>
@@ -236,9 +238,11 @@ public class EntityOnboardingServiceTests
 
         public Task<Association?> GetByIdAsync(int associationId, CancellationToken cancellationToken = default) =>
             Task.FromResult(_associationsById.TryGetValue(associationId, out var association) ? association : null);
-
+        public async Task<List<Association>> GetByIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<List<Association>> GetAllAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(_associationsById.Values.ToList());
+
+        public Task<Association?> GetByCityIdAsync(int cityId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public Task AddAsync(Association association, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public void Remove(Association association) => throw new NotSupportedException();
@@ -288,7 +292,6 @@ public class EntityOnboardingServiceTests
         public IPermissionRepository Permissions => throw new NotSupportedException();
         public IGroupRepository Groups => throw new NotSupportedException();
         public IProjectTypeRepository ProjectTypes => throw new NotSupportedException();
-        public ICountryRepository Countries => throw new NotSupportedException();
         public ICityRepository Cities => throw new NotSupportedException();
         public ICityLocationRepository CityLocations => throw new NotSupportedException();
         public IAssociationProjectSupervisorRepository AssociationProjectSupervisors => throw new NotSupportedException();

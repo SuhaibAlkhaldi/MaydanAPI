@@ -9,6 +9,7 @@ public interface IWorkerRepository
     Task<Worker?> GetByIdWithServicesAsync(int workerId, CancellationToken cancellationToken = default);
     Task<Worker?> GetByIdIncludingDeletedAsync(int workerId, CancellationToken cancellationToken = default);
     Task<Worker?> GetByCivilIdHashAsync(string civilIdHash, CancellationToken cancellationToken = default);
+    Task<Worker?> GetByPhoneNumberAsync(string phoneNumber, CancellationToken cancellationToken = default);
     Task<List<Worker>> GetByAssociationIdAsync(int associationId, CancellationToken cancellationToken = default);
     Task<List<Worker>> GetDeletedByAssociationIdAsync(int associationId, CancellationToken cancellationToken = default);
 
@@ -18,5 +19,23 @@ public interface IWorkerRepository
     Task<(List<WorkerSummaryDto> Items, int TotalCount)> GetAllProjectedAsync(
         int? associationId, string? search, int? serviceId, int page, int pageSize, CancellationToken cancellationToken = default);
 
+
+    //---------------------------Service Request Part-----------------
     Task<WorkerDto?> GetByIdProjectedAsync(int workerId, CancellationToken cancellationToken = default);
+    Task<List<WorkerDto>> GetAvailableWorkersForRequestAsync(
+        int associationId,
+        int serviceId,
+        DateTime startDate,
+        DateTime endDate,
+        int requestedWorkersCount,
+        int serviceRequestId,
+        int projectId,
+        DateTime projectStartDate,
+        DateTime projectEndDate,
+        CancellationToken cancellationToken = default);
+        Task<Dictionary<int, int>> GetAssociationIdsAsync(IReadOnlyCollection<int> ids, CancellationToken ct = default);
+    Task<HashSet<int>> GetBusyWorkerIdsAsync(IReadOnlyCollection<int> ids, DateTime start, DateTime end, CancellationToken ct = default);
+    //for assignment workers
+    Task<bool> IsWorkerBusyAsync(int workerId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default);
 }
+

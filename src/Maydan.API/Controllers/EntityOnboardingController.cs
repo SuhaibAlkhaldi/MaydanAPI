@@ -1,3 +1,4 @@
+using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.Onboarding;
 using Maydan.Application.DTOs.UserManagement;
 using Maydan.Application.Interfaces;
@@ -6,15 +7,8 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Maydan.API.Controllers;
 
-// Entity onboarding Stage 2 (2026-09-22): Bayt-AlUrdon picking an existing, admin-less Association
-// and creating its first admin. [Authorize] only enforces "any authenticated user" at the
-// framework level, same as every other controller here — there is no per-permission
-// policy/attribute mechanism anywhere in this API (Program.cs's AddAuthorization() has no custom
-// policies). The real "does this caller hold permission 37 and are they Bayt-AlUrdon" check lives
-// in EntityOnboardingService, the same place UserManagementService.EnsureSameEntityCreation
-// enforces its own guard.
 [Authorize]
-[Route("api/entity-onboarding")]
+[Route("api/[controller]")]
 public class EntityOnboardingController : ApiControllerBase
 {
     private readonly IEntityOnboardingService _entityOnboardingService;
@@ -24,18 +18,18 @@ public class EntityOnboardingController : ApiControllerBase
         _entityOnboardingService = entityOnboardingService;
     }
 
-    [HttpGet("associations/without-admin", Name = "Get Associations Without Admin")]
-    public async Task<ActionResult<List<AssociationWithoutAdminDto>>> GetAssociationsWithoutAdmin(
-        [FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader, CancellationToken cancellationToken)
+    [HttpGet("associations-without-admin")]
+    public async Task<ActionResult> GetAssociationsWithoutAdmin(CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new { message = "Current user id is required." });
+            return Unauthorized(ApiResponse<List<AssociationWithoutAdminDto>>.FailureResponse("Current user id is required.", "مطلوب معرف المستخدم الحالي."));
         }
 
         try
         {
-            return Ok(await _entityOnboardingService.GetAssociationsWithoutAdminAsync(currentUserId, cancellationToken));
+            var response = await _entityOnboardingService.GetAssociationsWithoutAdminAsync(currentUserId, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {
@@ -43,20 +37,18 @@ public class EntityOnboardingController : ApiControllerBase
         }
     }
 
-    [HttpPost("associations/{associationId:int}/admin", Name = "Onboard Association Admin")]
-    public async Task<ActionResult<UserDetailsDto>> OnboardAssociationAdmin(
-        int associationId, [FromBody] OnboardAssociationAdminDto dto,
-        [FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader, CancellationToken cancellationToken)
+    [HttpPost("associations/{associationId:int}/admin")]
+    public async Task<ActionResult> OnboardAssociationAdmin(int associationId, [FromBody] OnboardAssociationAdminDto dto, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
-            return Unauthorized(new { message = "Current user id is required." });
+            return Unauthorized(ApiResponse<UserDetailsDto>.FailureResponse("Current user id is required.", "مطلوب معرف المستخدم الحالي."));
         }
 
         try
         {
-            var user = await _entityOnboardingService.OnboardAssociationAdminAsync(currentUserId, associationId, dto, cancellationToken);
-            return Created($"/api/users/{user.UserId}/details", user);
+            var response = await _entityOnboardingService.OnboardAssociationAdminAsync(currentUserId, associationId, dto, cancellationToken);
+            return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
         {

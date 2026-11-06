@@ -1,7 +1,9 @@
+using Maydan.Application.Common;
 using Maydan.Application.DTOs.Onboarding;
 using Maydan.Application.Interfaces;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
+using Maydan.Application.DTOs.Common;
 
 namespace Maydan.Application.Services;
 
@@ -30,10 +32,29 @@ internal static class AssociationAdminUserFactory
         {
             throw new InvalidOperationException("All admin fields are required.");
         }
+
+
+        if (!JordanianPhoneNumberHelper.TryNormalize(
+                dto.PhoneNumber,
+                out _))
+        {
+            throw new InvalidOperationException(
+                "Admin phone number must be a valid Jordanian mobile number.");
+        }
+
     }
 
     public static User Build(Role associationRole, int associationId, OnboardAssociationAdminDto dto, IPasswordHasher passwordHasher)
     {
+
+        if (!JordanianPhoneNumberHelper.TryNormalize(
+                dto.PhoneNumber,
+                out var normalizedPhoneNumber))
+        {
+            throw new InvalidOperationException(
+                "Admin phone number must be a valid Jordanian mobile number.");
+        }
+
         var user = new User
         {
             FirstNameEn = dto.FirstNameEn.Trim(),
@@ -41,7 +62,7 @@ internal static class AssociationAdminUserFactory
             FirstNameAr = dto.FirstNameAr.Trim(),
             LastNameAr = dto.LastNameAr.Trim(),
             Email = dto.Email.Trim(),
-            PhoneNumber = dto.PhoneNumber.Trim(),
+            PhoneNumber = normalizedPhoneNumber,
             PasswordHash = passwordHasher.HashPassword(dto.InitialPassword),
             // Whoever is calling this (Bayt-AlUrdon onboarding staff, or the association creator) is
             // picking this password on the new admin's behalf, not the admin themselves — force a

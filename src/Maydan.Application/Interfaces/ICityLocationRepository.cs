@@ -15,7 +15,6 @@ public interface ICityLocationRepository
     // The admin Locations page (location-management.component.ts, mode: 'cityLocations') shows
     // active AND soft-deleted city locations in the SAME list — a deleted row renders with a
     // "Deleted" pill and a Restore button instead of being hidden, exactly like
-    // ICountryRepository.GetAllAsync/ICityRepository.GetByCountryIdAsync already do for their own
     // tiers (see either one's own comment for the full reasoning). CityLocationsService.getByCity()
     // takes no active/deleted toggle at all, so this deliberately bypasses the global soft-delete
     // filter rather than returning active-only rows — active-only would make the Restore button

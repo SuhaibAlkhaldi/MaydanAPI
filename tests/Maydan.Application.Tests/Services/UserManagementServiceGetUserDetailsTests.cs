@@ -47,7 +47,7 @@ public class UserManagementServiceGetUserDetailsTests
 
         var result = await service.GetUserDetailsAsync(1, 2);
 
-        Assert.Equal(2, result.UserId);
+        Assert.Equal(2, result.Data!.UserId);
     }
 
     [Theory]
@@ -101,7 +101,8 @@ public class UserManagementServiceGetUserDetailsTests
             _currentUser = currentUser;
             _target = target;
         }
-
+        public Task<List<User>> GetAssociationSupervisorsAsync(EntityType entityType, int? entityId = null, CancellationToken cancellationToken = default)
+    => Task.FromResult(new List<User>());
         public Task<User?> GetByIdAsync(int userId, CancellationToken cancellationToken = default) =>
             Task.FromResult(userId == _currentUser.UserId ? _currentUser : null);
 
@@ -134,7 +135,6 @@ public class UserManagementServiceGetUserDetailsTests
         public IPermissionRepository Permissions => throw new NotSupportedException();
         public IGroupRepository Groups => throw new NotSupportedException();
         public IProjectTypeRepository ProjectTypes => throw new NotSupportedException();
-        public ICountryRepository Countries => throw new NotSupportedException();
         public ICityRepository Cities => throw new NotSupportedException();
         public ICityLocationRepository CityLocations => throw new NotSupportedException();
         public IAssociationProjectSupervisorRepository AssociationProjectSupervisors => throw new NotSupportedException();

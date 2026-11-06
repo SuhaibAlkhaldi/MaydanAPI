@@ -3,6 +3,7 @@ using Maydan.Application.Interfaces;
 using Maydan.Application.Services;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
+using Microsoft.EntityFrameworkCore;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Maydan.Application.Tests.Services;
@@ -588,7 +589,8 @@ public class ProjectServiceTests
         private readonly Dictionary<int, User> _usersById;
 
         public FakeUserRepository(Dictionary<int, User> usersById) => _usersById = usersById;
-
+        public Task<List<User>> GetAssociationSupervisorsAsync(EntityType entityType, int? entityId = null, CancellationToken cancellationToken = default)
+    => Task.FromResult(new List<User>());
         public Task<User?> GetByIdAsync(int userId, CancellationToken cancellationToken = default) =>
             Task.FromResult(_usersById.GetValueOrDefault(userId));
 
@@ -716,13 +718,16 @@ public class ProjectServiceTests
         }
 
         public Task<List<Project>> GetAllAsync(
-            bool isDeleted,
-            string? searchTerm,
-            DateTime? startDate,
-            DateTime? endDate,
-            string? searchByProductionCompanyName,
-            int? searchByProductionCompanyId,
-            CancellationToken cancellationToken = default)
+          bool isDeleted,
+          string? searchTerm,
+          DateTime? startDate,
+          DateTime? endDate,
+          string? searchByProductionCompanyName,
+          int? searchByProductionCompanyId,
+          int? cityId,
+          int? cityLocationId,
+          bool? IsActive,
+          CancellationToken cancellationToken = default)
         {
             var results = _projectsById.Values.Where(p => p.IsDeleted == isDeleted);
 
@@ -765,6 +770,23 @@ public class ProjectServiceTests
             project.LocationManager = _usersById[project.LocationManagerUserId];
             project.ProjectType = _projectTypesById[project.ProjectTypeId];
         }
+        public Task<string?> CheckOverlapConflictsAsync(
+     DateTime startDate,
+     DateTime endDate,
+     int producerId,
+     int locationManagerId,
+     int cityLocationId,
+     int? excludeProjectId = null,
+     CancellationToken cancellationToken = default)
+        {
+         
+            return Task.FromResult<string?>(null);
+        }
+
+        public Task<List<int>> GetBusyUserIdsAsync(int productionCompanyId, DateTime startDate, DateTime endDate, int? excludeProjectId = null, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     private sealed class FakeUnitOfWork : IUnitOfWork
@@ -782,7 +804,6 @@ public class ProjectServiceTests
         public IRoleRepository Roles => throw new NotSupportedException();
         public IPermissionRepository Permissions => throw new NotSupportedException();
         public IGroupRepository Groups => throw new NotSupportedException();
-        public ICountryRepository Countries => throw new NotSupportedException();
         public ICityRepository Cities => throw new NotSupportedException();
         public IAssociationRepository Associations => throw new NotSupportedException();
         public IProductionCompanyRepository ProductionCompanies => throw new NotSupportedException();

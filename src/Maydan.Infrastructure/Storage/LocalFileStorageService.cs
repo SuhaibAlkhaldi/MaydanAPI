@@ -1,17 +1,17 @@
 using Maydan.Application.Interfaces;
 
-namespace Maydan.Infrastructure.Services;
+namespace Maydan.Infrastructure.Storage;
+
 
 public class LocalFileStorageService : IFileStorageService
 {
-    private readonly string _rootPath;
+    private readonly string _uploadsRootPath;
 
-    public LocalFileStorageService(string rootPath)
+    public LocalFileStorageService(string uploadsRootPath)
     {
-        _rootPath = rootPath;
+        _uploadsRootPath = uploadsRootPath;
     }
 
-  
     public async Task<string> SaveAsync(
         Stream content,
         string originalFileName,
@@ -19,42 +19,21 @@ public class LocalFileStorageService : IFileStorageService
         CancellationToken cancellationToken = default)
     {
         var extension = Path.GetExtension(originalFileName);
-        //genertae new path to prevent redundancy and tracking paths
-        var safeFileName = $"{Guid.NewGuid():N}{extension}";
+        var fileName = $"{Guid.NewGuid():N}{extension}";
 
-        var relativeSubfolder = subfolder.Replace('\\', '/').Trim('/');
+        var folderPath = Path.Combine(_uploadsRootPath, subfolder);
+        Directory.CreateDirectory(folderPath);
 
-        var targetDirectory = Path.Combine(_rootPath, relativeSubfolder);
-
-
-        Directory.CreateDirectory(targetDirectory);
-        // in the path we selected write and save content file
-        var targetPath = Path.Combine(targetDirectory, safeFileName);
-        await using var output = File.Create(targetPath);
-        await content.CopyToAsync(output, cancellationToken);
-        // return the path 
-        return $"/uploads/{relativeSubfolder}/{safeFileName}";
-    }
-
-  
-    public Task DeleteAsync(
-        string filePath,
-        CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(filePath))
+        var filePath = Path.Combine(folderPath, fileName);
+        await using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
         {
-            return Task.CompletedTask;
+            await content.CopyToAsync(fileStream, cancellationToken);
         }
 
-        var relativePath = filePath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
-
-        var fullPath = Path.Combine(_rootPath, relativePath);
-
-        if (File.Exists(fullPath))
-        {
-            File.Delete(fullPath);
-        }
-
-        return Task.CompletedTask;
+        // Web-relative, forward-slash path regardless of host OS — matches how
+        // app.UseStaticFiles() serves wwwroot content and how the frontend would request it back.
+        return $"/uploads/{subfolder}/{fileName}".Replace('\\', '/');
     }
+
+
 }

@@ -77,8 +77,8 @@ public class ProductionCompanyOnboardingServiceTests
         var grantedPermissionIds = user.UserPermissions.Select(up => up.PermissionId).OrderBy(id => id).ToList();
         Assert.Equal(new[] { 25, 34 }, grantedPermissionIds);
 
-        Assert.Equal(companyRepository.AddedCompany.Id, result.ProductionCompanyId);
-        Assert.Equal(user.UserId, result.AdminUserId);
+        Assert.Equal(companyRepository.AddedCompany.Id, result.Data!.ProductionCompanyId);
+        Assert.Equal(user.UserId, result.Data!.AdminUserId);
     }
 
     [Fact]
@@ -176,7 +176,8 @@ public class ProductionCompanyOnboardingServiceTests
 
         public Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken = default) =>
             Task.FromResult(_emailExists);
-
+        public Task<List<User>> GetAssociationSupervisorsAsync(EntityType entityType, int? entityId = null, CancellationToken cancellationToken = default)
+    => Task.FromResult(new List<User>());
         public Task AddAsync(User user, CancellationToken cancellationToken = default)
         {
             user.UserId = 200;
@@ -226,7 +227,7 @@ public class ProductionCompanyOnboardingServiceTests
 
         public Task<ProductionCompany?> GetByIdAsync(int productionCompanyId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<List<ProductionCompany>> GetAllAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<List<ProductionCompany>> QueryAsync(bool isDeleted, string? searchTerm = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<List<ProductionCompany>> QueryAsync( string? searchTerm = null, bool? isActive = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public void Remove(ProductionCompany productionCompany) => throw new NotSupportedException();
     }
 
@@ -256,7 +257,7 @@ public class ProductionCompanyOnboardingServiceTests
             Task.FromResult(_cityExists ? new City { Id = cityId, EnglishName = "Amman" } : null);
 
         public Task<City?> GetByIdIncludingDeletedAsync(int cityId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<List<City>> GetByCountryIdAsync(int countryId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<List<City>> GetAllAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task AddAsync(City city, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public void Remove(City city) => throw new NotSupportedException();
     }
@@ -287,7 +288,6 @@ public class ProductionCompanyOnboardingServiceTests
         public IPermissionRepository Permissions => throw new NotSupportedException();
         public IGroupRepository Groups => throw new NotSupportedException();
         public IProjectTypeRepository ProjectTypes => throw new NotSupportedException();
-        public ICountryRepository Countries => throw new NotSupportedException();
         public IAssociationRepository Associations => throw new NotSupportedException();
         public IProjectRepository Projects => throw new NotSupportedException();
         public IWorkerRepository Workers => throw new NotSupportedException();

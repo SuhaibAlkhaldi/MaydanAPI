@@ -7,7 +7,6 @@ public interface IUnitOfWork
     IPermissionRepository Permissions { get; }
     IGroupRepository Groups { get; }
     IProjectTypeRepository ProjectTypes { get; }
-    ICountryRepository Countries { get; }
     ICityRepository Cities { get; }
     ICityLocationRepository CityLocations { get; }
     IAssociationRepository Associations { get; }
@@ -19,13 +18,12 @@ public interface IUnitOfWork
     IRefreshTokenRepository RefreshTokens { get; }
     ISystemConfigurationRepository SystemConfigurations { get; }
     IServiceRepository Services { get; }
+    IServiceRequestRepository ServiceRequests => throw new NotImplementedException();
+    ILookupRepository Lookups => throw new NotImplementedException();
+    IWorkerProjectLinkRepository WorkerProjectLinks => throw new NotImplementedException();
+    IWorkerSuggestionRuleRepository WorkerSuggestionRules => throw new NotImplementedException();
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 
-    // Entity onboarding Stage 1 (2026-09-22): User.EntityId is a soft FK (no EF navigation, see
-    // User.cs) — EF can't auto-populate it the way it does a real FK, so creating a brand-new
-    // entity plus its first user needs two SaveChangesAsync calls (one to obtain the entity's
-    // generated Id before the user row referencing it can be built). Wrapped here so that pair
-    // stays atomic without leaking EF's transaction type into the Application layer.
     Task ExecuteInTransactionAsync(Func<Task> operation, CancellationToken cancellationToken = default);
 }

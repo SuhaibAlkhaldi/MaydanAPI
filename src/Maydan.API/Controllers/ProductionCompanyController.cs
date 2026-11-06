@@ -1,3 +1,4 @@
+using Maydan.Application.DTOs.Auth;
 using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.ProductionCompanies;
 using Maydan.Application.Interfaces;
@@ -19,7 +20,7 @@ public class ProductionCompanyController : ApiControllerBase
 
     [HttpGet]
     public async Task<ActionResult> GetAll(
-        [FromQuery] string? search, [FromQuery] bool isDeleted, CancellationToken cancellationToken)
+        [FromQuery] string? search, [FromQuery] bool? isActive, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
@@ -28,7 +29,7 @@ public class ProductionCompanyController : ApiControllerBase
 
         try
         {
-            var response = await _productionCompanyService.GetAllAsync(currentUserId, search, isDeleted, cancellationToken);
+            var response = await _productionCompanyService.GetAllAsync(currentUserId, search, isActive, cancellationToken);
             return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
@@ -68,6 +69,25 @@ public class ProductionCompanyController : ApiControllerBase
         try
         {
             var response = await _productionCompanyService.UpdateStatusAsync(currentUserId, id, dto, cancellationToken);
+            return StatusCode(response.StatusCode, response);
+        }
+        catch (Exception exception)
+        {
+            return HandleException(exception);
+        }
+    }
+    [HttpPost(Name = "Create Production Company By Admin")]
+    public async Task<ActionResult> Create(
+        [FromBody] RegisterProductionCompanyDto dto, CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized(new ApiResponse<object?>(false, "المستخدم غير مصرح له.", "Unauthorized.", null, 401));
+        }
+
+        try
+        {
+            var response = await _productionCompanyService.CreateAsync(currentUserId, dto, cancellationToken);
             return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)

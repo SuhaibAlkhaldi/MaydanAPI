@@ -1,4 +1,4 @@
-﻿namespace Maydan.Application.DTOs.Projects;
+namespace Maydan.Application.DTOs.Projects;
 
 public class CreateProjectDto
 {
@@ -15,4 +15,14 @@ public class CreateProjectDto
     public int LocationManagerUserId { get; set; }
 
     public string WorkPermitImagePath { get; set; } = string.Empty;
+
+    public int CityId { get; set; }
+    public int CityLocationId { get; set; }
+
+    /// <summary>
+    /// Optional GPS coordinates forwarded from the API request.
+    /// Both must be supplied together; if only one is present, geo-resolution is skipped.
+    /// </summary>
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
 }

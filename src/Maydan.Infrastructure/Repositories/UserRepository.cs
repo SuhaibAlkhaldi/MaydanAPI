@@ -128,18 +128,32 @@ public class UserRepository : IUserRepository
 
     public Task<User?> GetWithPermissionsAsync(int userId, CancellationToken cancellationToken = default) =>
         _context.Users
-            .AsNoTracking()
-            .AsSplitQuery()
-            .Include(u => u.Role)
-                .ThenInclude(r => r.RolePermissions)
-                    .ThenInclude(rp => rp.Permission)
-            .Include(u => u.UserGroups)
-                .ThenInclude(ug => ug.Group)
-                    .ThenInclude(g => g.GroupPermissions)
-                        .ThenInclude(gp => gp.Permission)
-            .Include(u => u.UserPermissions)
-                .ThenInclude(up => up.Permission)
-            .FirstOrDefaultAsync(u => u.UserId == userId, cancellationToken);
+              //.AsNoTracking()
+              //.AsSplitQuery()
+              //.Include(u => u.Role)
+              //    .ThenInclude(r => r.RolePermissions)
+              //        .ThenInclude(rp => rp.Permission)
+              //.Include(u => u.UserGroups)
+              //    .ThenInclude(ug => ug.Group)
+              //        .ThenInclude(g => g.GroupPermissions)
+              //            .ThenInclude(gp => gp.Permission)
+              //.Include(u => u.UserPermissions)
+              //    .ThenInclude(up => up.Permission)
+              .AsNoTracking()
+        .AsSplitQuery()
+        .Include(u => u.Role)
+            .ThenInclude(r => r.RolePermissions.Where(rp => rp.IsActive && rp.Permission.IsActive))
+                .ThenInclude(rp => rp.Permission) 
+        .Include(u => u.UserGroups.Where(ug => ug.Group.IsActive))
+            .ThenInclude(ug => ug.Group)
+                .ThenInclude(g => g.GroupPermissions.Where(gp => gp.IsActive && gp.Permission.IsActive))
+                    .ThenInclude(gp => gp.Permission) 
+        .Include(u => u.UserPermissions.Where(up => up.IsActive && up.Permission.IsActive))
+            .ThenInclude(up => up.Permission) 
+        .FirstOrDefaultAsync(u => u.UserId == userId, cancellationToken);
+
+
+
 
     public Task<List<User>> GetByIdsInEntityAsync(IEnumerable<int> userIds, EntityType entityType, int entityId, CancellationToken cancellationToken = default)
     {
@@ -159,4 +173,24 @@ public class UserRepository : IUserRepository
         await _context.Users.AddAsync(user, cancellationToken);
 
     public void Remove(User user) => _context.Users.Remove(user);
+
+    public Task<List<User>> GetAssociationSupervisorsAsync(EntityType entityType, int? entityId = null, CancellationToken cancellationToken = default)
+    {
+        var allowedRoles = new[] { 4, 7, 9,8 };
+
+        var query = _context.Users
+             .Include(u => u.Role)
+             .Where(u => u.EntityType == EntityType.Association && allowedRoles.Contains(u.RoleId));
+
+
+        if (entityId.HasValue && entityId.Value > 0)
+        {
+            query = query.Where(u => u.EntityId == entityId.Value);
+        }
+
+        return query
+             .OrderBy(u => u.FirstNameEn)
+             .ThenBy(u => u.LastNameEn)
+             .ToListAsync(cancellationToken);
+    }
 }

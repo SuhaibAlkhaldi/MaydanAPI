@@ -471,6 +471,49 @@ public class AuthServiceTests
             // thing already proven above is that a plain logout revocation alone still rejects reuse.)
             Assert.Null(refreshTokens.AddedToken!.ReplacedByTokenId);
         }
+
+        [Fact]
+        public async Task ReplayWithinGracePeriod_ReturnsCachedResponseWithoutRevokingSessions()
+        {
+            var (service, _, refreshTokens, rawToken, user) = await CreateServiceWithAnIssuedRefreshToken();
+            var unrelatedSession = refreshTokens.AddActiveToken(user.UserId);
+
+            // Tab 1 rotates the token
+            var firstResult = await service.RefreshTokenAsync(new RefreshTokenRequestDto(rawToken));
+            Assert.True(firstResult.Success);
+            Assert.NotNull(firstResult.Data);
+
+            // Tab 2 sends the same old token within the grace period
+            var secondResult = await service.RefreshTokenAsync(new RefreshTokenRequestDto(rawToken));
+
+            // Should succeed by returning the cached response idempotently
+            Assert.True(secondResult.Success);
+            Assert.NotNull(secondResult.Data);
+            Assert.Equal(firstResult.Data.AccessToken, secondResult.Data.AccessToken);
+            Assert.Equal(firstResult.Data.RefreshToken, secondResult.Data.RefreshToken);
+
+            // Active sessions must NOT be revoked
+            Assert.False(refreshTokens.AllTokens.Single(t => t.Id == unrelatedSession.Id).IsRevoked);
+        }
+
+        [Fact]
+        public async Task ReplayOutsideGracePeriod_TriggersTheftDetectionAndRevokesAllSessions()
+        {
+            var (service, _, refreshTokens, rawToken, user) = await CreateServiceWithAnIssuedRefreshToken();
+            var unrelatedSession = refreshTokens.AddActiveToken(user.UserId);
+
+            // Simulate that token was already rotated and its grace period has elapsed (> 15s ago)
+            var oldToken = refreshTokens.AllTokens.First(t => t.Id != unrelatedSession.Id);
+            oldToken.IsRevoked = true;
+            oldToken.RevokedAtUtc = DateTime.UtcNow.AddSeconds(-30);
+            oldToken.ReplacedByTokenId = 999;
+
+            var result = await service.RefreshTokenAsync(new RefreshTokenRequestDto(rawToken));
+
+            Assert.False(result.Success);
+            // All active sessions for this user must be revoked due to theft detection
+            Assert.True(refreshTokens.AllTokens.Single(t => t.Id == unrelatedSession.Id).IsRevoked);
+        }
     }
 
     // Real 3-week session persistence (MAYD-131/132, 2026-09-23).
@@ -589,7 +632,8 @@ public class AuthServiceTests
         private readonly User? _user;
 
         public FakeUserRepository(User? user) => _user = user;
-
+        public Task<List<User>> GetAssociationSupervisorsAsync(EntityType entityType, int? entityId = null, CancellationToken cancellationToken = default)
+    => Task.FromResult(new List<User>());
         public User? TrackedUser { get; private set; }
 
         public Task<User?> GetByEmailWithAccessAsync(string email, CancellationToken cancellationToken = default) =>
@@ -739,7 +783,6 @@ public class AuthServiceTests
         public IPermissionRepository Permissions => throw new NotSupportedException();
         public IGroupRepository Groups => throw new NotSupportedException();
         public IProjectTypeRepository ProjectTypes => throw new NotSupportedException();
-        public ICountryRepository Countries => throw new NotSupportedException();
         public ICityRepository Cities => throw new NotSupportedException();
         public ICityLocationRepository CityLocations => throw new NotSupportedException();
         public IAssociationProjectSupervisorRepository AssociationProjectSupervisors => throw new NotSupportedException();

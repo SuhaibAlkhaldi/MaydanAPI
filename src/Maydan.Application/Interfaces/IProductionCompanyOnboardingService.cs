@@ -1,8 +1,10 @@
 using Maydan.Application.DTOs.Auth;
+using Maydan.Application.DTOs.Common;
 
 namespace Maydan.Application.Interfaces;
 
 public interface IProductionCompanyOnboardingService
 {
-    Task<RegisterProductionCompanyResponseDto> RegisterAsync(RegisterProductionCompanyDto dto, CancellationToken cancellationToken = default);
+    Task<ApiResponse<RegisterProductionCompanyResponseDto>> RegisterAsync(RegisterProductionCompanyDto dto, CancellationToken cancellationToken = default);
+    Task<ApiResponse<RegisterProductionCompanyResponseDto>> CreateByAdminAsync(RegisterProductionCompanyDto dto, int adminUserId, CancellationToken cancellationToken = default);
 }

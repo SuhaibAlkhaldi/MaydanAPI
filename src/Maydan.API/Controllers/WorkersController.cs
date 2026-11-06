@@ -1,3 +1,5 @@
+using Azure.Core;
+using Maydan.API.Models.Workers;
 using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.Workers;
 using Maydan.Application.Interfaces;
@@ -17,10 +19,16 @@ namespace Maydan.API.Controllers;
 public class WorkersController : ApiControllerBase
 {
     private readonly IWorkerService _workerService;
+    private readonly IFileStorageService _fileStorageService;
+    private readonly IWorkerProjectLinkRepository _linkRepo;
 
-    public WorkersController(IWorkerService workerService)
+    private const string WorkerDocumentsSubfolder = "worker-documents";
+
+    public WorkersController(IWorkerService workerService, IFileStorageService fileStorageService, IWorkerProjectLinkRepository linkRepo)
     {
         _workerService = workerService;
+        _fileStorageService = fileStorageService;
+        _linkRepo = linkRepo;
     }
 
     [HttpGet]
@@ -62,7 +70,7 @@ public class WorkersController : ApiControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult> Create([FromBody] CreateWorkerDto dto, CancellationToken cancellationToken)
+    public async Task<ActionResult> Create([FromForm] CreateWorkerRequest request, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
@@ -71,6 +79,23 @@ public class WorkersController : ApiControllerBase
 
         try
         {
+            var dto = new CreateWorkerDto
+            {
+                AssociationId = request.AssociationId,
+                FirstName = request.FirstName,
+                MiddleName = request.MiddleName,
+                LastName = request.LastName,
+                CivilId = request.CivilId,
+                DateOfBirth = request.DateOfBirth,
+                GenderId = request.GenderId,
+                MaritalStatusId = request.MaritalStatusId,
+                Nationality = request.Nationality,
+                PhoneNumber = request.PhoneNumber,
+                ServiceIds = request.ServiceIds,
+                YearsOfExperience = request.YearsOfExperience,
+                DocumentPaths = await SaveAllAsync(request.Documents, cancellationToken)
+            };
+
             var response = await _workerService.CreateAsync(currentUserId, dto, cancellationToken);
             return StatusCode(response.StatusCode, response);
         }
@@ -81,7 +106,7 @@ public class WorkersController : ApiControllerBase
     }
 
     [HttpPut("{id:int}")]
-    public async Task<ActionResult> Update(int id, [FromBody] UpdateWorkerDto dto, CancellationToken cancellationToken)
+    public async Task<ActionResult> Update(int id, [FromForm] UpdateWorkerRequest request, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
@@ -90,6 +115,21 @@ public class WorkersController : ApiControllerBase
 
         try
         {
+            var dto = new UpdateWorkerDto
+            {
+                FirstName = request.FirstName,
+                MiddleName = request.MiddleName,
+                LastName = request.LastName,
+                DateOfBirth = request.DateOfBirth,
+                GenderId = request.GenderId,
+                MaritalStatusId = request.MaritalStatusId,
+                Nationality = request.Nationality,
+                PhoneNumber = request.PhoneNumber,
+                ServiceIds = request.ServiceIds,
+                YearsOfExperience = request.YearsOfExperience,
+                DocumentPaths = await SaveAllAsync(request.Documents, cancellationToken)
+            };
+
             var response = await _workerService.UpdateAsync(currentUserId, id, dto, cancellationToken);
             return StatusCode(response.StatusCode, response);
         }
@@ -97,6 +137,19 @@ public class WorkersController : ApiControllerBase
         {
             return HandleException(ex);
         }
+    }
+
+    private async Task<List<string>> SaveAllAsync(List<IFormFile> files, CancellationToken cancellationToken)
+    {
+        var paths = new List<string>();
+
+        foreach (var file in files)
+        {
+            await using var stream = file.OpenReadStream();
+            paths.Add(await _fileStorageService.SaveAsync(stream, file.FileName, WorkerDocumentsSubfolder, cancellationToken));
+        }
+
+        return paths;
     }
 
     [HttpDelete("{id:int}")]
@@ -136,4 +189,24 @@ public class WorkersController : ApiControllerBase
             return HandleException(ex);
         }
     }
+
+    [HttpGet("service-request/{serviceRequestId}/available-workers")]
+    public async Task<IActionResult> GetAvailableWorkersForRequest(
+     int serviceRequestId, CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized(new Maydan.Application.DTOs.Common.ApiResponse<object?>(false, "تعذر التحقق من هوية المستخدم", "Current user id is required.", null));
+        }
+
+        var response = await _workerService.GetAvailableWorkersForRequestAsync(
+            currentUserId,
+            serviceRequestId,
+           
+            cancellationToken);
+
+        return StatusCode(response.StatusCode, response);
+    }
+
+
 }
