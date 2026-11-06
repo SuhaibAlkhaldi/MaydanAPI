@@ -1,3 +1,4 @@
+using Maydan.Application.Common;
 using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.Projects;
 using Maydan.Application.DTOs.UserManagement;
@@ -393,17 +394,31 @@ public class ProjectService : IProjectService
           DateTime startDate,
           DateTime endDate,
           int? currentProjectId = null,
+          int? entityId = null,
           CancellationToken cancellationToken = default)
     {
 
         var (currentUser, authError) = await AuthorizeUserAsync<List<UserSummaryDto>>(currentUserId, cancellationToken);
         if (authError is not null) return authError;
 
-        if (currentUser!.EntityType != EntityType.ProductionCompany)
+        int targetEntityId;
+        if (currentUser!.EntityType == EntityType.ProductionCompany)
+        {
+            // Production Company callers can only ever query their own company, regardless of any
+            // entityId they pass — never honor a different one from them.
+            targetEntityId = currentUser.EntityId;
+        }
+        else if (EntityScopeHelper.CanViewOtherEntities(currentUser) && entityId.HasValue)
+        {
+            // Bayt Al-Urdon / Aseza must say explicitly which production company they mean (the
+            // project's own company, from the frontend).
+            targetEntityId = entityId.Value;
+        }
+        else
         {
             return ApiResponse<List<UserSummaryDto>>.FailureResponse(
-                "Only Production Company users can query available users.",
-                "يمكن لمستخدمي شركات الإنتاج فقط الاستعلام عن المستخدمين المتاحين.");
+                "Only Production Company users, or Bayt Al-Urdon/Aseza users specifying a target company, can query available users.",
+                "يمكن لمستخدمي شركات الإنتاج فقط، أو مستخدمي بيت الأردن/أسيزا مع تحديد الشركة المطلوبة، الاستعلام عن المستخدمين المتاحين.");
         }
 
         if (endDate <= startDate)
@@ -415,11 +430,11 @@ public class ProjectService : IProjectService
 
 
         var busyUserIds = await _unitOfWork.Projects.GetBusyUserIdsAsync(
-            currentUser.EntityId, startDate, endDate, currentProjectId, cancellationToken);
+            targetEntityId, startDate, endDate, currentProjectId, cancellationToken);
 
 
         var allCompanyUsers = await _unitOfWork.Users.GetByEntityAsync(
-            EntityType.ProductionCompany, currentUser.EntityId, search: null, cancellationToken);
+            EntityType.ProductionCompany, targetEntityId, search: null, cancellationToken);
 
    
         var availableUsers = allCompanyUsers

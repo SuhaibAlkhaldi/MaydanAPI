@@ -39,6 +39,6 @@ public interface IProjectService
     Task<ApiResponse<List<ProjectTypeDto>>> GetProjectTypesAsync(
         CancellationToken cancellationToken = default);
 
-Task<ApiResponse<List<UserSummaryDto>>> GetAvailableUsersAsync(int currentUserId, DateTime startDate, DateTime endDate, int? currentProjectId = null, CancellationToken cancellationToken = default);
+Task<ApiResponse<List<UserSummaryDto>>> GetAvailableUsersAsync(int currentUserId, DateTime startDate, DateTime endDate, int? currentProjectId = null, int? entityId = null, CancellationToken cancellationToken = default);
  Task<ApiResponse<ProjectDto>> ApproveAsync(int id, int currentUserId, CancellationToken cancellationToken = default);
 }

@@ -19,12 +19,17 @@ public class UserManagementService : IUserManagementService
         _passwordHasher = passwordHasher;
     }
 
-    public async Task<ApiResponse<List<UserSummaryDto>>> GetUsersAsync(int currentUserId, string? search, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<List<UserSummaryDto>>> GetUsersAsync(
+        int currentUserId, string? search, EntityType? entityType = null, int? entityId = null,
+        CancellationToken cancellationToken = default)
     {
         var (currentUser, error) = await GetCurrentUserAsync<List<UserSummaryDto>>(currentUserId, cancellationToken);
         if (error != null) return error;
 
-        var users = await _unitOfWork.Users.GetByEntityAsync(currentUser!.EntityType, currentUser.EntityId, search, cancellationToken);
+        var (targetEntityType, targetEntityId, targetError) = ResolveTargetEntity<List<UserSummaryDto>>(currentUser!, entityType, entityId);
+        if (targetError != null) return targetError;
+
+        var users = await _unitOfWork.Users.GetByEntityAsync(targetEntityType!.Value, targetEntityId!.Value, search, cancellationToken);
 
         return ApiResponse<List<UserSummaryDto>>.SuccessResponse(
             users.Select(MapUserSummary).ToList(),
@@ -631,7 +636,7 @@ public class UserManagementService : IUserManagementService
             return (null, null, ApiResponse<T>.FailureResponse("entityType and entityId must both be provided together.", "يجب إرسال نوع الكيان ورقمه معاً."));
 
         var isOwnEntity = entityType == currentUser.EntityType && entityId == currentUser.EntityId;
-        if (!isOwnEntity && !CanViewOtherEntities(currentUser))
+        if (!isOwnEntity && !EntityScopeHelper.CanViewOtherEntities(currentUser))
             return (null, null, ApiResponse<T>.FailureResponse("Cannot view users outside your own entity.", "لا يمكنك عرض مستخدمين خارج كيانك."));
 
         return (entityType.Value, entityId.Value, null);
@@ -675,14 +680,11 @@ public class UserManagementService : IUserManagementService
             return (null, ApiResponse<T>.FailureResponse("User was not found.", "المستخدم غير موجود."));
 
         var isOwnEntity = user.EntityType == currentUser.EntityType && user.EntityId == currentUser.EntityId;
-        if (!isOwnEntity && !CanViewOtherEntities(currentUser))
+        if (!isOwnEntity && !EntityScopeHelper.CanViewOtherEntities(currentUser))
             return (null, ApiResponse<T>.FailureResponse("Cannot view users outside your own entity.", "لا يمكنك عرض مستخدمين خارج كيانك."));
 
         return (user, null);
     }
-
-    private static bool CanViewOtherEntities(User currentUser) =>
-        currentUser.EntityType is EntityType.BaytAlUrdon or EntityType.Aseza;
 
     private async Task<(Group? Group, ApiResponse<T>? Error)> GetScopedGroupAsync<T>(int groupId, User currentUser, CancellationToken cancellationToken)
     {

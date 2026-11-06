@@ -6,7 +6,9 @@ namespace Maydan.Application.Interfaces;
 
 public interface IUserManagementService
 {
-    Task<ApiResponse<List<UserSummaryDto>>> GetUsersAsync(int currentUserId, string? search, CancellationToken cancellationToken = default);
+    Task<ApiResponse<List<UserSummaryDto>>> GetUsersAsync(
+        int currentUserId, string? search, EntityType? entityType = null, int? entityId = null,
+        CancellationToken cancellationToken = default);
 
     Task<ApiResponse<PagedUsersDto>> GetUsersPagedAsync(
         int currentUserId, string? search, bool? isActive, int page, int pageSize,

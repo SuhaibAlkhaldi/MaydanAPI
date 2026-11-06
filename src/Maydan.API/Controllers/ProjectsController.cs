@@ -211,6 +211,7 @@ public class ProjectsController : ApiControllerBase
     [FromQuery] DateTime startDate,
     [FromQuery] DateTime endDate,
     [FromQuery] int? currentProjectId,
+    [FromQuery] int? entityId,
     CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
@@ -218,7 +219,7 @@ public class ProjectsController : ApiControllerBase
 
         try
         {
-            var response = await _projectService.GetAvailableUsersAsync(currentUserId, startDate, endDate, currentProjectId, cancellationToken);
+            var response = await _projectService.GetAvailableUsersAsync(currentUserId, startDate, endDate, currentProjectId, entityId, cancellationToken);
             return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
