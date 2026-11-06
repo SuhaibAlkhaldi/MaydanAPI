@@ -14,7 +14,6 @@ public class CreateServiceRequestDtoValidator : AbstractValidator<CreateServiceR
         RuleFor(x => x.EndDate).NotEmpty().WithMessage("End date is required.");
         RuleFor(x => x).Must(x => x.EndDate >= x.StartDate).WithMessage("EndDate must be the same or after StartDate.");
         RuleFor(x => x.AttendanceFrequency).GreaterThan(0).WithMessage("Attendance frequency must be greater than zero.");
-        RuleFor(x => x.CityId).GreaterThan(0).WithMessage("City is required.");
         // Latitude/Longitude are optional if the Association for the CityId has coordinates; otherwise they are required.
         //RuleFor(x => x).MustAsync(async (dto, ct) =>
         //{
