@@ -257,7 +257,7 @@ public class ProductionCompanyOnboardingServiceTests
             Task.FromResult(_cityExists ? new City { Id = cityId, EnglishName = "Amman" } : null);
 
         public Task<City?> GetByIdIncludingDeletedAsync(int cityId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<List<City>> GetByCountryIdAsync(int countryId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<List<City>> GetAllAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task AddAsync(City city, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public void Remove(City city) => throw new NotSupportedException();
     }
@@ -288,7 +288,6 @@ public class ProductionCompanyOnboardingServiceTests
         public IPermissionRepository Permissions => throw new NotSupportedException();
         public IGroupRepository Groups => throw new NotSupportedException();
         public IProjectTypeRepository ProjectTypes => throw new NotSupportedException();
-        public ICountryRepository Countries => throw new NotSupportedException();
         public IAssociationRepository Associations => throw new NotSupportedException();
         public IProjectRepository Projects => throw new NotSupportedException();
         public IWorkerRepository Workers => throw new NotSupportedException();

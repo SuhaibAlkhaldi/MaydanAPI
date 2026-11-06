@@ -6,6 +6,7 @@ using Maydan.Application.Interfaces;
 using Maydan.Domain.Common;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
+using NetTopologySuite.Geometries;
 using System.Linq;
 
 namespace Maydan.Application.Services;
@@ -86,7 +87,12 @@ public class ServiceRequestService : IServiceRequestService
             .Concat(groupPermissions)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
-    public async Task<ApiResponse<AssociationLookupDto>> ResolveAssociationByCityIdAsync(int currentUserId, int cityId, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<AssociationLookupDto>> ResolveAssociationForProjectAsync(
+        int currentUserId,
+        int? projectId,
+        double? latitude,
+        double? longitude,
+        CancellationToken cancellationToken = default)
     {
         var (currentUser, authError) = await GetCurrentUserAsync<AssociationLookupDto>(currentUserId, cancellationToken);
         if (authError is not null) { return authError; }
@@ -95,12 +101,34 @@ public class ServiceRequestService : IServiceRequestService
         {
             return permissionError;
         }
-        var association = await _unitOfWork.Associations.GetByCityIdAsync(cityId, cancellationToken);
+
+        Association? association = null;
+
+        // 1. Try resolving via Project's location if projectId is provided
+        if (projectId.HasValue)
+        {
+            var project = await _unitOfWork.Projects.GetByIdAsync(projectId.Value, cancellationToken);
+            if (project?.Location != null)
+            {
+                association = await _unitOfWork.Associations.FindByGeofenceContainingAsync(project.Location, cancellationToken);
+            }
+        }
+
+        // 2. Try resolving via direct coordinates if provided and not yet resolved
+        if (association == null && latitude.HasValue && longitude.HasValue)
+        {
+            var point = new Point(longitude.Value, latitude.Value) { SRID = 4326 };
+            association = await _unitOfWork.Associations.FindByGeofenceContainingAsync(point, cancellationToken);
+        }
+
         if (association is null)
         {
-            return ApiResponse<AssociationLookupDto>.FailureResponse("No association found for the specified city.","لم يتم العثور على جمعية مرتبطة بالمدينة المحددة.");
+            return ApiResponse<AssociationLookupDto>.FailureResponse(
+                "No association is responsible for the specified location.",
+                "لم يتم العثور على جمعية مرتبطة بالموقع أو المدينة المحددة.");
         }
-        var AssociationsInfo = new AssociationLookupDto
+
+        var associationsInfo = new AssociationLookupDto
         {
             AssociationId = association.Id,
             EnglishName = association.EnglishName,
@@ -109,11 +137,8 @@ public class ServiceRequestService : IServiceRequestService
             Latitude = association.Latitude,
             Longitude = association.Longitude
         };
-        return ApiResponse<AssociationLookupDto>.SuccessResponse(AssociationsInfo, "Association found successfully.", "تم العثور على الجمعية بنجاح.");
+        return ApiResponse<AssociationLookupDto>.SuccessResponse(associationsInfo, "Association found successfully.", "تم العثور على الجمعية بنجاح.");
     }
-
-
-
 
     // Create Service Request
     public async Task<ApiResponse<ServiceRequestDto>> CreateAsync(
@@ -175,15 +200,18 @@ public class ServiceRequestService : IServiceRequestService
                 "Cannot create a service request for a project that has not been approved.");
         }
 
-        // Find association in the requested city
-        var association = await _unitOfWork.Associations
-            .GetByCityIdAsync(dto.CityId, cancellationToken);
+        // Resolve by the project point to avoid assigning requests to a city-level default.
+        Association? association = null;
+        if (project.Location != null)
+        {
+            association = await _unitOfWork.Associations.FindByGeofenceContainingAsync(project.Location, cancellationToken);
+        }
 
         if (association is null)
         {
             return ApiResponse<ServiceRequestDto>.FailureResponse(
                 
-                "No association found for the specified city.", "لم يتم العثور على جمعية مرتبطة بالمدينة المحددة.");
+                "No association is responsible for the project's location.", "لم يتم العثور على جمعية مرتبطة بالمدينة المحددة.");
         }
 
         // Prevent duplicate requests

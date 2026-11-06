@@ -152,6 +152,8 @@ public class ProjectsController : ApiControllerBase
                 WorkPermitImagePath = workPermitImagePath,
                 CityId = request.CityId,
                 CityLocationId = request.CityLocationId,
+                Latitude = request.Latitude,
+                Longitude = request.Longitude,
             };
 
             var response = await _projectService.UpdateAsync(request.Id, dto, currentUserId, cancellationToken);

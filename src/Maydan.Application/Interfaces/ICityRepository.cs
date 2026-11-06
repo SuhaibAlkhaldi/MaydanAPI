@@ -10,11 +10,9 @@ public interface ICityRepository
     Task<City?> GetByIdAsync(int cityId, CancellationToken cancellationToken = default);
 
     // Bypasses the soft-delete filter — needed by RestoreAsync. See
-    // ICountryRepository.GetByIdIncludingDeletedAsync's own comment for why.
     Task<City?> GetByIdIncludingDeletedAsync(int cityId, CancellationToken cancellationToken = default);
 
     // Same "active + deleted together, one list, no toggle" shape as
-    // ICountryRepository.GetAllAsync — CitiesService.getByCountry() is the one and only city-list
     // endpoint, called by BOTH the admin Locations page (needs deleted rows for its Restore-button
     // UI) and the public ProductionHouseSignupComponent dropdown (does not). A soft-deleted city
     // could theoretically appear in the public signup dropdown as a result; accepted rather than
@@ -23,7 +21,7 @@ public interface ICityRepository
     // ProductionHouseSignupComponent.applyServerError already has a dedicated
     // /city/i + /not found/i branch that maps exactly that failure onto the CityId field instead of
     // a generic error banner — this edge case was already anticipated on the frontend.
-    Task<List<City>> GetByCountryIdAsync(int countryId, CancellationToken cancellationToken = default);
+    Task<List<City>> GetAllAsync(CancellationToken cancellationToken = default);
 
     Task AddAsync(City city, CancellationToken cancellationToken = default);
     void Remove(City city);

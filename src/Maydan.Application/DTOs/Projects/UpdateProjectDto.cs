@@ -17,5 +17,8 @@ public class UpdateProjectDto
     public int CityId { get; set; }
     public int CityLocationId { get; set; }
 
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+
     public string? WorkPermitImagePath { get; set; }
 }

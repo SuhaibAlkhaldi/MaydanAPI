@@ -5,14 +5,7 @@ namespace Maydan.Application.Interfaces;
 
 public interface ILocationService
 {
-    Task<ApiResponse<List<CountryDto>>> GetCountriesAsync(CancellationToken cancellationToken = default);
-    Task<ApiResponse<CountryDto>> GetCountryByIdAsync(int countryId, CancellationToken cancellationToken = default);
-    Task<ApiResponse<CountryDto>> CreateCountryAsync(CreateCountryDto dto, int currentUserId, CancellationToken cancellationToken = default);
-    Task<ApiResponse<CountryDto>> UpdateCountryAsync(UpdateCountryDto dto, int currentUserId, CancellationToken cancellationToken = default);
-    Task<ApiResponse<bool>> DeleteCountryAsync(int countryId, int currentUserId, CancellationToken cancellationToken = default);
-    Task<ApiResponse<CountryDto>> RestoreCountryAsync(int countryId, int currentUserId, CancellationToken cancellationToken = default);
-
-    Task<ApiResponse<List<CityDto>>> GetCitiesByCountryAsync(int countryId, CancellationToken cancellationToken = default);
+    Task<ApiResponse<List<CityDto>>> GetCitiesAsync(CancellationToken cancellationToken = default);
     Task<ApiResponse<CityDto>> CreateCityAsync(CreateCityDto dto, int currentUserId, CancellationToken cancellationToken = default);
     Task<ApiResponse<CityDto>> UpdateCityAsync(int cityId, UpdateCityDto dto, int currentUserId, CancellationToken cancellationToken = default);
     Task<ApiResponse<bool>> DeleteCityAsync(int cityId, int currentUserId, CancellationToken cancellationToken = default);

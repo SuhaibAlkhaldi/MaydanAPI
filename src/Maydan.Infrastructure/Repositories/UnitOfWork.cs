@@ -13,12 +13,10 @@ public class UnitOfWork : IUnitOfWork
     private IPermissionRepository? _permissions;
     private IGroupRepository? _groups;
     private IProjectTypeRepository? _projectTypes;
-    private ICountryRepository? _countries;
     private ICityRepository? _cities;
     private ICityLocationRepository? _cityLocations;
     private IAssociationRepository? _associations;
     private IAssociationProjectSupervisorRepository? _associationProjectSupervisors;
-    private IAssociationZoneRepository? _associationZones;
     private IProductionCompanyRepository? _productionCompanies;
     private IProjectRepository? _projects;
     private IWorkerRepository? _workers;
@@ -44,12 +42,10 @@ public class UnitOfWork : IUnitOfWork
     public IRoleRepository Roles => _roles ??= new RoleRepository(_context);
     public IPermissionRepository Permissions => _permissions ??= new PermissionRepository(_context);
     public IGroupRepository Groups => _groups ??= new GroupRepository(_context);
-    public ICountryRepository Countries => _countries ??= new CountryRepository(_context);
     public ICityRepository Cities => _cities ??= new CityRepository(_context);
     public ICityLocationRepository CityLocations => _cityLocations ??= new CityLocationRepository(_context);
     public IAssociationRepository Associations => _associations ??= new AssociationRepository(_context);
     public IAssociationProjectSupervisorRepository AssociationProjectSupervisors => _associationProjectSupervisors ??= new AssociationProjectSupervisorRepository(_context);
-    public IAssociationZoneRepository AssociationZones => _associationZones ??= new AssociationZoneRepository(_context);
     public IProductionCompanyRepository ProductionCompanies => _productionCompanies ??= new ProductionCompanyRepository(_context);
     public IProjectRepository Projects => _projects ??= new ProjectRepository(_context);
     public IWorkerRepository Workers => _workers ??= new WorkerRepository(_context);

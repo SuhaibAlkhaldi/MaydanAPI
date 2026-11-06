@@ -5,6 +5,7 @@ using Maydan.Application.Interfaces;
 using Maydan.Domain.Entities;
 using Maydan.Domain.Enums;
 using Maydan.Domain.Constants;
+using NetTopologySuite.Geometries;
 
 namespace Maydan.Application.Services;
 
@@ -94,6 +95,18 @@ public class ProjectService : IProjectService
             return lmError;
         }
 
+        Point? projectLocation = null;
+        bool hasGeoWarning = false;
+        if (request.Latitude.HasValue && request.Longitude.HasValue)
+        {
+            projectLocation = new Point(request.Longitude.Value, request.Latitude.Value) { SRID = 4326 };
+            var matchedAssociation = await _unitOfWork.Associations.FindByGeofenceContainingAsync(projectLocation, cancellationToken);
+            if (matchedAssociation is null)
+            {
+                hasGeoWarning = true;
+            }
+        }
+
         var project = new Project
         {
             ProjectNameEn = request.ProjectNameEn.Trim(),
@@ -109,7 +122,8 @@ public class ProjectService : IProjectService
             // 3. التفعيل التلقائي إذا كان المنشئ من بيت الأردن
             IsActive = isBaytAlUrdon,
             CityId = request.CityId,
-            CityLocationId = request.CityLocationId
+            CityLocationId = request.CityLocationId,
+            Location = projectLocation
         };
 
         await _unitOfWork.Projects.AddAsync(project, cancellationToken);
@@ -294,6 +308,10 @@ public class ProjectService : IProjectService
         project.LocationManagerUserId = locationManager!.UserId;
         project.CityId = request.CityId;
         project.CityLocationId = request.CityLocationId;
+        if (request.Latitude.HasValue && request.Longitude.HasValue)
+        {
+            project.Location = new Point(request.Longitude.Value, request.Latitude.Value) { SRID = 4326 };
+        }
 
         if (!string.IsNullOrWhiteSpace(request.WorkPermitImagePath))
         {
@@ -663,7 +681,9 @@ public class ProjectService : IProjectService
             CityName = project.City?.EnglishName ?? string.Empty,
             CityNameAr = project.City?.ArabicName ?? string.Empty,
             CityLocationId = project.CityLocationId,
-            CityLocationName = project.CityLocation?.EnglishName ?? string.Empty
+            CityLocationName = project.CityLocation?.EnglishName ?? string.Empty,
+            Latitude = project.Location?.Y,
+            Longitude = project.Location?.X
         };
     }
 

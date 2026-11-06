@@ -23,14 +23,12 @@ public class MaydanDbContext : DbContext
     public DbSet<UserGroup> UserGroups => Set<UserGroup>();
     public DbSet<UserPermission> UserPermissions => Set<UserPermission>();
 
-    public DbSet<Country> Countries => Set<Country>();
     public DbSet<City> Cities => Set<City>();
     public DbSet<CityLocation> CityLocations => Set<CityLocation>();
     public DbSet<ProjectType> ProjectTypes { get; set; }
     public DbSet<LookupCategory> LookupCategories => Set<LookupCategory>();
     public DbSet<LookupItem> LookupItems => Set<LookupItem>();
     public DbSet<Association> Associations => Set<Association>();
-    public DbSet<AssociationZone> AssociationZones => Set<AssociationZone>();
     public DbSet<AssociationProjectSupervisor> AssociationProjectSupervisors => Set<AssociationProjectSupervisor>();
     public DbSet<ProductionCompany> ProductionCompanies => Set<ProductionCompany>();
     public DbSet<Project> Projects => Set<Project>();
