@@ -99,6 +99,15 @@ public class UserManagementService : IUserManagementService
             );
         }
 
+
+        // EN: Prevent creation of a user with the Worker role via this endpoint. Workers must be managed via ProjectWorkers.
+        // AR: منع إنشاء مستخدم بدور عامل من خلال شاشة المستخدمين. العمال يدارون عبر شاشات مشاريع العمال.
+        if (dto.RoleId == SystemRoles.Worker)
+        {
+            return ApiResponse<UserDetailsDto>.FailureResponse(
+                "Cannot create a system user with the Worker role.",
+                "لا يمكن إنشاء مستخدم نظام بدور 'عامل' من خلال هذه الشاشة.");
+        }
         var creationError = EnsureEntityCreationAllowed<UserDetailsDto>(currentUser!, role);
         if (creationError != null) return creationError;
 
@@ -167,6 +176,50 @@ public class UserManagementService : IUserManagementService
         return ApiResponse<UserDetailsDto>.SuccessResponse(MapUserDetails(createdUser), "User created successfully.", "تم إنشاء المستخدم بنجاح.", 201);
     }
 
+    //public async Task<ApiResponse<List<RoleDto>>> GetRolesForEntityAsync(int currentUserId, EntityType? targetEntityType, CancellationToken cancellationToken = default)
+    //{
+    //    var (currentUser, error) = await GetCurrentUserAsync<List<RoleDto>>(currentUserId, cancellationToken);
+    //    if (error != null) return error;
+
+    //    var allRoles = await _unitOfWork.Roles.GetAllAsync(cancellationToken);
+
+    //    var isCrossEntityAdmin = currentUser!.RoleId == BaytAlUrdonRoleId || currentUser.RoleId == AsezaRoleId;
+    //    var effectiveEntityType = (isCrossEntityAdmin && targetEntityType.HasValue)
+    //                              ? targetEntityType.Value
+    //                              : currentUser.EntityType;
+
+    //    List<Role> entityRoles;
+
+    //    if (effectiveEntityType == EntityType.BaytAlUrdon)
+    //    {
+    //        entityRoles = allRoles.Where(r => r.TargetEntityType == effectiveEntityType && r.RoleId != BaytAlUrdonRoleId).ToList();
+    //    }
+    //    else if (effectiveEntityType == EntityType.Aseza)
+    //    {
+    //        entityRoles = allRoles.Where(r => r.TargetEntityType == effectiveEntityType && r.RoleId != AsezaRoleId).ToList();
+    //    }
+    //    else
+    //    {
+    //        entityRoles = allRoles.Where(r => r.TargetEntityType == effectiveEntityType && r.RoleId != ProductionHouseRoleId && r.RoleId != AssociationRoleId).ToList();
+    //    }
+
+    //    if (currentUser.RoleId == BaytAlUrdonRoleId && effectiveEntityType == EntityType.BaytAlUrdon || currentUser.RoleId == AsezaRoleId && effectiveEntityType == EntityType.Aseza)
+    //    {
+    //        var systemAdminRole = allRoles.FirstOrDefault(r => r.RoleId == 10);
+    //        if (systemAdminRole != null && !entityRoles.Any(r => r.RoleId == 10))
+    //        {
+    //            entityRoles.Add(systemAdminRole);
+    //        }
+    //    }
+
+    //    var result = entityRoles.Select(r => new RoleDto(
+    //        r.RoleId,
+    //        r.RoleNameEn,
+    //        r.RoleNameAr
+    //    )).ToList();
+
+    //    return ApiResponse<List<RoleDto>>.SuccessResponse(result, "Roles retrieved successfully.", "تم استرجاع الأدوار بنجاح.");
+    //}
     public async Task<ApiResponse<List<RoleDto>>> GetRolesForEntityAsync(int currentUserId, EntityType? targetEntityType, CancellationToken cancellationToken = default)
     {
         var (currentUser, error) = await GetCurrentUserAsync<List<RoleDto>>(currentUserId, cancellationToken);
@@ -174,7 +227,7 @@ public class UserManagementService : IUserManagementService
 
         var allRoles = await _unitOfWork.Roles.GetAllAsync(cancellationToken);
 
-        var isCrossEntityAdmin = currentUser!.RoleId == BaytAlUrdonRoleId || currentUser.RoleId == AsezaRoleId;
+        var isCrossEntityAdmin = currentUser!.RoleId == SystemRoles.BaytAlUrdon || currentUser.RoleId == SystemRoles.Aseza;
         var effectiveEntityType = (isCrossEntityAdmin && targetEntityType.HasValue)
                                   ? targetEntityType.Value
                                   : currentUser.EntityType;
@@ -183,21 +236,28 @@ public class UserManagementService : IUserManagementService
 
         if (effectiveEntityType == EntityType.BaytAlUrdon)
         {
-            entityRoles = allRoles.Where(r => r.TargetEntityType == effectiveEntityType && r.RoleId != BaytAlUrdonRoleId).ToList();
+            entityRoles = allRoles.Where(r => r.TargetEntityType == effectiveEntityType && r.RoleId != SystemRoles.BaytAlUrdon).ToList();
         }
         else if (effectiveEntityType == EntityType.Aseza)
         {
-            entityRoles = allRoles.Where(r => r.TargetEntityType == effectiveEntityType && r.RoleId != AsezaRoleId).ToList();
+            entityRoles = allRoles.Where(r => r.TargetEntityType == effectiveEntityType && r.RoleId != SystemRoles.Aseza).ToList();
         }
         else
         {
-            entityRoles = allRoles.Where(r => r.TargetEntityType == effectiveEntityType && r.RoleId != ProductionHouseRoleId && r.RoleId != AssociationRoleId).ToList();
+            // EN: Filter out primary entity roles AND the Worker role.
+            // AR: استثناء الأدوار الأساسية للجهات واستثناء دور العامل (Worker) من الظهور في القائمة.
+            entityRoles = allRoles.Where(r =>
+                r.TargetEntityType == effectiveEntityType &&
+                r.RoleId != SystemRoles.ProductionHouse &&
+                r.RoleId != SystemRoles.Association &&
+                r.RoleId != SystemRoles.Worker).ToList(); // 🌟 التعديل هنا: منع إرجاع Worker
         }
 
-        if (currentUser.RoleId == BaytAlUrdonRoleId && effectiveEntityType == EntityType.BaytAlUrdon || currentUser.RoleId == AsezaRoleId && effectiveEntityType == EntityType.Aseza)
+        if (currentUser.RoleId == SystemRoles.BaytAlUrdon && effectiveEntityType == EntityType.BaytAlUrdon ||
+            currentUser.RoleId == SystemRoles.Aseza && effectiveEntityType == EntityType.Aseza)
         {
-            var systemAdminRole = allRoles.FirstOrDefault(r => r.RoleId == 10);
-            if (systemAdminRole != null && !entityRoles.Any(r => r.RoleId == 10))
+            var systemAdminRole = allRoles.FirstOrDefault(r => r.RoleId == SystemRoles.Admin);
+            if (systemAdminRole != null && !entityRoles.Any(r => r.RoleId == SystemRoles.Admin))
             {
                 entityRoles.Add(systemAdminRole);
             }

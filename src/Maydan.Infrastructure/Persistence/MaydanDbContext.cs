@@ -1,3 +1,4 @@
+﻿
 using Maydan.Domain.Common;
 using Maydan.Domain.Entities;
 using Maydan.Infrastructure.Persistence.Seed;
@@ -47,6 +48,13 @@ public class MaydanDbContext : DbContext
     public DbSet<WorkerOvertime> WorkerOvertimes { get; set; } = null!;
     public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
     public DbSet<UserDevice> UserDevices => Set<UserDevice>();
+
+    // ── Project Associations & Project Workers (Direct Project Management Modules)
+    // EN: DbSets for managing project associations, their geographical locations, and assigned project workers.
+    // AR: جداول إدارة جمعيات المشروع، مواقعها الجغرافية، وعمال المشروع المباشرين.
+    public DbSet<ProjectAssociation> ProjectAssociations => Set<ProjectAssociation>();
+    public DbSet<ProjectAssociationLocation> ProjectAssociationLocations => Set<ProjectAssociationLocation>();
+    public DbSet<ProjectWorker> ProjectWorkers => Set<ProjectWorker>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

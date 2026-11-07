@@ -36,14 +36,5 @@ public class CreateProjectRequest
     [Required]
     public int CityLocationId { get; set; }
 
-    /// <summary>
-    /// Optional GPS coordinates of the filming location.
-    /// When provided, the system will attempt to geo-resolve the responsible
-    /// Association via its Geofence before falling back to city matching.
-    /// </summary>
-    [Range(-90, 90, ErrorMessage = "Latitude must be between -90 and 90.")]
-    public double? Latitude { get; set; }
-
-    [Range(-180, 180, ErrorMessage = "Longitude must be between -180 and 180.")]
-    public double? Longitude { get; set; }
+    public int? ProductionCompanyId { get; set; }
 }

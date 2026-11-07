@@ -26,4 +26,9 @@ public interface IUnitOfWork
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 
     Task ExecuteInTransactionAsync(Func<Task> operation, CancellationToken cancellationToken = default);
+
+    // EN: Repositories for direct Project Associations and Project Workers management.
+    // AR: مستودعات إدارة جمعيات المشروع وعمال المشروع المباشرين.
+    IProjectAssociationRepository ProjectAssociations { get; }
+    IProjectWorkerRepository ProjectWorkers { get; }
 }
