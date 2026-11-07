@@ -13,6 +13,7 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
     private readonly IUnitOfWork _unitOfWork;
 
     private const string ManagePermission = "Manage Worker Suggestion Rules";
+    private const string ViewPermission = "View Worker Suggestion Rules";
 
     public WorkerSuggestionRuleService(IUnitOfWork unitOfWork)
     {
@@ -23,7 +24,7 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
     public async Task<ApiResponse<IReadOnlyList<WorkerSuggestionRuleDto>>>
         GetAllAsync(int currentUserId, CancellationToken cancellationToken = default)
     {
-        var error = await AuthorizeAsync<IReadOnlyList<WorkerSuggestionRuleDto>>(currentUserId, cancellationToken);
+        var error = await AuthorizeViewAsync<IReadOnlyList<WorkerSuggestionRuleDto>>(currentUserId, cancellationToken);
 
         if (error is not null)
             return error;
@@ -41,7 +42,7 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
     public async Task<ApiResponse<IReadOnlyList<WorkerSuggestionRuleDto>>>
         GetDeletedAsync(int currentUserId, CancellationToken cancellationToken = default)
     {
-        var error = await AuthorizeAsync<IReadOnlyList<WorkerSuggestionRuleDto>>(currentUserId, cancellationToken);
+        var error = await AuthorizeViewAsync<IReadOnlyList<WorkerSuggestionRuleDto>>(currentUserId, cancellationToken);
 
         if (error is not null)
             return error;
@@ -57,7 +58,7 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
     // Get rule by ID
     public async Task<ApiResponse<WorkerSuggestionRuleDto>> GetByIdAsync(int currentUserId, int id, CancellationToken cancellationToken = default)
     {
-        var error = await AuthorizeAsync<WorkerSuggestionRuleDto>(currentUserId, cancellationToken);
+        var error = await AuthorizeViewAsync<WorkerSuggestionRuleDto>(currentUserId, cancellationToken);
 
         if (error is not null)
             return error;
@@ -74,7 +75,7 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
     // Create
     public async Task<ApiResponse<WorkerSuggestionRuleDto>> CreateAsync(int currentUserId, CreateWorkerSuggestionRuleRequest request, CancellationToken cancellationToken = default)
     {
-        var error = await AuthorizeAsync<WorkerSuggestionRuleDto>(currentUserId, cancellationToken);
+        var error = await AuthorizeManageAsync<WorkerSuggestionRuleDto>(currentUserId, cancellationToken);
 
         if (error is not null)
             return error;
@@ -133,7 +134,7 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
         UpdateWorkerSuggestionRuleRequest request,
         CancellationToken cancellationToken = default)
     {
-        var error = await AuthorizeAsync<WorkerSuggestionRuleDto>(currentUserId, cancellationToken);
+        var error = await AuthorizeManageAsync<WorkerSuggestionRuleDto>(currentUserId, cancellationToken);
 
         if (error is not null)
             return error;
@@ -272,7 +273,7 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
     // Soft Delete
     public async Task<ApiResponse<bool>> DeleteAsync(int currentUserId, int id, CancellationToken cancellationToken = default)
     {
-        var error = await AuthorizeAsync<bool>(currentUserId, cancellationToken);
+        var error = await AuthorizeManageAsync<bool>(currentUserId, cancellationToken);
 
         if (error is not null)
             return error;
@@ -292,7 +293,7 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
     public async Task<ApiResponse<IReadOnlyList<WorkerSuggestionAttributeDto>>>
         GetAttributesAsync(int currentUserId, CancellationToken cancellationToken = default)
     {
-        var error = await AuthorizeAsync<IReadOnlyList<WorkerSuggestionAttributeDto>>(currentUserId, cancellationToken);
+        var error = await AuthorizeViewAsync<IReadOnlyList<WorkerSuggestionAttributeDto>>(currentUserId, cancellationToken);
 
         if (error is not null)
             return error;
@@ -385,7 +386,7 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
             int id,
             CancellationToken cancellationToken = default)
     {
-        var error = await AuthorizeAsync<WorkerSuggestionRuleDto>(
+        var error = await AuthorizeManageAsync<WorkerSuggestionRuleDto>(
             currentUserId, cancellationToken);
 
         if (error is not null)
@@ -425,7 +426,7 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
         ReorderWorkerSuggestionRulesRequest request,
         CancellationToken cancellationToken = default)
     {
-        var error = await AuthorizeAsync<bool>(
+        var error = await AuthorizeManageAsync<bool>(
             currentUserId, cancellationToken);
 
         if (error is not null)
@@ -617,16 +618,22 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
     }
 
     // Authorization
-    private async Task<ApiResponse<T>?> AuthorizeAsync<T>(int currentUserId, CancellationToken cancellationToken)
+
+    private async Task<(User? User, ApiResponse<T>? Error)> GetAuthorizedUserAsync<T>(int currentUserId, CancellationToken cancellationToken)
     {
         var user = await _unitOfWork.Users.GetWithPermissionsAsync(currentUserId, cancellationToken);
 
         if (user is null)
-            return new ApiResponse<T>(false, "المستخدم الحالي غير موجود.", "Current user not found.", default, 401);
+            return (null, new ApiResponse<T>(false, "المستخدم الحالي غير موجود.", "Current user not found.", default, 401));
 
         if (!user.IsActive)
-            return new ApiResponse<T>(false, "حساب المستخدم غير فعال.", "User account is inactive.", default, 403);
+            return (null, new ApiResponse<T>(false, "حساب المستخدم غير فعال.", "User account is inactive.", default, 403));
 
+        return (user, null);
+    }
+
+    private static HashSet<string> GetUserPermissionNames(User user)
+    {
         var rolePermissions = user.Role?.RolePermissions?
             .Where(x => x.IsActive && x.Permission?.IsActive == true)
             .Select(x => x.Permission.PermissionNameEn)
@@ -644,15 +651,46 @@ public class WorkerSuggestionRuleService : IWorkerSuggestionRuleService
             .Select(x => x.Permission.PermissionNameEn)
             ?? Enumerable.Empty<string>();
 
-        var hasPermission = rolePermissions
+        return rolePermissions
             .Concat(directPermissions)
             .Concat(groupPermissions)
-            .Contains(ManagePermission, StringComparer.OrdinalIgnoreCase);
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
 
-        if (user.EntityType != EntityType.BaytAlUrdon ||
+    // Full management access (create/update/delete/restore/reorder) — unchanged from the original
+    // single AuthorizeAsync<T>, just extracted under its own name now that a second, weaker
+    // authorization level (view-only) exists too.
+    private async Task<ApiResponse<T>?> AuthorizeManageAsync<T>(int currentUserId, CancellationToken cancellationToken)
+    {
+        var (user, error) = await GetAuthorizedUserAsync<T>(currentUserId, cancellationToken);
+        if (error != null) return error;
+
+        var hasPermission = GetUserPermissionNames(user!).Contains(ManagePermission);
+
+        if (user!.EntityType != EntityType.BaytAlUrdon ||
             !hasPermission)
         {
             return new ApiResponse<T>(false, "لا تملك صلاحية إدارة قواعد اقتراح العمال.", "You are not authorized to manage suggestion rules.", default, 403);
+        }
+
+        return null;
+    }
+
+    // Read-only access: either a Bayt-AlUrdon user who can already manage rules, OR an ASEZA user
+    // holding the separate, weaker 'View Worker Suggestion Rules' permission (Phase 2 decision —
+    // ASEZA never gets create/update/delete/restore/reorder, only the four read endpoints).
+    private async Task<ApiResponse<T>?> AuthorizeViewAsync<T>(int currentUserId, CancellationToken cancellationToken)
+    {
+        var (user, error) = await GetAuthorizedUserAsync<T>(currentUserId, cancellationToken);
+        if (error != null) return error;
+
+        var permissionNames = GetUserPermissionNames(user!);
+        var canManage = user!.EntityType == EntityType.BaytAlUrdon && permissionNames.Contains(ManagePermission);
+        var canView = user.EntityType == EntityType.Aseza && permissionNames.Contains(ViewPermission);
+
+        if (!canManage && !canView)
+        {
+            return new ApiResponse<T>(false, "لا تملك صلاحية عرض قواعد اقتراح العمال.", "You are not authorized to view suggestion rules.", default, 403);
         }
 
         return null;

@@ -26,6 +26,8 @@ public class Worker : SharedEntities
 
     public int? YearsOfExperience { get; set; }
 
+    public int? NumberOfChildren { get; set; }
+
     public int AssociationId { get; set; }
     public Association Association { get; set; } = null!;
 

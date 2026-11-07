@@ -136,6 +136,7 @@ public class WorkerRepository : IWorkerRepository
                 w.Association.City.EnglishName,
                 w.PhoneNumber,
                 w.YearsOfExperience,
+                w.NumberOfChildren,
                 w.AssociationId,
                 w.Association.EnglishName,
                 w.QrCode,
@@ -266,6 +267,7 @@ public class WorkerRepository : IWorkerRepository
 
                 w.PhoneNumber,
                 w.YearsOfExperience,
+                w.NumberOfChildren,
                 w.AssociationId,
                 w.Association.EnglishName,
                 w.QrCode,

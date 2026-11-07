@@ -17,6 +17,9 @@ public class UpdateWorkerRequest
     public List<int>? ServiceIds { get; set; }
     public int? YearsOfExperience { get; set; }
 
+    // Same "null = don't touch" rule as every other field here.
+    public int? NumberOfChildren { get; set; }
+
     // Newly uploaded files to append to the worker's existing documents (not a replace) — see
     // UpdateWorkerDto's own comment. Empty = no new documents this update.
     public List<IFormFile> Documents { get; set; } = new();

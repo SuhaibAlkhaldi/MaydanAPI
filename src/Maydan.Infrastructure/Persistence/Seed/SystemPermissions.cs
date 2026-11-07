@@ -50,6 +50,7 @@ namespace Maydan.Infrastructure.Persistence.Seed
         public const int ViewAuditTrail = 42;
 
         public const int ManageWorkerSuggestionRules = 45;
+        public const int ViewWorkerSuggestionRules = 46;
 
     }
 }

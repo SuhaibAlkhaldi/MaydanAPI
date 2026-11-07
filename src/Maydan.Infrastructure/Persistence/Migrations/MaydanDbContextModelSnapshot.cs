@@ -1384,6 +1384,18 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                             PermissionNameAr = "إدارة قواعد اقتراح العمال",
                             PermissionNameEn = "Manage Worker Suggestion Rules",
                             UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            PermissionId = 46,
+                            CreatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Id = 0,
+                            IsActive = true,
+                            IsDeleted = false,
+                            Module = "WorkerSuggestions",
+                            PermissionNameAr = "عرض قواعد اقتراح العمال",
+                            PermissionNameEn = "View Worker Suggestion Rules",
+                            UpdatedAt = new DateTime(2026, 9, 7, 0, 0, 0, 0, DateTimeKind.Utc)
                         });
                 });
 
@@ -2308,6 +2320,12 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
+                            RoleId = 2,
+                            PermissionId = 46,
+                            IsActive = true
+                        },
+                        new
+                        {
                             RoleId = 3,
                             PermissionId = 1,
                             IsActive = true
@@ -3156,6 +3174,9 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Property<string>("Nationality")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("NumberOfChildren")
+                        .HasColumnType("int");
 
                     b.Property<string>("PhoneNumber")
                         .HasMaxLength(30)

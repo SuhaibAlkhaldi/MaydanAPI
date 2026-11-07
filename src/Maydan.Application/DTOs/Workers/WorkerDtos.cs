@@ -16,6 +16,7 @@ public record WorkerDto(
     string? CityNameEn,
     string? PhoneNumber,
     int? YearsOfExperience,
+    int? NumberOfChildren,
     int AssociationId,
     string AssociationNameEn,
     string QrCode,
@@ -53,6 +54,10 @@ public class CreateWorkerDto
     public List<int> ServiceIds { get; set; } = new();
     public int YearsOfExperience { get; set; }
 
+    // Optional — unlike YearsOfExperience above, many existing workers have no recorded value at
+    // all for this field.
+    public int? NumberOfChildren { get; set; }
+
     // Set by the controller after saving each uploaded file (see IFileStorageService). Required
     // (1-4 paths) only when one of ServiceIds is flagged Service.RequiresDocuments — enforced in
     // WorkerService.CreateAsync, not here.
@@ -80,6 +85,9 @@ public class UpdateWorkerDto
     public string? PhoneNumber { get; set; }
     public List<int>? ServiceIds { get; set; }
     public int? YearsOfExperience { get; set; }
+
+    // Same "null = don't touch" rule as every other field here.
+    public int? NumberOfChildren { get; set; }
 
     // Newly uploaded files to append to the worker's existing documents (not a replace) — see
     // WorkerService.UpdateAsync. Empty = no new documents this update.
