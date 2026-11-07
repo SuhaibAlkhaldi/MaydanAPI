@@ -2,37 +2,13 @@ namespace Maydan.Application.DTOs.Locations;
 
 // Field names below are deliberately NOT the usual EnglishName/ArabicName pair this codebase uses
 // elsewhere (Project, ProjectType, Group, ...) — they match workforcment's own
-// src/app/features/locations/models/location.models.ts exactly (CountryEnglishName ->
-// countryEnglishName once System.Text.Json's default camelCase policy applies), which is the real,
 // already-written frontend contract this DTO has to satisfy, not a convention this pass gets to
 // pick.
-public class CountryDto
-{
-    public int Id { get; set; }
-    public string CountryEnglishName { get; set; } = string.Empty;
-    public string CountryArabicName { get; set; } = string.Empty;
-    public bool IsDeleted { get; set; }
-}
-
-public class CreateCountryDto
-{
-    public string CountryEnglishName { get; set; } = string.Empty;
-    public string CountryArabicName { get; set; } = string.Empty;
-}
-
-public class UpdateCountryDto
-{
-    public int Id { get; set; }
-    public string CountryEnglishName { get; set; } = string.Empty;
-    public string CountryArabicName { get; set; } = string.Empty;
-}
-
 public class CityDto
 {
     public int Id { get; set; }
     public string CityEnglishName { get; set; } = string.Empty;
     public string CityArabicName { get; set; } = string.Empty;
-    public int CountryId { get; set; }
     public bool IsDeleted { get; set; }
 }
 
@@ -40,21 +16,17 @@ public class CreateCityDto
 {
     public string CityEnglishName { get; set; } = string.Empty;
     public string CityArabicName { get; set; } = string.Empty;
-    public int CountryId { get; set; }
 }
 
 public class UpdateCityDto
 {
     public string CityEnglishName { get; set; } = string.Empty;
     public string CityArabicName { get; set; } = string.Empty;
-    public int CountryId { get; set; }
 }
 
-// MAYD-51 Phase 2d: unlike CountryDto/CityDto above, these field names are DELIBERATELY the plain
 // EnglishName/ArabicName/CityId pair, NOT a CityLocation-prefixed variant — this is what
 // workforcment's own city-locations.service.ts (CityLocation/CreateCityLocation/UpdateCityLocation
 // interfaces) actually expects, confirmed by reading that file before writing this one. Don't
-// pattern-match CountryDto/CityDto's prefixed convention onto this DTO just because it's the same
 // module area; that convention exists there because location.models.ts specifically demands it,
 // and city-locations.service.ts demands something different.
 public class CityLocationDto

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http;
 using System.ComponentModel.DataAnnotations;
 
 namespace Maydan.API.Models.Projects;
@@ -35,4 +35,6 @@ public class CreateProjectRequest
 
     [Required]
     public int CityLocationId { get; set; }
+
+    public int? ProductionCompanyId { get; set; }
 }

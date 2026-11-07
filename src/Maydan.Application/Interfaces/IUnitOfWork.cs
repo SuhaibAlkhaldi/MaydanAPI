@@ -7,13 +7,10 @@ public interface IUnitOfWork
     IPermissionRepository Permissions { get; }
     IGroupRepository Groups { get; }
     IProjectTypeRepository ProjectTypes { get; }
-    ICountryRepository Countries { get; }
     ICityRepository Cities { get; }
     ICityLocationRepository CityLocations { get; }
     IAssociationRepository Associations { get; }
     IAssociationProjectSupervisorRepository AssociationProjectSupervisors { get; }
-    // Optional default implementation so existing test fakes don't need to implement it.
-    IAssociationZoneRepository AssociationZones => throw new NotImplementedException();
     IProductionCompanyRepository ProductionCompanies { get; }
     IProjectRepository Projects { get; }
     IWorkerRepository Workers { get; }
@@ -29,4 +26,9 @@ public interface IUnitOfWork
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 
     Task ExecuteInTransactionAsync(Func<Task> operation, CancellationToken cancellationToken = default);
+
+    // EN: Repositories for direct Project Associations and Project Workers management.
+    // AR: مستودعات إدارة جمعيات المشروع وعمال المشروع المباشرين.
+    IProjectAssociationRepository ProjectAssociations { get; }
+    IProjectWorkerRepository ProjectWorkers { get; }
 }

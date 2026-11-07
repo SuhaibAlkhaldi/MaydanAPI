@@ -69,5 +69,9 @@ public class ProjectConfiguration : IEntityTypeConfiguration<Project>
             .WithMany()
             .HasForeignKey(p => p.LocationManagerUserId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Property(p => p.Location)
+            .HasColumnType("geography")
+            .IsRequired(false);
     }
 }

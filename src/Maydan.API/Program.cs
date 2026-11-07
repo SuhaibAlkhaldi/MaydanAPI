@@ -1,3 +1,4 @@
+﻿using System.Text;
 ﻿using FirebaseAdmin;
 using FluentValidation;
 using Google.Apis.Auth.OAuth2;
@@ -64,7 +65,6 @@ builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<ILocationService, LocationService>();
 builder.Services.AddScoped<IAssociationService, AssociationService>();
-builder.Services.AddScoped<IAssociationZoneService, AssociationZoneService>();
 builder.Services.AddScoped<IAssociationProjectSupervisorService, AssociationProjectSupervisorService>();
 builder.Services.AddScoped<IProductionCompanyService, ProductionCompanyService>();
 builder.Services.AddScoped<IProductionCompanyOnboardingService, ProductionCompanyOnboardingService>();
@@ -74,6 +74,10 @@ builder.Services.AddScoped<IFrontendLinkBuilder, FrontendLinkBuilder>();
 builder.Services.AddScoped<IWorkerProjectLinkRepository, WorkerProjectLinkRepository>();
 builder.Services.AddScoped<IProjectDetailsService, ProjectDetailsService>();
 builder.Services.AddScoped<IEmailSender, LoggingEmailSender>();
+// EN: Register ProjectAssociation and ProjectWorker application services.
+// AR: تسجيل خدمات إدارة جمعيات المشروع وعمال المشروع في حاوية حقن التبعيات.
+builder.Services.AddScoped<IProjectAssociationService, ProjectAssociationService>();
+builder.Services.AddScoped<IProjectWorkerService, ProjectWorkerService>();
 //NEW For Hangfire and notifications
 
 // الإشعارات

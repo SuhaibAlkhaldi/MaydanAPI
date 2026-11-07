@@ -184,36 +184,6 @@ public class AssociationService : IAssociationService
             IsActive = true
         };
 
-        if (dto.Zones != null && dto.Zones.Any())
-        {
-            foreach (var zoneDto in dto.Zones)
-            {
-                try
-                {
-                    var zoneBoundary = GeoJsonHelper.ToPolygon(zoneDto.Boundary);
-                    if (geofence != null && !geofence.Contains(zoneBoundary))
-                    {
-                        return ApiResponse<AssociationDto>.FailureResponse(
-                            "One or more zone boundaries lie outside the association geofence.",
-                            "إحدى المناطق تقع خارج السياج الجغرافي للجمعية.");
-                    }
-
-                    association.Zones.Add(new AssociationZone
-                    {
-                        ArabicName = zoneDto.ArabicName.Trim(),
-                        EnglishName = zoneDto.EnglishName.Trim(),
-                        Boundary = zoneBoundary,
-                        IsActive = true,
-                        CreatedAt = DateTime.UtcNow
-                    });
-                }
-                catch (Exception ex)
-                {
-                    return ApiResponse<AssociationDto>.FailureResponse(ex.Message, ex.Message);
-                }
-            }
-        }
-
         if (adminRole is null)
         {
             await _unitOfWork.Associations.AddAsync(association, cancellationToken);
@@ -451,29 +421,11 @@ public class AssociationService : IAssociationService
         Latitude = FormatCoordinate(association.Latitude),
         Longitude = FormatCoordinate(association.Longitude),
         Geofence = association.Geofence != null ? GeoJsonHelper.FromPolygon(association.Geofence) : null,
-        CountryId = association.City?.CountryId,
-        CountryEnglishName = association.City?.Country?.EnglishName ?? string.Empty,
-        CountryArabicName = association.City?.Country?.ArabicName ?? string.Empty,
         CityId = association.CityId,
         CityEnglishName = association.City?.EnglishName ?? string.Empty,
         CityArabicName = association.City?.ArabicName ?? string.Empty,
         IsDeleted = association.IsDeleted,
-        WorkersCount = workersCount,
-        Zones = association.Zones?.Select(z => new AssociationZoneDto
-        {
-            Id = z.Id,
-            AssociationId = z.AssociationId,
-            AssociationArabicName = association.ArabicName,
-            AssociationEnglishName = association.EnglishName,
-            ArabicName = z.ArabicName,
-            EnglishName = z.EnglishName,
-            Boundary = GeoJsonHelper.FromPolygon(z.Boundary),
-            IsBookedNow = z.IsBookedNow,
-            BookedFrom = z.BookedFrom,
-            BookedUntil = z.BookedUntil,
-            ServiceRequestId = z.ServiceRequestId
-        }).ToList() ?? new()
-    };
+        WorkersCount = workersCount    };
 
     private static string FormatCoordinate(decimal? value) =>
         value?.ToString("0.######", CultureInfo.InvariantCulture) ?? string.Empty;
@@ -491,15 +443,11 @@ public class AssociationService : IAssociationService
             Latitude = dto.Latitude,
             Longitude = dto.Longitude,
             Geofence = dto.Geofence,
-            CountryId = dto.CountryId,
-            CountryEnglishName = dto.CountryEnglishName,
-            CountryArabicName = dto.CountryArabicName,
             CityId = dto.CityId,
             CityEnglishName = dto.CityEnglishName,
             CityArabicName = dto.CityArabicName,
             IsDeleted = dto.IsDeleted,
             WorkersCount = dto.WorkersCount,
-            Zones = dto.Zones,
             Users = users.Select(UserManagementService.MapUserSummary).ToList()
         };
     }

@@ -52,9 +52,7 @@ public class AssociationServiceTests
         DeletedAt = deletedAt
     };
 
-    private static Country BuildCountry(int id) => new() { Id = id, EnglishName = "Jordan", ArabicName = "الأردن", IsActive = true };
-
-    private static City BuildCity(int id, Country country) => new() { Id = id, CountryId = country.Id, Country = country, EnglishName = "Amman", ArabicName = "عمان", IsActive = true };
+    private static City BuildCity(int id) => new() { Id = id, EnglishName = "Amman", ArabicName = "عمان", IsActive = true };
 
     private static Association BuildAssociation(int id, City city, bool isDeleted = false) => new()
     {
@@ -80,8 +78,7 @@ public class AssociationServiceTests
     public async Task GetAllAsync_CallerWithViewAssociations_ReturnsMappedDtos()
     {
         var caller = BuildUser(1, BuildRole(1, "Bayt-AlUrdon", ViewAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(1, country);
+        var city = BuildCity(1);
         var association = BuildAssociation(10, city);
 
         var service = BuildService(caller, associations: [association]);
@@ -90,8 +87,6 @@ public class AssociationServiceTests
 
         var dto = Assert.Single(result.Data!);
         Assert.Equal("Association 10", dto.EnglishName);
-        Assert.Equal(country.Id, dto.CountryId);
-        Assert.Equal("Jordan", dto.CountryEnglishName);
         Assert.Equal("Amman", dto.CityEnglishName);
         Assert.False(dto.IsDeleted);
     }
@@ -125,8 +120,7 @@ public class AssociationServiceTests
     public async Task CreateAsync_CallerWithCreateAssociations_Succeeds()
     {
         var caller = BuildUser(1, BuildRole(1, "Bayt-AlUrdon", CreateAssociations, ViewAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(5, country);
+        var city = BuildCity(5);
         var service = BuildService(caller, cities: [city]);
 
         var dto = new CreateAssociationDto { EnglishName = "New Assoc", ArabicName = "جمعية جديدة", CityId = city.Id, Latitude = "31.953000", Longitude = "35.910500" };
@@ -183,8 +177,7 @@ public class AssociationServiceTests
     public async Task CreateAsync_WithAdminPayload_CreatesAssociationAndAdminUserInSameCall()
     {
         var caller = BuildUser(1, BuildRole(1, "Bayt-AlUrdon", CreateAssociations, ViewAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(5, country);
+        var city = BuildCity(5);
         var associationRole = BuildRole(AssociationRoleId, "Association", ViewAssociations, ViewAssociationUsers);
         var (service, _, userRepository) = BuildServiceWithRepositoryAndUsers(caller, null, [city], null, null, new FakeRoleRepository(associationRole));
 
@@ -220,8 +213,7 @@ public class AssociationServiceTests
     public async Task CreateAsync_WithAdminPayload_DuplicateEmail_ThrowsAndCreatesNothing()
     {
         var caller = BuildUser(1, BuildRole(1, "Bayt-AlUrdon", CreateAssociations, ViewAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(5, country);
+        var city = BuildCity(5);
         var existingUser = BuildUser(2, BuildRole(AssociationRoleId, "Association"), entityType: EntityType.Association, entityId: 999);
         existingUser.Email = "taken@example.org";
         var associationRole = BuildRole(AssociationRoleId, "Association", ViewAssociations);
@@ -251,8 +243,7 @@ public class AssociationServiceTests
     public async Task CreateAsync_WithoutAdminPayload_CreatesAssociationOnlyExactlyAsBefore()
     {
         var caller = BuildUser(1, BuildRole(1, "Bayt-AlUrdon", CreateAssociations, ViewAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(5, country);
+        var city = BuildCity(5);
         var (service, _, userRepository) = BuildServiceWithRepositoryAndUsers(caller, null, [city], null, null, roles: null);
 
         var dto = new CreateAssociationDto { EnglishName = "New Assoc", ArabicName = "جمعية جديدة", CityId = city.Id, Latitude = "31.953000", Longitude = "35.910500" };
@@ -266,8 +257,7 @@ public class AssociationServiceTests
     [Fact]
     public async Task GetDetailsAsync_CallerWithViewAssociationUsers_ReturnsAssociationFieldsAndUsers()
     {
-        var country = BuildCountry(1);
-        var city = BuildCity(5, country);
+        var city = BuildCity(5);
         var association = new Association { Id = 10, EnglishName = "Amman Assoc", ArabicName = "جمعية عمان", CityId = city.Id, City = city, IsActive = true };
         var associationUser = BuildUser(2, BuildRole(AssociationRoleId, "Association"), entityType: EntityType.Association, entityId: association.Id);
         // ASEZA's own real shape (RolePermissionSeedConfiguration.cs): holds ViewAssociationUsers but
@@ -286,8 +276,7 @@ public class AssociationServiceTests
     [Fact]
     public async Task GetDetailsAsync_CallerWithoutViewAssociationUsersOrManage_ThrowsUnauthorizedAccessException()
     {
-        var country = BuildCountry(1);
-        var city = BuildCity(5, country);
+        var city = BuildCity(5);
         var association = new Association { Id = 10, EnglishName = "Amman Assoc", ArabicName = "جمعية عمان", CityId = city.Id, City = city, IsActive = true };
         // Holds plain ViewAssociations but not ViewAssociationUsers — must still be rejected: the two
         // are independent permissions, View doesn't imply View-Users.
@@ -305,8 +294,7 @@ public class AssociationServiceTests
         // Direct proof that Create and Edit are genuinely separate gates in this implementation —
         // holding CreateAssociations alone does not imply EditAssociations.
         var caller = BuildUser(1, BuildRole(1, "CreateOnly", CreateAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(1, country);
+        var city = BuildCity(1);
         var association = BuildAssociation(10, city);
         var service = BuildService(caller, associations: [association], cities: [city]);
 
@@ -321,8 +309,7 @@ public class AssociationServiceTests
     public async Task UpdateAsync_CallerWithEditAssociations_Succeeds()
     {
         var caller = BuildUser(1, BuildRole(1, "Editor", EditAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(1, country);
+        var city = BuildCity(1);
         var association = BuildAssociation(10, city);
         var service = BuildService(caller, associations: [association], cities: [city]);
 
@@ -337,8 +324,7 @@ public class AssociationServiceTests
     public async Task DeleteAsync_CallerWithDeleteAssociations_SoftDeletes()
     {
         var caller = BuildUser(1, BuildRole(1, "Deleter", DeleteAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(1, country);
+        var city = BuildCity(1);
         var association = BuildAssociation(10, city);
         var (service, repository) = BuildServiceWithRepository(caller, associations: [association]);
 
@@ -352,8 +338,7 @@ public class AssociationServiceTests
     public async Task DeleteAsync_CallerWithOnlyEditAssociations_ThrowsUnauthorizedAccessException()
     {
         var caller = BuildUser(1, BuildRole(1, "Editor", EditAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(1, country);
+        var city = BuildCity(1);
         var association = BuildAssociation(10, city);
         var service = BuildService(caller, associations: [association]);
 
@@ -366,8 +351,7 @@ public class AssociationServiceTests
     public async Task RestoreAsync_DeletedAssociation_ClearsIsDeleted()
     {
         var caller = BuildUser(1, BuildRole(1, "Deleter", DeleteAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(1, country);
+        var city = BuildCity(1);
         var association = BuildAssociation(10, city, isDeleted: true);
         var service = BuildService(caller, associations: [association]);
 
@@ -381,8 +365,7 @@ public class AssociationServiceTests
     public async Task RestoreAsync_NotDeleted_ThrowsInvalidOperationException()
     {
         var caller = BuildUser(1, BuildRole(1, "Deleter", DeleteAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(1, country);
+        var city = BuildCity(1);
         var association = BuildAssociation(10, city, isDeleted: false);
         var service = BuildService(caller, associations: [association]);
 
@@ -394,8 +377,7 @@ public class AssociationServiceTests
     public async Task DeleteAsync_CascadesToRealUsersAndWorkers_SoftDeletesAllWithTheSameDeletedAt()
     {
         var caller = BuildUser(1, BuildRole(1, "Deleter", DeleteAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(1, country);
+        var city = BuildCity(1);
         var association = BuildAssociation(10, city);
         var associationUser = BuildUser(2, BuildRole(2, "AssocUser"), entityType: EntityType.Association, entityId: 10);
         var worker = BuildWorker(100, associationId: 10);
@@ -422,8 +404,7 @@ public class AssociationServiceTests
         // association from being deleted" — was already true before this phase (no blocking check
         // ever existed); this proves it still holds once the cascade itself is added.
         var caller = BuildUser(1, BuildRole(1, "Deleter", DeleteAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(1, country);
+        var city = BuildCity(1);
         var association = BuildAssociation(10, city);
         var worker = BuildWorker(100, associationId: 10);
         var (service, _) = BuildServiceWithRepository(caller, [association], [city], users: null, workers: [worker]);
@@ -438,8 +419,7 @@ public class AssociationServiceTests
     public async Task DeleteAsync_WithNoUsersOrWorkers_SucceedsWithoutError()
     {
         var caller = BuildUser(1, BuildRole(1, "Deleter", DeleteAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(1, country);
+        var city = BuildCity(1);
         var association = BuildAssociation(10, city);
         var (service, _) = BuildServiceWithRepository(caller, [association], [city], users: null, workers: null);
 
@@ -452,8 +432,7 @@ public class AssociationServiceTests
     public async Task RestoreAsync_OnlyRestoresRowsDeletedInTheSameCascade()
     {
         var caller = BuildUser(1, BuildRole(1, "Deleter", DeleteAssociations));
-        var country = BuildCountry(1);
-        var city = BuildCity(1, country);
+        var city = BuildCity(1);
         var association = BuildAssociation(10, city);
 
         // Independently deleted BEFORE the association's own cascade, for an unrelated reason, but
@@ -672,7 +651,7 @@ public class AssociationServiceTests
             Task.FromResult(_citiesById.TryGetValue(cityId, out var city) && !city.IsDeleted ? city : null);
 
         public Task<City?> GetByIdIncludingDeletedAsync(int cityId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<List<City>> GetByCountryIdAsync(int countryId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<List<City>> GetAllAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task AddAsync(City city, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public void Remove(City city) => throw new NotSupportedException();
     }
@@ -800,7 +779,6 @@ public class AssociationServiceTests
         public IPermissionRepository Permissions => throw new NotSupportedException();
         public IGroupRepository Groups => throw new NotSupportedException();
         public IProjectTypeRepository ProjectTypes => throw new NotSupportedException();
-        public ICountryRepository Countries => throw new NotSupportedException();
         public IProductionCompanyRepository ProductionCompanies => throw new NotSupportedException();
         public IProjectRepository Projects => throw new NotSupportedException();
         public IPasswordResetTokenRepository PasswordResetTokens => throw new NotSupportedException();
@@ -821,5 +799,9 @@ public class AssociationServiceTests
         }
 
         public Task ExecuteInTransactionAsync(Func<Task> operation, CancellationToken cancellationToken = default) => operation();
+        // EN: Mock/Fake repository properties for ProjectAssociations and ProjectWorkers to satisfy IUnitOfWork contract in unit tests.
+        // AR: خصائص مستودعات وهمية لجمعيات المشروع وعمال المشروع لتلبية عقد واجهة IUnitOfWork في اختبارات الوحدة.
+        public IProjectAssociationRepository ProjectAssociations => throw new NotImplementedException();
+        public IProjectWorkerRepository ProjectWorkers => throw new NotImplementedException();
     }
 }

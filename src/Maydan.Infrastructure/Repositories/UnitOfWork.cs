@@ -13,12 +13,10 @@ public class UnitOfWork : IUnitOfWork
     private IPermissionRepository? _permissions;
     private IGroupRepository? _groups;
     private IProjectTypeRepository? _projectTypes;
-    private ICountryRepository? _countries;
     private ICityRepository? _cities;
     private ICityLocationRepository? _cityLocations;
     private IAssociationRepository? _associations;
     private IAssociationProjectSupervisorRepository? _associationProjectSupervisors;
-    private IAssociationZoneRepository? _associationZones;
     private IProductionCompanyRepository? _productionCompanies;
     private IProjectRepository? _projects;
     private IWorkerRepository? _workers;
@@ -31,6 +29,10 @@ public class UnitOfWork : IUnitOfWork
     private IWorkerProjectLinkRepository? _workerProjectLinks;
     private IWorkerSuggestionRuleRepository? _workerSuggestionRules;
 
+    // ?? NEW: Private backing fields ??
+    private IProjectAssociationRepository? _projectAssociations;
+    private IProjectWorkerRepository? _projectWorkers;
+
     public UnitOfWork(MaydanDbContext context)
     {
         _context = context;
@@ -40,12 +42,10 @@ public class UnitOfWork : IUnitOfWork
     public IRoleRepository Roles => _roles ??= new RoleRepository(_context);
     public IPermissionRepository Permissions => _permissions ??= new PermissionRepository(_context);
     public IGroupRepository Groups => _groups ??= new GroupRepository(_context);
-    public ICountryRepository Countries => _countries ??= new CountryRepository(_context);
     public ICityRepository Cities => _cities ??= new CityRepository(_context);
     public ICityLocationRepository CityLocations => _cityLocations ??= new CityLocationRepository(_context);
     public IAssociationRepository Associations => _associations ??= new AssociationRepository(_context);
     public IAssociationProjectSupervisorRepository AssociationProjectSupervisors => _associationProjectSupervisors ??= new AssociationProjectSupervisorRepository(_context);
-    public IAssociationZoneRepository AssociationZones => _associationZones ??= new AssociationZoneRepository(_context);
     public IProductionCompanyRepository ProductionCompanies => _productionCompanies ??= new ProductionCompanyRepository(_context);
     public IProjectRepository Projects => _projects ??= new ProjectRepository(_context);
     public IWorkerRepository Workers => _workers ??= new WorkerRepository(_context);
@@ -55,10 +55,15 @@ public class UnitOfWork : IUnitOfWork
     public IServiceRepository Services => _services ??= new ServiceRepository(_context);
     public ILookupRepository Lookups => _lookups ??= new LookupRepository(_context);
     public IServiceRequestRepository ServiceRequests => _serviceRequests ??= new ServiceRequestRepository(_context);
-    public IWorkerProjectLinkRepository WorkerProjectLinks => _workerProjectLinks ??= new WorkerProjectLinkRepository(_context);
-    public IWorkerSuggestionRuleRepository WorkerSuggestionRules => _workerSuggestionRules ??= new WorkerSuggestionRuleRepository(_context);
-    public IProjectTypeRepository ProjectTypes =>
-    _projectTypes ??= new ProjectTypeRepository(_context);
+    public IProjectTypeRepository ProjectTypes => _projectTypes ??= new ProjectTypeRepository(_context);
+
+    // ?? NEW: Public Repository Properties (??? ?????? ??????) ??
+    public IProjectAssociationRepository ProjectAssociations =>
+        _projectAssociations ??= new ProjectAssociationRepository(_context);
+
+    public IProjectWorkerRepository ProjectWorkers =>
+        _projectWorkers ??= new ProjectWorkerRepository(_context);
+
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
         _context.SaveChangesAsync(cancellationToken);
 

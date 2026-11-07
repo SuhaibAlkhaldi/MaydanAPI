@@ -42,9 +42,7 @@ public class ProductionCompanyServiceTests
         IsActive = true
     };
 
-    private static Country BuildCountry(int id) => new() { Id = id, EnglishName = "Jordan", ArabicName = "الأردن", IsActive = true };
-
-    private static City BuildCity(int id, Country country) => new() { Id = id, CountryId = country.Id, Country = country, EnglishName = "Amman", ArabicName = "عمان", IsActive = true };
+    private static City BuildCity(int id) => new() { Id = id, EnglishName = "Amman", ArabicName = "عمان", IsActive = true };
 
     private static ProductionCompany BuildCompany(int id, City city, bool isActive = true) => new()
     {
@@ -75,8 +73,7 @@ public class ProductionCompanyServiceTests
     public async Task GetAllAsync_CallerWithViewPermission_ReturnsMappedDtos()
     {
         var caller = BuildCaller(1, BuildRole(1, "Bayt-AlUrdon", ViewProductionCompanies));
-        var country = BuildCountry(1);
-        var city = BuildCity(1, country);
+        var city = BuildCity(1);
         var company = BuildCompany(10, city);
         var (service, _) = BuildService(caller, companies: [company]);
 
@@ -85,7 +82,6 @@ public class ProductionCompanyServiceTests
         var dto = Assert.Single(result.Data!);
         Assert.Equal("Company 10", dto.EnglishName);
         Assert.Equal("REG-10", dto.RegistrationNumber);
-        Assert.Equal("Jordan", dto.CountryEnglishName);
         Assert.Equal("Amman", dto.CityEnglishName);
         Assert.True(dto.IsActive);
         Assert.True(dto.IsSelfRegistered);
@@ -129,8 +125,7 @@ public class ProductionCompanyServiceTests
         // requirement behind MAYD-82's "Super Admin only, not ASEZA Admin" (ASEZA only ever holds
         // View for this module, never Manage — see ProductionCompanyService's own comment).
         var caller = BuildCaller(1, BuildRole(1, "ViewOnly", ViewProductionCompanies));
-        var country = BuildCountry(1);
-        var city = BuildCity(1, country);
+        var city = BuildCity(1);
         var company = BuildCompany(10, city);
         var (service, _) = BuildService(caller, companies: [company]);
 
@@ -142,8 +137,7 @@ public class ProductionCompanyServiceTests
     public async Task UpdateStatusAsync_Deactivate_CascadesToActiveUsersUnderThatCompanyOnly()
     {
         var caller = BuildCaller(1, BuildRole(1, "Bayt-AlUrdon", ManageProductionCompanies));
-        var country = BuildCountry(1);
-        var city = BuildCity(1, country);
+        var city = BuildCity(1);
         var companyA = BuildCompany(10, city);
         var companyB = BuildCompany(11, city);
         var activeUserA = BuildCompanyUser(30, companyA.Id);
@@ -171,8 +165,7 @@ public class ProductionCompanyServiceTests
         // Users deactivated by the earlier cascade stay deactivated — each is reactivated
         // individually via the existing per-user Activate/Deactivate flow, not by this call.
         var caller = BuildCaller(1, BuildRole(1, "Bayt-AlUrdon", ManageProductionCompanies));
-        var country = BuildCountry(1);
-        var city = BuildCity(1, country);
+        var city = BuildCity(1);
         var company = BuildCompany(10, city, isActive: false);
         var cascadeDeactivatedUser = BuildCompanyUser(30, company.Id, isActive: false);
 
@@ -298,7 +291,6 @@ public class ProductionCompanyServiceTests
                 Id = 1,
                 EnglishName = "Amman",
                 ArabicName = "عمان",
-                Country = new Country { Id = 1, EnglishName = "Jordan", ArabicName = "الأردن" }
             }
         };
 
@@ -420,7 +412,6 @@ public class ProductionCompanyServiceTests
         public IPermissionRepository Permissions => throw new NotSupportedException();
         public IGroupRepository Groups => throw new NotSupportedException();
         public IProjectTypeRepository ProjectTypes => throw new NotSupportedException();
-        public ICountryRepository Countries => throw new NotSupportedException();
         public ICityRepository Cities => throw new NotSupportedException();
         public ICityLocationRepository CityLocations => throw new NotSupportedException();
         public IAssociationRepository Associations => throw new NotSupportedException();
@@ -434,5 +425,9 @@ public class ProductionCompanyServiceTests
 
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Task.FromResult(1);
         public Task ExecuteInTransactionAsync(Func<Task> operation, CancellationToken cancellationToken = default) => operation();
+        // EN: Mock/Fake repository properties for ProjectAssociations and ProjectWorkers to satisfy IUnitOfWork contract in unit tests.
+        // AR: خصائص مستودعات وهمية لجمعيات المشروع وعمال المشروع لتلبية عقد واجهة IUnitOfWork في اختبارات الوحدة.
+        public IProjectAssociationRepository ProjectAssociations => throw new NotImplementedException();
+        public IProjectWorkerRepository ProjectWorkers => throw new NotImplementedException();
     }
 }

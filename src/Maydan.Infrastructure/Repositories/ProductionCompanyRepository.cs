@@ -16,7 +16,7 @@ public class ProductionCompanyRepository : IProductionCompanyRepository
 
     public Task<ProductionCompany?> GetByIdAsync(int productionCompanyId, CancellationToken cancellationToken = default) =>
         _context.ProductionCompanies
-            .Include(p => p.City).ThenInclude(c => c.Country)
+            .Include(p => p.City)
             .FirstOrDefaultAsync(p => p.Id == productionCompanyId, cancellationToken);
 
     public Task<List<ProductionCompany>> GetAllAsync(CancellationToken cancellationToken = default) =>
@@ -32,7 +32,7 @@ public class ProductionCompanyRepository : IProductionCompanyRepository
     {
         IQueryable<ProductionCompany> query = _context.ProductionCompanies
             .AsNoTracking()
-            .Include(p => p.City).ThenInclude(c => c.Country);
+            .Include(p => p.City);
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {

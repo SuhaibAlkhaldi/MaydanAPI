@@ -4,9 +4,7 @@ namespace Maydan.Application.Interfaces;
 
 public interface IProductionCompanyRepository
 {
-    // Now includes City -> Country (previously bare) — this method had zero real callers before
     // Production House Management (MAYD-80/81/82), so widening it here is safe; matches
-    // AssociationRepository.GetByIdAsync's own Include shape for the same City/Country pair.
     Task<ProductionCompany?> GetByIdAsync(int productionCompanyId, CancellationToken cancellationToken = default);
     Task<List<ProductionCompany>> GetAllAsync(CancellationToken cancellationToken = default);
     Task<bool> RegistrationNumberExistsAsync(string registrationNumber, CancellationToken cancellationToken = default);

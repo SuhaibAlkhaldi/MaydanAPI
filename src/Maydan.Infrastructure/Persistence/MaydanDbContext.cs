@@ -1,3 +1,4 @@
+﻿
 using Maydan.Domain.Common;
 using Maydan.Domain.Entities;
 using Maydan.Infrastructure.Persistence.Seed;
@@ -22,14 +23,12 @@ public class MaydanDbContext : DbContext
     public DbSet<UserGroup> UserGroups => Set<UserGroup>();
     public DbSet<UserPermission> UserPermissions => Set<UserPermission>();
 
-    public DbSet<Country> Countries => Set<Country>();
     public DbSet<City> Cities => Set<City>();
     public DbSet<CityLocation> CityLocations => Set<CityLocation>();
     public DbSet<ProjectType> ProjectTypes { get; set; }
     public DbSet<LookupCategory> LookupCategories => Set<LookupCategory>();
     public DbSet<LookupItem> LookupItems => Set<LookupItem>();
     public DbSet<Association> Associations => Set<Association>();
-    public DbSet<AssociationZone> AssociationZones => Set<AssociationZone>();
     public DbSet<AssociationProjectSupervisor> AssociationProjectSupervisors => Set<AssociationProjectSupervisor>();
     public DbSet<ProductionCompany> ProductionCompanies => Set<ProductionCompany>();
     public DbSet<Project> Projects => Set<Project>();
@@ -49,6 +48,13 @@ public class MaydanDbContext : DbContext
     public DbSet<WorkerOvertime> WorkerOvertimes { get; set; } = null!;
     public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
     public DbSet<UserDevice> UserDevices => Set<UserDevice>();
+
+    // ── Project Associations & Project Workers (Direct Project Management Modules)
+    // EN: DbSets for managing project associations, their geographical locations, and assigned project workers.
+    // AR: جداول إدارة جمعيات المشروع، مواقعها الجغرافية، وعمال المشروع المباشرين.
+    public DbSet<ProjectAssociation> ProjectAssociations => Set<ProjectAssociation>();
+    public DbSet<ProjectAssociationLocation> ProjectAssociationLocations => Set<ProjectAssociationLocation>();
+    public DbSet<ProjectWorker> ProjectWorkers => Set<ProjectWorker>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

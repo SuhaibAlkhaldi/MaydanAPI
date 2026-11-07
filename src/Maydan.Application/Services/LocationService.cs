@@ -15,121 +15,10 @@ public class LocationService : ILocationService
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<ApiResponse<List<CountryDto>>> GetCountriesAsync(CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<List<CityDto>>> GetCitiesAsync(CancellationToken cancellationToken = default)
     {
-        var countries = await _unitOfWork.Countries.GetAllAsync(cancellationToken);
-        var dtos = countries
-            .DistinctBy(x => (x.ArabicName, x.EnglishName))
-            .Select(MapCountry).ToList();
-
-        return ApiResponse<List<CountryDto>>.SuccessResponse(dtos, "Countries retrieved successfully.", "تم استرجاع الدول بنجاح.");
-    }
-
-    public async Task<ApiResponse<CountryDto>> GetCountryByIdAsync(int countryId, CancellationToken cancellationToken = default)
-    {
-        var country = await _unitOfWork.Countries.GetByIdAsync(countryId, cancellationToken);
-        if (country == null)
-            return ApiResponse<CountryDto>.FailureResponse("Country was not found.", "الدولة غير موجودة.");
-
-        return ApiResponse<CountryDto>.SuccessResponse(MapCountry(country), "Country retrieved successfully.", "تم استرجاع الدولة بنجاح.");
-    }
-
-    public async Task<ApiResponse<CountryDto>> CreateCountryAsync(CreateCountryDto dto, int currentUserId, CancellationToken cancellationToken = default)
-    {
-        var (currentUser, authError) = await GetCurrentUserAsync<CountryDto>(currentUserId, cancellationToken);
-        if (authError != null) return authError;
-
-        var valErrorEn = ValidateName(dto.CountryEnglishName, "English country name");
-        if (valErrorEn != null) return ApiResponse<CountryDto>.FailureResponse(valErrorEn, "اسم الدولة بالإنجليزية غير صالح.");
-
-        var valErrorAr = ValidateName(dto.CountryArabicName, "Arabic country name");
-        if (valErrorAr != null) return ApiResponse<CountryDto>.FailureResponse(valErrorAr, "اسم الدولة بالعربية غير صالح.");
-
-        var country = new Country
-        {
-            EnglishName = dto.CountryEnglishName.Trim(),
-            ArabicName = dto.CountryArabicName.Trim(),
-            CreatedBy = currentUser!.UserId,
-            IsActive = true
-        };
-
-        await _unitOfWork.Countries.AddAsync(country, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        return ApiResponse<CountryDto>.SuccessResponse(MapCountry(country), "Country created successfully.", "تم إنشاء الدولة بنجاح.", 201);
-    }
-
-    public async Task<ApiResponse<CountryDto>> UpdateCountryAsync(UpdateCountryDto dto, int currentUserId, CancellationToken cancellationToken = default)
-    {
-        var (currentUser, authError) = await GetCurrentUserAsync<CountryDto>(currentUserId, cancellationToken);
-        if (authError != null) return authError;
-
-        var valErrorEn = ValidateName(dto.CountryEnglishName, "English country name");
-        if (valErrorEn != null) return ApiResponse<CountryDto>.FailureResponse(valErrorEn, "اسم الدولة بالإنجليزية غير صالح.");
-
-        var valErrorAr = ValidateName(dto.CountryArabicName, "Arabic country name");
-        if (valErrorAr != null) return ApiResponse<CountryDto>.FailureResponse(valErrorAr, "اسم الدولة بالعربية غير صالح.");
-
-        var country = await _unitOfWork.Countries.GetByIdAsync(dto.Id, cancellationToken);
-        if (country == null)
-            return ApiResponse<CountryDto>.FailureResponse("Country was not found.", "الدولة غير موجودة.");
-
-        country.EnglishName = dto.CountryEnglishName.Trim();
-        country.ArabicName = dto.CountryArabicName.Trim();
-
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        return ApiResponse<CountryDto>.SuccessResponse(MapCountry(country), "Country updated successfully.", "تم تحديث الدولة بنجاح.");
-    }
-
-    public async Task<ApiResponse<bool>> DeleteCountryAsync(int countryId, int currentUserId, CancellationToken cancellationToken = default)
-    {
-        var (currentUser, authError) = await GetCurrentUserAsync<bool>(currentUserId, cancellationToken);
-        if (authError != null) return authError;
-
-        var country = await _unitOfWork.Countries.GetByIdAsync(countryId, cancellationToken);
-        if (country == null)
-            return ApiResponse<bool>.FailureResponse("Country was not found.", "الدولة غير موجودة.");
-
-        var activeCities = await _unitOfWork.Cities.GetByCountryIdAsync(countryId, cancellationToken);
-        if (activeCities.Any(c => !c.IsDeleted))
-        {
-            return ApiResponse<bool>.FailureResponse("Cannot delete a country that still has active cities.", "لا يمكن حذف دولة تحتوي على مدن نشطة.");
-        }
-
-        _unitOfWork.Countries.Remove(country);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        return ApiResponse<bool>.SuccessResponse(true, "Country deleted successfully.", "تم حذف الدولة بنجاح.");
-    }
-
-    public async Task<ApiResponse<CountryDto>> RestoreCountryAsync(int countryId, int currentUserId, CancellationToken cancellationToken = default)
-    {
-        var (currentUser, authError) = await GetCurrentUserAsync<CountryDto>(currentUserId, cancellationToken);
-        if (authError != null) return authError;
-
-        var country = await _unitOfWork.Countries.GetByIdIncludingDeletedAsync(countryId, cancellationToken);
-        if (country == null)
-            return ApiResponse<CountryDto>.FailureResponse("Country was not found.", "الدولة غير موجودة.");
-
-        if (!country.IsDeleted)
-        {
-            return ApiResponse<CountryDto>.FailureResponse("Country is not deleted.", "الدولة ليست محذوفة.");
-        }
-
-        country.IsDeleted = false;
-        country.DeletedAt = null;
-
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        return ApiResponse<CountryDto>.SuccessResponse(MapCountry(country), "Country restored successfully.", "تم استعادة الدولة بنجاح.");
-    }
-
-    public async Task<ApiResponse<List<CityDto>>> GetCitiesByCountryAsync(int countryId, CancellationToken cancellationToken = default)
-    {
-        var cities = await _unitOfWork.Cities.GetByCountryIdAsync(countryId, cancellationToken);
-        var dtos = cities.Select(MapCity).ToList();
-        return ApiResponse<List<CityDto>>.SuccessResponse(dtos, "Cities retrieved successfully.", "تم استرجاع المدن بنجاح.");
+        var cities = await _unitOfWork.Cities.GetAllAsync(cancellationToken);
+        return ApiResponse<List<CityDto>>.SuccessResponse(cities.Select(MapCity).ToList(), "Cities retrieved successfully.", "\u062a\u0645 \u0627\u0633\u062a\u0631\u062c\u0627\u0639 \u0627\u0644\u0645\u062f\u0646 \u0628\u0646\u062c\u0627\u062d.");
     }
 
     public async Task<ApiResponse<CityDto>> CreateCityAsync(CreateCityDto dto, int currentUserId, CancellationToken cancellationToken = default)
@@ -143,14 +32,10 @@ public class LocationService : ILocationService
         var valErrorAr = ValidateName(dto.CityArabicName, "Arabic city name");
         if (valErrorAr != null) return ApiResponse<CityDto>.FailureResponse(valErrorAr, "اسم المدينة بالعربية غير صالح.");
 
-        if (await _unitOfWork.Countries.GetByIdAsync(dto.CountryId, cancellationToken) == null)
-            return ApiResponse<CityDto>.FailureResponse("Country was not found.", "الدولة غير موجودة.");
-
         var city = new City
         {
             EnglishName = dto.CityEnglishName.Trim(),
             ArabicName = dto.CityArabicName.Trim(),
-            CountryId = dto.CountryId,
             CreatedBy = currentUser!.UserId,
             IsActive = true
         };
@@ -176,12 +61,8 @@ public class LocationService : ILocationService
         if (city == null)
             return ApiResponse<CityDto>.FailureResponse("City was not found.", "المدينة غير موجودة.");
 
-        if (await _unitOfWork.Countries.GetByIdAsync(dto.CountryId, cancellationToken) == null)
-            return ApiResponse<CityDto>.FailureResponse("Country was not found.", "الدولة غير موجودة.");
-
         city.EnglishName = dto.CityEnglishName.Trim();
         city.ArabicName = dto.CityArabicName.Trim();
-        city.CountryId = dto.CountryId;
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -351,20 +232,11 @@ public class LocationService : ILocationService
         return null;
     }
 
-    private static CountryDto MapCountry(Country country) => new()
-    {
-        Id = country.Id,
-        CountryEnglishName = country.EnglishName,
-        CountryArabicName = country.ArabicName,
-        IsDeleted = country.IsDeleted
-    };
-
     private static CityDto MapCity(City city) => new()
     {
         Id = city.Id,
         CityEnglishName = city.EnglishName,
         CityArabicName = city.ArabicName,
-        CountryId = city.CountryId,
         IsDeleted = city.IsDeleted
     };
 
