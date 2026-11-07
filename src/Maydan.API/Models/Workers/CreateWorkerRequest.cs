@@ -37,6 +37,10 @@ public class CreateWorkerRequest
     [Required]
     public int YearsOfExperience { get; set; }
 
+    // Optional — unlike YearsOfExperience above, many existing workers have no recorded value at
+    // all for this field.
+    public int? NumberOfChildren { get; set; }
+
     // Required (1-4 files) only when ServiceIds includes a service flagged
     // Service.RequiresDocuments — enforced in WorkerService, not here, since this controller
     // has no way to know which services require them. No notion of document "type" (see

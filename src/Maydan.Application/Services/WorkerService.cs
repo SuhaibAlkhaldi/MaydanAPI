@@ -160,6 +160,7 @@ public class WorkerService : IWorkerService
             Nationality = dto.Nationality.Trim(),
             PhoneNumber = phoneNumber,
             YearsOfExperience = dto.YearsOfExperience,
+            NumberOfChildren = dto.NumberOfChildren,
             AssociationId = associationId,
             QrCode = Guid.NewGuid().ToString("N"),
             IsActive = true
@@ -319,6 +320,11 @@ public class WorkerService : IWorkerService
         if (dto.YearsOfExperience is not null)
         {
             worker.YearsOfExperience = dto.YearsOfExperience.Value;
+        }
+
+        if (dto.NumberOfChildren is not null)
+        {
+            worker.NumberOfChildren = dto.NumberOfChildren.Value;
         }
 
         if (dto.ServiceIds is not null)

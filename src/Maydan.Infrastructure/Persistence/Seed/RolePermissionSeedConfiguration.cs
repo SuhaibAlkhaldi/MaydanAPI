@@ -85,7 +85,8 @@ namespace Maydan.Infrastructure.Persistence.Seed
                SystemPermissions. ViewServiceRequests,
                 SystemPermissions.ViewProductionCompanies,
                 SystemPermissions.ViewAssociations,
-                SystemPermissions.CreateUsers
+                SystemPermissions.CreateUsers,
+                SystemPermissions.ViewWorkerSuggestionRules
             };
 
             // MAYD-20 (2026-09-24): ViewUsers added to both arrays below — previously granted to

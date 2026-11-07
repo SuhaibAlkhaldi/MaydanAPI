@@ -75,7 +75,7 @@ namespace Maydan.Application.WorkerSuggestions
                     "Lookup",
                     "LookupProperty",
                     true,
-                    false
+                    true
                 ),
 
                 new WorkerAttributeDescriptor(
@@ -87,6 +87,17 @@ namespace Maydan.Application.WorkerSuggestions
                     "RelatedCollection",
                     true,
                     false
+                ),
+
+                new WorkerAttributeDescriptor(
+                    "NumberOfChildren",
+                    "Number of Children",
+                    "عدد الأولاد",
+                    "NumberOfChildren",
+                    "Number",
+                    "DirectProperty",
+                    true,
+                    true
                 )
             });
 

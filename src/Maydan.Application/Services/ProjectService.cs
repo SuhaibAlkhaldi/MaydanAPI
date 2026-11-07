@@ -1,3 +1,4 @@
+using Maydan.Application.Common;
 using Maydan.Application.DTOs.Common;
 using Maydan.Application.DTOs.Projects;
 using Maydan.Application.DTOs.UserManagement;
@@ -412,17 +413,30 @@ public class ProjectService : IProjectService
           DateTime startDate,
           DateTime endDate,
           int? currentProjectId = null,
+          int? entityId = null,
           CancellationToken cancellationToken = default)
     {
         var (currentUser, authError) = await AuthorizeUserAsync<List<UserSummaryDto>>(currentUserId, cancellationToken);
         if (authError is not null) return authError;
 
-        // Allow both Production Company and BaytAlUrdon (if BaytAlUrdon needs to assign users when creating)
-        if (currentUser!.EntityType != EntityType.ProductionCompany && currentUser.EntityType != EntityType.BaytAlUrdon)
+        int targetEntityId;
+        if (currentUser!.EntityType == EntityType.ProductionCompany)
+        {
+            // Production Company callers can only ever query their own company, regardless of any
+            // entityId they pass — never honor a different one from them.
+            targetEntityId = currentUser.EntityId;
+        }
+        else if (EntityScopeHelper.CanViewOtherEntities(currentUser) && entityId.HasValue)
+        {
+            // Bayt Al-Urdon / Aseza must say explicitly which production company they mean (the
+            // project's own company, from the frontend).
+            targetEntityId = entityId.Value;
+        }
+        else
         {
             return ApiResponse<List<UserSummaryDto>>.FailureResponse(
-                "Only Production Company or Bayt Al Urdon users can query available users.",
-                "يمكن لمستخدمي شركات الإنتاج أو بيت الأردن فقط الاستعلام عن المستخدمين المتاحين.");
+                "Only Production Company users, or Bayt Al-Urdon/Aseza users specifying a target company, can query available users.",
+                "يمكن لمستخدمي شركات الإنتاج فقط، أو مستخدمي بيت الأردن/أسيزا مع تحديد الشركة المطلوبة، الاستعلام عن المستخدمين المتاحين.");
         }
 
         if (endDate <= startDate)
@@ -432,24 +446,12 @@ public class ProjectService : IProjectService
                 "تاريخ الانتهاء يجب أن يكون بعد تاريخ البداية.");
         }
 
-        // If BaytAlUrdon, they'd need to supply the ProductionCompanyId to query its users. 
-        // For now, defaulting to querying based on currentUser.EntityId if it's a ProductionCompany.
-        // *NOTE:* If BaytAlUrdon uses this endpoint, you might need to update the signature to accept a productionCompanyId.
-        int targetCompanyId = currentUser.EntityType == EntityType.ProductionCompany ? currentUser.EntityId : 0;
-
-        if (targetCompanyId == 0)
-        {
-            return ApiResponse<List<UserSummaryDto>>.FailureResponse(
-               "Production Company ID is required for Bayt Al Urdon users to query available users.",
-               "يجب توفير معرف شركة الإنتاج لمستخدمي بيت الأردن للاستعلام عن المستخدمين.");
-        }
-
         var busyUserIds = await _unitOfWork.Projects.GetBusyUserIdsAsync(
-            targetCompanyId, startDate, endDate, currentProjectId, cancellationToken);
+            targetEntityId, startDate, endDate, currentProjectId, cancellationToken);
 
 
         var allCompanyUsers = await _unitOfWork.Users.GetByEntityAsync(
-            EntityType.ProductionCompany, targetCompanyId, search: null, cancellationToken);
+            EntityType.ProductionCompany, targetEntityId, search: null, cancellationToken);
 
         var availableUsers = allCompanyUsers
            // 5==producer && 6== Location Manager

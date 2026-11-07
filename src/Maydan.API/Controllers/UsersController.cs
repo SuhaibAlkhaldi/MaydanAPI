@@ -52,13 +52,15 @@ public class UsersController : ApiControllerBase
     }
 
     [HttpGet("current-entity", Name = "Get Current Entity Users")]
-    public async Task<ActionResult> GetCurrentEntityUsers([FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader, CancellationToken cancellationToken)
+    public async Task<ActionResult> GetCurrentEntityUsers(
+        [FromQuery] EntityType? entityType, [FromQuery] int? entityId,
+        [FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId)) return UnauthorizedResponse();
 
         try
         {
-            var response = await _userManagementService.GetUsersAsync(currentUserId, null, cancellationToken);
+            var response = await _userManagementService.GetUsersAsync(currentUserId, null, entityType, entityId, cancellationToken);
             return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)
@@ -68,13 +70,15 @@ public class UsersController : ApiControllerBase
     }
 
     [HttpGet("search", Name = "Search Current Entity Users")]
-    public async Task<ActionResult> SearchCurrentEntityUsers([FromQuery] string? search, [FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader, CancellationToken cancellationToken)
+    public async Task<ActionResult> SearchCurrentEntityUsers(
+        [FromQuery] string? search, [FromQuery] EntityType? entityType, [FromQuery] int? entityId,
+        [FromHeader(Name = "X-Current-User-Id")] int? currentUserHeader, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(out var currentUserId)) return UnauthorizedResponse();
 
         try
         {
-            var response = await _userManagementService.GetUsersAsync(currentUserId, search, cancellationToken);
+            var response = await _userManagementService.GetUsersAsync(currentUserId, search, entityType, entityId, cancellationToken);
             return StatusCode(response.StatusCode, response);
         }
         catch (Exception exception)

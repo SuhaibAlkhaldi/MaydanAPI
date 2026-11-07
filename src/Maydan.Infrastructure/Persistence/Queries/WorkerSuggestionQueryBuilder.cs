@@ -18,7 +18,7 @@ namespace Maydan.Infrastructure.Persistence.Queries
                 // Ignore legacy sort rules that the query builder cannot execute
                 .Where(r =>
                     r.RuleType?.Code != "Sort" ||
-                    (r.AttributeKey is "YearsOfExperience" or "Age"))
+                    (r.AttributeKey is "YearsOfExperience" or "Age" or "MaritalStatus" or "NumberOfChildren"))
                 .OrderBy(r => r.PriorityOrder)
                 .ThenBy(r => r.Id)
                 .ToList();
@@ -142,6 +142,49 @@ namespace Maydan.Infrastructure.Persistence.Queries
                 };
             }
 
+            if (rule.AttributeKey == "NumberOfChildren")
+            {
+                if (!int.TryParse(
+                    rule.ComparisonValue,
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture,
+                    out var childrenValue))
+                {
+                    throw new InvalidOperationException(
+                        "Invalid NumberOfChildren comparison value.");
+                }
+
+                return op switch
+                {
+                    "Equal" => workers.Where(w =>
+                        w.NumberOfChildren.HasValue &&
+                        w.NumberOfChildren.Value == childrenValue),
+
+                    "NotEqual" => workers.Where(w =>
+                        w.NumberOfChildren.HasValue &&
+                        w.NumberOfChildren.Value != childrenValue),
+
+                    "GreaterThan" => workers.Where(w =>
+                        w.NumberOfChildren.HasValue &&
+                        w.NumberOfChildren.Value > childrenValue),
+
+                    "LessThan" => workers.Where(w =>
+                        w.NumberOfChildren.HasValue &&
+                        w.NumberOfChildren.Value < childrenValue),
+
+                    "GreaterThanOrEqual" => workers.Where(w =>
+                        w.NumberOfChildren.HasValue &&
+                        w.NumberOfChildren.Value >= childrenValue),
+
+                    "LessThanOrEqual" => workers.Where(w =>
+                        w.NumberOfChildren.HasValue &&
+                        w.NumberOfChildren.Value <= childrenValue),
+
+                    _ => throw new InvalidOperationException(
+                        "Unsupported children comparison operator.")
+                };
+            }
+
             if (rule.AttributeKey == "HasDocuments")
             {
                 if (!bool.TryParse(rule.ComparisonValue, out var required))
@@ -242,6 +285,28 @@ namespace Maydan.Infrastructure.Persistence.Queries
                         return asc
                             ? withNullOrder.ThenByDescending(w => w.DateOfBirth)
                             : withNullOrder.ThenBy(w => w.DateOfBirth);
+                    }
+
+                case "MaritalStatus":
+                    {
+                        var withNullOrder = ordered is null
+                            ? workers.OrderBy(w => w.MaritalStatusId == null)
+                            : ordered.ThenBy(w => w.MaritalStatusId == null);
+
+                        return asc
+                            ? withNullOrder.ThenBy(w => w.MaritalStatus!.SortOrder)
+                            : withNullOrder.ThenByDescending(w => w.MaritalStatus!.SortOrder);
+                    }
+
+                case "NumberOfChildren":
+                    {
+                        var withNullOrder = ordered is null
+                            ? workers.OrderBy(w => w.NumberOfChildren == null)
+                            : ordered.ThenBy(w => w.NumberOfChildren == null);
+
+                        return asc
+                            ? withNullOrder.ThenBy(w => w.NumberOfChildren)
+                            : withNullOrder.ThenByDescending(w => w.NumberOfChildren);
                     }
 
                 default:

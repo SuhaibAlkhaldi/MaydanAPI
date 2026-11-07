@@ -93,6 +93,7 @@ public class WorkersController : ApiControllerBase
                 PhoneNumber = request.PhoneNumber,
                 ServiceIds = request.ServiceIds,
                 YearsOfExperience = request.YearsOfExperience,
+                NumberOfChildren = request.NumberOfChildren,
                 DocumentPaths = await SaveAllAsync(request.Documents, cancellationToken)
             };
 
@@ -127,6 +128,7 @@ public class WorkersController : ApiControllerBase
                 PhoneNumber = request.PhoneNumber,
                 ServiceIds = request.ServiceIds,
                 YearsOfExperience = request.YearsOfExperience,
+                NumberOfChildren = request.NumberOfChildren,
                 DocumentPaths = await SaveAllAsync(request.Documents, cancellationToken)
             };
 

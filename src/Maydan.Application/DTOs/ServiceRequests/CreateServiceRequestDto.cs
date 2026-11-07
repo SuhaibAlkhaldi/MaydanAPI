@@ -7,7 +7,12 @@ public class CreateServiceRequestDto
 {
     public int ProjectId { get; set; }
     public int ServiceId { get; set; }
-    public int CityId { get; set; }
+
+    // Optional/informational only (Phase 3 decision) — no longer used to resolve the Association
+    // (that happens entirely via ProjectId -> project.Location geofence lookup, see
+    // ServiceRequestService.CreateAsync). Not persisted anywhere (ServiceRequest entity has no
+    // CityId column) — kept only so a client MAY send the project's city for its own records.
+    public int? CityId { get; set; }
 
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
