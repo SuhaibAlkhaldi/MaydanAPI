@@ -1566,6 +1566,106 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Maydan.Domain.Entities.ProjectAssociation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AssociationId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ProjectId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssociationId");
+
+                    b.HasIndex("ProjectId", "AssociationId")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("ProjectAssociations", (string)null);
+                });
+
+            modelBuilder.Entity("Maydan.Domain.Entities.ProjectAssociationLocation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Latitude")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("LocationOnGoogleMaps")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Longitude")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("ProjectAssociationId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectAssociationId");
+
+                    b.ToTable("ProjectAssociationLocations", (string)null);
+                });
+
             modelBuilder.Entity("Maydan.Domain.Entities.ProjectType", b =>
                 {
                     b.Property<int>("Id")
@@ -1733,6 +1833,60 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                             NameAr = "إنتاج طلابي",
                             NameEn = "Student Film"
                         });
+                });
+
+            modelBuilder.Entity("Maydan.Domain.Entities.ProjectWorker", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("DailyWageAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsWorkerActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<int>("ProjectId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("WorkerId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkerId");
+
+                    b.HasIndex("ProjectId", "IsWorkerActive");
+
+                    b.HasIndex("ProjectId", "WorkerId")
+                        .IsUnique()
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("ProjectWorkers", (string)null);
                 });
 
             modelBuilder.Entity("Maydan.Domain.Entities.RefreshToken", b =>
@@ -3764,6 +3918,55 @@ namespace Maydan.Infrastructure.Persistence.Migrations
                     b.Navigation("ProjectType");
                 });
 
+            modelBuilder.Entity("Maydan.Domain.Entities.ProjectAssociation", b =>
+                {
+                    b.HasOne("Maydan.Domain.Entities.Association", "Association")
+                        .WithMany()
+                        .HasForeignKey("AssociationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Maydan.Domain.Entities.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Association");
+
+                    b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("Maydan.Domain.Entities.ProjectAssociationLocation", b =>
+                {
+                    b.HasOne("Maydan.Domain.Entities.ProjectAssociation", "ProjectAssociation")
+                        .WithMany("Locations")
+                        .HasForeignKey("ProjectAssociationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ProjectAssociation");
+                });
+
+            modelBuilder.Entity("Maydan.Domain.Entities.ProjectWorker", b =>
+                {
+                    b.HasOne("Maydan.Domain.Entities.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Maydan.Domain.Entities.Worker", "Worker")
+                        .WithMany()
+                        .HasForeignKey("WorkerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+
+                    b.Navigation("Worker");
+                });
+
             modelBuilder.Entity("Maydan.Domain.Entities.RefreshToken", b =>
                 {
                     b.HasOne("Maydan.Domain.Entities.User", "User")
@@ -4122,6 +4325,11 @@ namespace Maydan.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Maydan.Domain.Entities.Project", b =>
                 {
                     b.Navigation("WorkerProjectLinks");
+                });
+
+            modelBuilder.Entity("Maydan.Domain.Entities.ProjectAssociation", b =>
+                {
+                    b.Navigation("Locations");
                 });
 
             modelBuilder.Entity("Maydan.Domain.Entities.ProjectType", b =>

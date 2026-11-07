@@ -29,6 +29,10 @@ public class UnitOfWork : IUnitOfWork
     private IWorkerProjectLinkRepository? _workerProjectLinks;
     private IWorkerSuggestionRuleRepository? _workerSuggestionRules;
 
+    // ?? NEW: Private backing fields ??
+    private IProjectAssociationRepository? _projectAssociations;
+    private IProjectWorkerRepository? _projectWorkers;
+
     public UnitOfWork(MaydanDbContext context)
     {
         _context = context;
@@ -51,10 +55,15 @@ public class UnitOfWork : IUnitOfWork
     public IServiceRepository Services => _services ??= new ServiceRepository(_context);
     public ILookupRepository Lookups => _lookups ??= new LookupRepository(_context);
     public IServiceRequestRepository ServiceRequests => _serviceRequests ??= new ServiceRequestRepository(_context);
-    public IWorkerProjectLinkRepository WorkerProjectLinks => _workerProjectLinks ??= new WorkerProjectLinkRepository(_context);
-    public IWorkerSuggestionRuleRepository WorkerSuggestionRules => _workerSuggestionRules ??= new WorkerSuggestionRuleRepository(_context);
-    public IProjectTypeRepository ProjectTypes =>
-    _projectTypes ??= new ProjectTypeRepository(_context);
+    public IProjectTypeRepository ProjectTypes => _projectTypes ??= new ProjectTypeRepository(_context);
+
+    // ?? NEW: Public Repository Properties (??? ?????? ??????) ??
+    public IProjectAssociationRepository ProjectAssociations =>
+        _projectAssociations ??= new ProjectAssociationRepository(_context);
+
+    public IProjectWorkerRepository ProjectWorkers =>
+        _projectWorkers ??= new ProjectWorkerRepository(_context);
+
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
         _context.SaveChangesAsync(cancellationToken);
 

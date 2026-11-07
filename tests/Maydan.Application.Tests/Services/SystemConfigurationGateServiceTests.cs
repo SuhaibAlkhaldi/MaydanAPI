@@ -139,5 +139,9 @@ public class SystemConfigurationGateServiceTests
 
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Task.FromResult(1);
         public Task ExecuteInTransactionAsync(Func<Task> operation, CancellationToken cancellationToken = default) => operation();
+        // EN: Mock/Fake repository properties for ProjectAssociations and ProjectWorkers to satisfy IUnitOfWork contract in unit tests.
+        // AR: خصائص مستودعات وهمية لجمعيات المشروع وعمال المشروع لتلبية عقد واجهة IUnitOfWork في اختبارات الوحدة.
+        public IProjectAssociationRepository ProjectAssociations => throw new NotImplementedException();
+        public IProjectWorkerRepository ProjectWorkers => throw new NotImplementedException();
     }
 }
